@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/tracking/worker",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }

@@ -24,13 +24,27 @@ model Client {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  settings       ClientSettings?
-  user           User?
-  customers      Customer[]
-  leads          Lead[]
-  sales          Sale[]
-  trackingEvents TrackingEvent[]
-  notifications  Notification[]
+  settings          ClientSettings?
+  user              User?
+  customers         Customer[]
+  leads             Lead[]
+  sales             Sale[]
+  trackingEvents    TrackingEvent[]
+  notifications     Notification[]
+  authorizedDomains AuthorizedDomain[]
+}
+
+model AuthorizedDomain {
+  id        String   @id @default(cuid())
+  clientId  String
+  url       String
+  label     String?
+  createdAt DateTime @default(now())
+
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, url])
+  @@index([clientId])
 }
 
 model ClientSettings {

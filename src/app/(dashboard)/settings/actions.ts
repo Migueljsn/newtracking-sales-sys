@@ -34,3 +34,41 @@ export async function rotateLeadCaptureKeyAction() {
 
   revalidatePath("/settings");
 }
+
+export async function addAuthorizedDomainAction(formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const raw   = (formData.get("url") as string)?.trim();
+  const label = (formData.get("label") as string)?.trim() || null;
+
+  if (!raw) throw new Error("URL obrigatória");
+
+  let url: string;
+  try {
+    const parsed = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+    url = parsed.origin; // normaliza para protocolo+host sem barra final
+  } catch {
+    throw new Error("URL inválida");
+  }
+
+  try {
+    await prisma.authorizedDomain.create({ data: { clientId, url, label } });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === "P2002") {
+      throw new Error("Este domínio já está na lista.");
+    }
+    throw err;
+  }
+
+  revalidatePath("/settings");
+}
+
+export async function deleteAuthorizedDomainAction(id: string) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.authorizedDomain.deleteMany({ where: { id, clientId } });
+
+  revalidatePath("/settings");
+}

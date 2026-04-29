@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { createLead } from "@/lib/domain/lead/create";
+import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,14 +11,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing lead capture key" }, { status: 401 });
     }
 
-    const clientSettings = await prisma.clientSettings.findFirst({
-      where: { client: { leadCaptureKey } },
-      include: { client: true },
+    const client = await prisma.client.findUnique({
+      where: { leadCaptureKey },
+      include: { authorizedDomains: true },
     });
 
-    if (!clientSettings) {
+    if (!client) {
       return NextResponse.json({ error: "Invalid lead capture key" }, { status: 401 });
     }
+
+    // Valida origem se houver domínios configurados
+    if (client.authorizedDomains.length > 0) {
+      const origin = req.headers.get("origin") ?? "";
+      const allowed = client.authorizedDomains.some((d) => {
+        try { return new URL(d.url).origin === new URL(origin).origin; } catch { return false; }
+      });
+      if (!allowed) {
+        return NextResponse.json({ error: "Origin not authorized" }, { status: 403 });
+      }
+    }
+
+    const clientId = client.id;
 
     const body = await req.json();
     const { name, phone } = body;
@@ -26,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await createLead({
-      clientId: clientSettings.clientId,
+      clientId,
       name,
       phone,
       email:          body.email,
@@ -45,6 +60,8 @@ export async function POST(req: NextRequest) {
       eventId:        body.event_id,
       eventSourceUrl: body.event_source_url,
     });
+
+    after(() => processPendingEvents());
 
     return NextResponse.json({ ok: true, duplicate: result.duplicate });
   } catch (err) {

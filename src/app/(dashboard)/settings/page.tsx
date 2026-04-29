@@ -3,15 +3,17 @@ export const dynamic = "force-dynamic";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { AuthorizedDomains } from "@/components/settings/authorized-domains";
 import { GuideCard } from "@/components/ui/guide-card";
 
 export default async function SettingsPage() {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const [client, settings] = await Promise.all([
+  const [client, settings, authorizedDomains] = await Promise.all([
     prisma.client.findUniqueOrThrow({ where: { id: clientId } }),
     prisma.clientSettings.findUnique({ where: { clientId } }),
+    prisma.authorizedDomain.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
   ]);
 
   return (
@@ -41,6 +43,8 @@ export default async function SettingsPage() {
         }}
         leadCaptureKey={client.leadCaptureKey}
       />
+
+      <AuthorizedDomains domains={authorizedDomains} />
     </div>
   );
 }

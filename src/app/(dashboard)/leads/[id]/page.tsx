@@ -55,7 +55,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   if (!lead) notFound();
 
   const { customer } = lead;
-  const hasUtms        = lead.utmSource || lead.utmMedium || lead.utmCampaign;
+  const hasUtms        = lead.utmSource || lead.utmMedium || lead.utmCampaign || lead.fbc || lead.fbp;
+  const fbclid         = lead.fbc ? lead.fbc.split(".").slice(3).join(".") : null;
   const otherLeads     = customer.leads.filter((l) => l.id !== lead.id);
   const hasSuccessEvent = lead.trackingEvents.some((e) => e.status === "SUCCESS");
 
@@ -238,6 +239,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   { label: "UTM Campaign", value: lead.utmCampaign },
                   { label: "UTM Content",  value: lead.utmContent },
                   { label: "UTM Term",     value: lead.utmTerm },
+                  { label: "fbclid",       value: fbclid },
+                  { label: "fbp",          value: lead.fbp },
                 ].map(({ label, value }) => value ? (
                   <div key={label} className="flex justify-between text-sm">
                     <dt className="text-[var(--text-muted)]">{label}</dt>

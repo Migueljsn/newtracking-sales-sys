@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search, Users } from "lucide-react";
 import { LeadStatusBadge } from "./lead-status-badge";
@@ -35,9 +36,15 @@ const statusTabs: { value: LeadStatus | "ALL"; label: string }[] = [
 ];
 
 export function LeadsTable({ leads }: { leads: Lead[] }) {
+  const router = useRouter();
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "ALL">("ALL");
   const [page, setPage]               = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 30_000);
+    return () => clearInterval(id);
+  }, [router]);
 
   // Reset page when filters change
   useEffect(() => { setPage(0); }, [search, statusFilter]);

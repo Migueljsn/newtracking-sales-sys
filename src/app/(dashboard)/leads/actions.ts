@@ -1,9 +1,11 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { createLead } from "@/lib/domain/lead/create";
 import { createSale } from "@/lib/domain/sale/create";
+import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 
 function normalizeDigits(value: string | null) {
   return value?.replace(/\D/g, "") || "";
@@ -77,6 +79,8 @@ export async function createLeadAction(
       revalidatePath("/");
     }
   }
+
+  if (!duplicate) after(() => processPendingEvents());
 
   revalidatePath("/leads");
   return { duplicate, saleCreated };

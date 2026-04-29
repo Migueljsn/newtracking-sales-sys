@@ -1,11 +1,13 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { createSale } from "@/lib/domain/sale/create";
 import { createLead } from "@/lib/domain/lead/create";
 import { buildPurchasePayload } from "@/lib/domain/tracking/build-payload";
 import { updateCustomerLifecycle } from "@/lib/domain/customer/update-lifecycle";
+import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 import { prisma } from "@/lib/db/prisma";
 
 function parseItems(formData: FormData) {
@@ -41,6 +43,8 @@ export async function registerSaleAction(formData: FormData) {
     notes,
     items: items.length > 0 ? items : undefined,
   });
+
+  after(() => processPendingEvents());
 
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
@@ -121,6 +125,8 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
     notes,
     items: items.length > 0 ? items : undefined,
   });
+
+  after(() => processPendingEvents());
 
   revalidatePath("/leads");
   revalidatePath("/sales");
@@ -267,6 +273,8 @@ export async function updateSaleAction(formData: FormData) {
       data:  { eventId: newEventId, status: "PENDING", payload, attempts: 0, errorMessage: null, lastAttemptAt: null },
     });
   }
+
+  after(() => processPendingEvents());
 
   revalidatePath(`/leads/${sale.leadId}`);
   revalidatePath("/sales");

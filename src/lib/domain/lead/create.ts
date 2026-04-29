@@ -1,0 +1,105 @@
+import { prisma } from "@/lib/db/prisma";
+import { LeadSource, TrackingEventStatus } from "@prisma/client";
+import { createId } from "@paralleldrive/cuid2";
+import { findOrCreateCustomer } from "@/lib/domain/customer/find-or-create";
+import { buildLeadPayload } from "@/lib/domain/tracking/build-payload";
+
+interface CreateLeadInput {
+  clientId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  document?: string;
+  zipCode?: string;
+  city?: string;
+  state?: string;
+  birthDate?: Date;
+  source?: LeadSource;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  fbc?: string;
+  fbp?: string;
+  eventSourceUrl?: string;
+  eventId?: string;
+  capturedAt?: Date;
+}
+
+export async function createLead(input: CreateLeadInput) {
+  const customer = await findOrCreateCustomer({
+    clientId: input.clientId,
+    name: input.name,
+    phone: input.phone,
+    email: input.email,
+    document: input.document,
+    zipCode: input.zipCode,
+    city: input.city,
+    state: input.state,
+    birthDate: input.birthDate,
+  });
+
+  // Verifica duplicata ativa
+  const duplicate = await prisma.lead.findFirst({
+    where: {
+      clientId: input.clientId,
+      customerId: customer.id,
+      status: "NEW",
+    },
+  });
+
+  if (duplicate) {
+    // Cria evento SKIPPED para manter rastreabilidade
+    await prisma.trackingEvent.create({
+      data: {
+        clientId: input.clientId,
+        eventName: "Lead",
+        eventId: input.eventId ?? createId(),
+        status: TrackingEventStatus.SKIPPED,
+        payload: {},
+        leadId: duplicate.id,
+      },
+    });
+
+    return { lead: duplicate, duplicate: true };
+  }
+
+  const capturedAt = input.capturedAt ?? new Date();
+  const eventId = input.eventId ?? createId();
+
+  const lead = await prisma.lead.create({
+    data: {
+      clientId: input.clientId,
+      customerId: customer.id,
+      source: input.source ?? LeadSource.FORM,
+      utmSource: input.utmSource,
+      utmMedium: input.utmMedium,
+      utmCampaign: input.utmCampaign,
+      utmContent: input.utmContent,
+      utmTerm: input.utmTerm,
+      fbc: input.fbc,
+      fbp: input.fbp,
+      eventSourceUrl: input.eventSourceUrl,
+      capturedAt,
+      statusHistory: {
+        create: { to: "NEW" },
+      },
+    },
+  });
+
+  const payload = buildLeadPayload(customer, lead, eventId);
+
+  await prisma.trackingEvent.create({
+    data: {
+      clientId: input.clientId,
+      eventName: "Lead",
+      eventId,
+      status: TrackingEventStatus.PENDING,
+      payload,
+      leadId: lead.id,
+    },
+  });
+
+  return { lead, duplicate: false };
+}

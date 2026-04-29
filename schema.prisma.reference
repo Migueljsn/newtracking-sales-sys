@@ -1,0 +1,267 @@
+// Fonil Sales System — Schema Prisma
+// Gerado com base nas decisões de arquitetura documentadas em memoria.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TENANT
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Client {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  leadCaptureKey String   @unique @default(cuid())
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  settings       ClientSettings?
+  user           User?
+  customers      Customer[]
+  leads          Lead[]
+  sales          Sale[]
+  trackingEvents TrackingEvent[]
+  notifications  Notification[]
+}
+
+model ClientSettings {
+  id                String   @id @default(cuid())
+  clientId          String   @unique
+  metaPixelId       String?
+  metaAccessToken   String?
+  metaTestEventCode String?  // usado apenas em ambiente de testes
+  trackingEnabled   Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USUÁRIO — um único por client
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(cuid())
+  clientId   String   @unique
+  authUserId String   @unique // ID do Supabase Auth
+  email      String   @unique
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER — o comprador real (entidade central)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id        String            @id @default(cuid())
+  clientId  String
+  name      String
+  phone     String
+  email     String?
+  document  String?           // CPF ou CNPJ
+  zipCode   String?
+  city      String?
+  state     String?           // sigla: SP, RJ...
+  birthDate DateTime?
+  lifecycle CustomerLifecycle @default(NEW_BUYER)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  leads     Lead[]
+  sales     Sale[]
+
+  // mesma pessoa não pode aparecer duas vezes no mesmo cliente
+  @@unique([clientId, phone])
+  @@unique([clientId, document])
+  @@index([clientId])
+}
+
+enum CustomerLifecycle {
+  NEW_BUYER  // primeiro compra
+  LOYAL      // comprou mais de uma vez
+  CHAMPION   // alto volume ou frequência
+  AT_RISK    // sem compra há muito tempo
+  INACTIVE   // sem compra há muito mais tempo
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEAD — a oportunidade comercial
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Lead {
+  id             String      @id @default(cuid())
+  clientId       String
+  customerId     String
+  status         LeadStatus  @default(NEW)
+  source         LeadSource  @default(FORM)
+
+  // UTMs — imutáveis após captura
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  utmContent     String?
+  utmTerm        String?
+
+  // Parâmetros Meta — capturados no frontend
+  fbc            String?     // Facebook Click ID (não hashear)
+  fbp            String?     // Facebook Browser ID (não hashear)
+  eventSourceUrl String?     // URL da landing page no momento da captura
+
+  notes          String?
+  capturedAt     DateTime    @default(now()) // pode ser sobrescrito em importações
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  client         Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  customer       Customer    @relation(fields: [customerId], references: [id])
+  sale           Sale?
+  statusHistory  LeadStatusHistory[]
+  trackingEvents TrackingEvent[]
+
+  @@index([clientId])
+  @@index([customerId])
+  @@index([status])
+}
+
+enum LeadStatus {
+  NEW    // recém capturada
+  SOLD   // venda registrada
+  LOST   // descartada
+}
+
+enum LeadSource {
+  FORM    // formulário público de captura
+  MANUAL  // criada manualmente no CRM
+  IMPORT  // importada via XLSX
+}
+
+model LeadStatusHistory {
+  id        String     @id @default(cuid())
+  leadId    String
+  from      LeadStatus?
+  to        LeadStatus
+  createdAt DateTime   @default(now())
+
+  lead      Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SALE — venda confirmada
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Sale {
+  id               String   @id @default(cuid())
+  clientId         String
+  customerId       String
+  leadId           String   @unique  // uma lead gera no máximo uma venda
+  value            Decimal  @db.Decimal(10, 2)
+  isRepeatPurchase Boolean  @default(false)
+  notes            String?
+  soldAt           DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  customer         Customer @relation(fields: [customerId], references: [id])
+  lead             Lead     @relation(fields: [leadId], references: [id])
+  items            SaleItem[]
+  trackingEvents   TrackingEvent[]
+
+  @@index([clientId])
+  @@index([customerId])
+}
+
+model SaleItem {
+  id       String  @id @default(cuid())
+  saleId   String
+  name     String
+  quantity Int     @default(1)
+  price    Decimal @db.Decimal(10, 2)
+
+  sale     Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRACKING — eventos para Meta Conversions API
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TrackingEvent {
+  id            String              @id @default(cuid())
+  clientId      String
+  eventName     TrackingEventName
+  eventId       String              @unique  // usado para deduplicação no Meta
+  status        TrackingEventStatus @default(PENDING)
+  payload       Json                // payload completo que será enviado
+  response      Json?               // resposta da API do Meta
+  errorMessage  String?
+  attempts      Int                 @default(0)
+  lastAttemptAt DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  leadId        String?
+  saleId        String?
+
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  lead          Lead?               @relation(fields: [leadId], references: [id])
+  sale          Sale?               @relation(fields: [saleId], references: [id])
+
+  @@index([clientId, status])
+  @@index([eventName, status])
+}
+
+enum TrackingEventName {
+  Lead
+  Purchase
+}
+
+enum TrackingEventStatus {
+  PENDING   // aguardando envio
+  SUCCESS   // enviado com sucesso
+  FAILED    // falhou após todas as tentativas
+  SKIPPED   // não enviado intencionalmente (ex: lead duplicada)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATION — alertas operacionais para o cliente
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id         String               @id @default(cuid())
+  clientId   String
+  type       NotificationType
+  title      String
+  body       String?
+  isRead     Boolean              @default(false)
+  metadata   Json?                // dados extras (ex: leadId, eventId, erro)
+  createdAt  DateTime             @default(now())
+
+  client     Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, isRead])
+}
+
+enum NotificationType {
+  TRACKING_ERROR        // falha no envio para o Meta
+  TRACKING_TOKEN_INVALID // token do Meta expirado ou inválido
+  IMPORT_COMPLETE       // importação XLSX concluída
+  IMPORT_ERROR          // erro em linha(s) da importação
+  LOW_EMAIL_COVERAGE    // muitas leads sem email (match rate em risco)
+}

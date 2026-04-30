@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       utmTerm:        body.utm_term,
       fbc:            body.fbc,
       fbp:            body.fbp,
+      gclid:          body.gclid,
       eventId:        body.event_id,
       eventSourceUrl: body.event_source_url,
     });

@@ -1,12 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
 import { TrackingEventStatus } from "@prisma/client";
+import { processGooglePendingEvents } from "./google-ads";
 
 const MAX_ATTEMPTS = 3;
 const META_API_VERSION = "v19.0";
 
 export async function processPendingEvents() {
+  await Promise.all([processMetaPendingEvents(), processGooglePendingEvents()]);
+}
+
+async function processMetaPendingEvents() {
   const events = await prisma.trackingEvent.findMany({
-    where: { status: "PENDING" },
+    where: { status: "PENDING", eventName: { in: ["Lead", "Purchase"] } },
     include: { client: { include: { settings: true } } },
     orderBy: { createdAt: "asc" },
     take: 50,

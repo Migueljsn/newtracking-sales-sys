@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { TrackingEventStatus } from "@prisma/client";
 import { createId } from "@paralleldrive/cuid2";
 import { buildPurchasePayload } from "@/lib/domain/tracking/build-payload";
+import { toGoogleAdsDateTime } from "@/lib/domain/tracking/google-ads";
 import { updateCustomerLifecycle } from "@/lib/domain/customer/update-lifecycle";
 
 interface SaleItem {
@@ -80,6 +81,25 @@ export async function createSale(input: CreateSaleInput) {
       saleId: sale.id,
     },
   });
+
+  if (lead.gclid) {
+    await prisma.trackingEvent.create({
+      data: {
+        clientId:  input.clientId,
+        eventName: "GooglePurchase",
+        eventId:   createId(),
+        status:    TrackingEventStatus.PENDING,
+        payload: {
+          gclid:              lead.gclid,
+          conversionDateTime: toGoogleAdsDateTime(soldAt),
+          value:              input.value,
+          currencyCode:       "BRL",
+        },
+        leadId: input.leadId,
+        saleId: sale.id,
+      },
+    });
+  }
 
   // Atualiza lifecycle do customer
   await updateCustomerLifecycle(lead.customerId);

@@ -3,6 +3,7 @@ import { LeadSource, TrackingEventStatus } from "@prisma/client";
 import { createId } from "@paralleldrive/cuid2";
 import { findOrCreateCustomer } from "@/lib/domain/customer/find-or-create";
 import { buildLeadPayload } from "@/lib/domain/tracking/build-payload";
+import { toGoogleAdsDateTime } from "@/lib/domain/tracking/google-ads";
 
 interface CreateLeadInput {
   clientId: string;
@@ -22,6 +23,7 @@ interface CreateLeadInput {
   utmTerm?: string;
   fbc?: string;
   fbp?: string;
+  gclid?: string;
   eventSourceUrl?: string;
   eventId?: string;
   capturedAt?: Date;
@@ -80,6 +82,7 @@ export async function createLead(input: CreateLeadInput) {
       utmTerm: input.utmTerm,
       fbc: input.fbc,
       fbp: input.fbp,
+      gclid: input.gclid,
       eventSourceUrl: input.eventSourceUrl,
       capturedAt,
       statusHistory: {
@@ -100,6 +103,19 @@ export async function createLead(input: CreateLeadInput) {
       leadId: lead.id,
     },
   });
+
+  if (input.gclid) {
+    await prisma.trackingEvent.create({
+      data: {
+        clientId:  input.clientId,
+        eventName: "GoogleLead",
+        eventId:   createId(),
+        status:    TrackingEventStatus.PENDING,
+        payload:   { gclid: input.gclid, conversionDateTime: toGoogleAdsDateTime(capturedAt) },
+        leadId:    lead.id,
+      },
+    });
+  }
 
   return { lead, duplicate: false };
 }

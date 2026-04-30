@@ -49,10 +49,20 @@ model AuthorizedDomain {
 model ClientSettings {
   id                String   @id @default(cuid())
   clientId          String   @unique
-  metaPixelId       String?
-  metaAccessToken   String?
-  metaTestEventCode String?  // usado apenas em ambiente de testes
-  trackingEnabled   Boolean  @default(true)
+
+  // Meta Conversions API
+  metaPixelId                       String?
+  metaAccessToken                   String?
+  metaTestEventCode                 String?
+  trackingEnabled                   Boolean  @default(true)
+
+  // Google Ads Conversions API
+  googleAdsEnabled                  Boolean  @default(false)
+  googleAdsCustomerId               String?  // ex: 123-456-7890
+  googleAdsConversionActionLead     String?  // ID numérico da ação de conversão Lead
+  googleAdsConversionActionPurchase String?  // ID numérico da ação de conversão Purchase
+  googleRefreshToken                String?  // OAuth2 refresh token
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -140,6 +150,7 @@ model Lead {
   // Parâmetros Meta — capturados no frontend
   fbc            String?     // Facebook Click ID (não hashear)
   fbp            String?     // Facebook Browser ID (não hashear)
+  gclid          String?     // Google Click ID (não hashear)
   eventSourceUrl String?     // URL da landing page no momento da captura
 
   notes          String?
@@ -250,6 +261,8 @@ model TrackingEvent {
 enum TrackingEventName {
   Lead
   Purchase
+  GoogleLead
+  GooglePurchase
 }
 
 enum TrackingEventStatus {

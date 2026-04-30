@@ -40,6 +40,11 @@ export default async function SettingsPage() {
           metaAccessToken:   settings?.metaAccessToken   ?? null,
           metaTestEventCode: settings?.metaTestEventCode ?? null,
           trackingEnabled:   settings?.trackingEnabled   ?? false,
+          googleAdsEnabled:                  settings?.googleAdsEnabled                  ?? false,
+          googleAdsCustomerId:               settings?.googleAdsCustomerId               ?? null,
+          googleAdsConversionActionLead:     settings?.googleAdsConversionActionLead     ?? null,
+          googleAdsConversionActionPurchase: settings?.googleAdsConversionActionPurchase ?? null,
+          googleRefreshToken:                settings?.googleRefreshToken                ?? null,
         }}
         leadCaptureKey={client.leadCaptureKey}
       />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { updateClientAction } from "@/app/admin/actions";
@@ -41,7 +42,7 @@ export function EditClientModal({ client }: Props) {
         <Pencil size={13} />
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"
@@ -97,7 +98,8 @@ export function EditClientModal({ client }: Props) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

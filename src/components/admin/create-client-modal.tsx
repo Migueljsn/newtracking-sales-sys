@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClientAction } from "@/app/admin/actions";
@@ -32,7 +33,7 @@ export function CreateClientModal() {
         Novo cliente
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"
@@ -92,7 +93,8 @@ export function CreateClientModal() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

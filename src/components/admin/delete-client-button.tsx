@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { deleteClientAction } from "@/app/admin/actions";
@@ -35,7 +36,7 @@ export function DeleteClientButton({ client }: Props) {
         <Trash2 size={13} />
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"
@@ -75,7 +76,8 @@ export function DeleteClientButton({ client }: Props) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

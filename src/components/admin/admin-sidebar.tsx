@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart2, Menu, Shield, Users, X } from "lucide-react";
+import { BarChart2, LogOut, Menu, Shield, Users, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { signOutAction } from "@/lib/auth/actions";
 
 const nav = [
   { href: "/admin",           label: "Clientes",  icon: Users     },
@@ -108,8 +109,19 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">{renderLinks()}</div>
-          <div className="mt-5 border-t border-[var(--border)] pt-4">
+          <div className="mt-5 space-y-2 border-t border-[var(--border)] pt-4">
             <ThemeToggle />
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-muted)]">
+                  <LogOut size={15} />
+                </span>
+                Sair
+              </button>
+            </form>
           </div>
         </aside>
       </div>
@@ -129,8 +141,19 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto py-4">{renderLinks()}</div>
-          <div className="border-t border-[var(--border)] pt-4">
+          <div className="space-y-2 border-t border-[var(--border)] pt-4">
             <ThemeToggle />
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-muted)]">
+                  <LogOut size={15} />
+                </span>
+                Sair
+              </button>
+            </form>
           </div>
         </div>
       </aside>

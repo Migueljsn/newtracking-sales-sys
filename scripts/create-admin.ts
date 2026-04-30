@@ -25,7 +25,7 @@ function prompt(rl: readline.Interface, question: string): Promise<string> {
 async function main() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  console.log("\n🛡️  Fonil Sales System — Criação de Admin\n");
+  console.log("\n🛡️  Portal CRM — Criação de Admin\n");
 
   const email    = await prompt(rl, "Email do admin: ");
   const password = await prompt(rl, "Senha: ");

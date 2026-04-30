@@ -34,7 +34,7 @@ function slugify(text: string): string {
 async function main() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  console.log("\n🚀 Fonil Sales System — Criação de Cliente\n");
+  console.log("\n🚀 Portal CRM — Criação de Cliente\n");
 
   const companyName = await prompt(rl, "Nome da empresa: ");
   const email       = await prompt(rl, "Email do usuário: ");

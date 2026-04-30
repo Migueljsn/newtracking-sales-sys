@@ -79,7 +79,7 @@ export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
               <span className="text-xs font-black text-white">F</span>
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Fonil Sales</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Portal CRM</p>
               <p className="truncate text-sm font-semibold text-[var(--text)] leading-tight">{clientName}</p>
             </div>
           </div>
@@ -133,7 +133,7 @@ export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
                 <span className="text-sm font-black text-white">F</span>
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Fonil Sales</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Portal CRM</p>
                 <p className="truncate text-sm font-semibold text-[var(--text)]">{clientName}</p>
               </div>
             </div>
@@ -176,7 +176,7 @@ export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
                 <span className="text-sm font-black text-white">F</span>
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)]">Fonil Sales</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)]">Portal CRM</p>
                 <p className="truncate text-sm font-semibold text-[var(--text)] leading-tight mt-0.5">{clientName}</p>
               </div>
             </div>

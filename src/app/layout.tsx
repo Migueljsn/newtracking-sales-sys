@@ -7,8 +7,8 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Fonil Sales System",
-  description: "CRM com tracking limpo para Meta Conversions API",
+  title: "Portal CRM",
+  description: "CRM operacional com tracking para Meta Conversions API",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

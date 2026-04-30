@@ -1,4 +1,4 @@
-// Fonil Sales System — Schema Prisma
+// Portal CRM — Schema Prisma
 // Gerado com base nas decisões de arquitetura documentadas em memoria.md
 
 generator client {

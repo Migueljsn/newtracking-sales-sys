@@ -60,20 +60,26 @@ model ClientSettings {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// USUÁRIO — um único por client
+// USUÁRIO — um por client (CLIENT) ou sem client (ADMIN)
 // ─────────────────────────────────────────────────────────────────────────────
 
-model User {
-  id         String   @id @default(cuid())
-  clientId   String   @unique
-  authUserId String   @unique // ID do Supabase Auth
-  email      String   @unique
-  name       String
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+enum UserRole {
+  ADMIN
+  CLIENT
+}
 
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+model User {
+  id         String    @id @default(cuid())
+  clientId   String?   @unique  // null para ADMIN
+  authUserId String    @unique  // ID do Supabase Auth
+  email      String    @unique
+  name       String
+  role       UserRole  @default(CLIENT)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  client     Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

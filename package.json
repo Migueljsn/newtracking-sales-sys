@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "create-client": "tsx scripts/create-client.ts",
+    "create-admin": "tsx scripts/create-admin.ts",
     "test-tracking": "tsx scripts/test-tracking.ts"
   },
   "dependencies": {

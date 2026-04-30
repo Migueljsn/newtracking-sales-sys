@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { impersonateClientAction } from "@/app/admin/actions";
 import { EditClientModal } from "./edit-client-modal";
 import { DeleteClientButton } from "./delete-client-button";
@@ -27,7 +28,8 @@ function EnterButton({ clientId }: { clientId: string }) {
         startTransition(async () => {
           try {
             await impersonateClientAction(clientId);
-          } catch {
+          } catch (err) {
+            if (isRedirectError(err)) throw err;
             toast.error("Erro ao entrar como cliente.");
           }
         })

@@ -12,11 +12,12 @@ export async function saveSettingsAction(formData: FormData) {
   const metaAccessToken   = (formData.get("metaAccessToken")   as string).trim() || null;
   const metaTestEventCode = (formData.get("metaTestEventCode") as string).trim() || null;
   const trackingEnabled   = formData.get("trackingEnabled") === "on";
+  const trackLeadEvents   = formData.get("trackLeadEvents") === "on";
 
   await prisma.clientSettings.upsert({
     where:  { clientId },
-    create: { clientId, metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled },
-    update: { metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled },
+    create: { clientId, metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled, trackLeadEvents },
+    update: { metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled, trackLeadEvents },
   });
 
   revalidatePath("/settings");

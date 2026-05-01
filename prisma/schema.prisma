@@ -58,6 +58,7 @@ model ClientSettings {
   metaAccessToken                   String?
   metaTestEventCode                 String?
   trackingEnabled                   Boolean  @default(true)
+  trackLeadEvents                   Boolean  @default(true)
 
   // Google Ads Conversions API
   googleAdsEnabled                  Boolean  @default(false)

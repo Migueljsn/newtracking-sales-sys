@@ -91,27 +91,43 @@ export async function createLead(input: CreateLeadInput) {
     },
   });
 
-  const payload = buildLeadPayload(customer, lead, eventId);
+  const settings = await prisma.clientSettings.findUnique({ where: { clientId: input.clientId } });
+  const trackLeadEvents = settings?.trackLeadEvents ?? true;
 
-  await prisma.trackingEvent.create({
-    data: {
-      clientId: input.clientId,
-      eventName: "Lead",
-      eventId,
-      status: TrackingEventStatus.PENDING,
-      payload,
-      leadId: lead.id,
-    },
-  });
+  if (trackLeadEvents) {
+    const payload = buildLeadPayload(customer, lead, eventId);
 
-  if (input.gclid) {
     await prisma.trackingEvent.create({
       data: {
         clientId:  input.clientId,
-        eventName: "GoogleLead",
-        eventId:   createId(),
+        eventName: "Lead",
+        eventId,
         status:    TrackingEventStatus.PENDING,
-        payload:   { gclid: input.gclid, conversionDateTime: toGoogleAdsDateTime(capturedAt) },
+        payload,
+        leadId:    lead.id,
+      },
+    });
+
+    if (input.gclid) {
+      await prisma.trackingEvent.create({
+        data: {
+          clientId:  input.clientId,
+          eventName: "GoogleLead",
+          eventId:   createId(),
+          status:    TrackingEventStatus.PENDING,
+          payload:   { gclid: input.gclid, conversionDateTime: toGoogleAdsDateTime(capturedAt) },
+          leadId:    lead.id,
+        },
+      });
+    }
+  } else {
+    await prisma.trackingEvent.create({
+      data: {
+        clientId:  input.clientId,
+        eventName: "Lead",
+        eventId,
+        status:    TrackingEventStatus.SKIPPED,
+        payload:   {},
         leadId:    lead.id,
       },
     });

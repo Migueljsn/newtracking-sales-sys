@@ -4,6 +4,8 @@ import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { AuthorizedDomains } from "@/components/settings/authorized-domains";
+import { LtvEmailConfig } from "@/components/settings/ltv-email-config";
+import { EmailTemplates } from "@/components/settings/email-templates";
 import { GuideCard } from "@/components/ui/guide-card";
 
 export default async function SettingsPage({
@@ -21,10 +23,15 @@ export default async function SettingsPage({
     ? "error"
     : null;
 
-  const [client, settings, authorizedDomains] = await Promise.all([
+  const [client, settings, authorizedDomains, ltvEmailConfig, emailTemplates] = await Promise.all([
     prisma.client.findUniqueOrThrow({ where: { id: clientId } }),
     prisma.clientSettings.findUnique({ where: { clientId } }),
     prisma.authorizedDomain.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
+    prisma.ltvEmailConfig.findUnique({ where: { clientId } }),
+    prisma.emailTemplate.findMany({
+      where:   { OR: [{ clientId }, { clientId: null, isDefault: true }] },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   return (
@@ -62,6 +69,17 @@ export default async function SettingsPage({
       />
 
       <AuthorizedDomains domains={authorizedDomains} />
+
+      <LtvEmailConfig
+        config={ltvEmailConfig ? {
+          enabled:    ltvEmailConfig.enabled,
+          teamEmails: ltvEmailConfig.teamEmails,
+          thresholds: ltvEmailConfig.thresholds as { days: number; templateId: string | null; enabled: boolean }[],
+        } : null}
+        templates={emailTemplates.map(t => ({ id: t.id, name: t.name }))}
+      />
+
+      <EmailTemplates templates={emailTemplates} />
     </div>
   );
 }

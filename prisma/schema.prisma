@@ -31,6 +31,9 @@ model Client {
   trackingEvents    TrackingEvent[]
   notifications     Notification[]
   authorizedDomains AuthorizedDomain[]
+  emailTemplates    EmailTemplate[]
+  ltvEmailConfig    LtvEmailConfig?
+  ltvEmailLogs      LtvEmailLog[]
 }
 
 model AuthorizedDomain {
@@ -114,6 +117,7 @@ model Customer {
   client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   leads     Lead[]
   sales     Sale[]
+  ltvEmailLogs LtvEmailLog[]
 
   // mesma pessoa não pode aparecer duas vezes no mesmo cliente
   @@unique([clientId, phone])
@@ -297,4 +301,68 @@ enum NotificationType {
   IMPORT_COMPLETE       // importação XLSX concluída
   IMPORT_ERROR          // erro em linha(s) da importação
   LOW_EMAIL_COVERAGE    // muitas leads sem email (match rate em risco)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LTV EMAIL — campanhas de reengajamento
+// ─────────────────────────────────────────────────────────────────────────────
+
+model EmailTemplate {
+  id        String            @id @default(cuid())
+  clientId  String?           // null = template padrão do sistema
+  name      String
+  subject   String
+  body      String            @db.Text
+  type      EmailTemplateType @default(CUSTOMER)
+  isDefault Boolean           @default(false)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  client    Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  logs      LtvEmailLog[]
+
+  @@index([clientId])
+}
+
+enum EmailTemplateType {
+  CUSTOMER  // email de reengajamento para o comprador
+  TEAM      // digest diário para a equipe de vendas
+}
+
+model LtvEmailConfig {
+  id          String   @id @default(cuid())
+  clientId    String   @unique
+  enabled     Boolean  @default(false)
+  thresholds  Json     // [{ days: 15, templateId: "...", enabled: true }, ...]
+  teamEmails  String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model LtvEmailLog {
+  id          String       @id @default(cuid())
+  clientId    String
+  customerId  String?      // null para digest da equipe
+  templateId  String?
+  type        EmailLogType
+  threshold   Int?         // threshold que disparou (15, 20 ou 30 dias)
+  messageId   String?      @unique  // ID do Resend para webhook
+  sentAt      DateTime     @default(now())
+  openedAt    DateTime?
+  clickedAt   DateTime?
+  bouncedAt   DateTime?
+
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  template    EmailTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([clientId, customerId, threshold])
+  @@index([messageId])
+}
+
+enum EmailLogType {
+  CUSTOMER  // enviado ao comprador
+  TEAM      // digest enviado à equipe
 }

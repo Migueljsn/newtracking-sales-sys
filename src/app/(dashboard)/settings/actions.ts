@@ -92,6 +92,60 @@ export async function deleteAuthorizedDomainAction(id: string) {
   revalidatePath("/settings");
 }
 
+export async function saveLtvEmailConfigAction(formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const enabled    = formData.get("enabled") === "on";
+  const teamEmails = (formData.get("teamEmails") as string)
+    .split(/[\n,]+/)
+    .map(e => e.trim())
+    .filter(e => e.includes("@"));
+
+  const rawThresholds = formData.get("thresholds") as string;
+  const thresholds = JSON.parse(rawThresholds);
+
+  await prisma.ltvEmailConfig.upsert({
+    where:  { clientId },
+    create: { clientId, enabled, teamEmails, thresholds },
+    update: { enabled, teamEmails, thresholds },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function saveEmailTemplateAction(formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const id      = (formData.get("id") as string) || undefined;
+  const name    = (formData.get("name") as string).trim();
+  const subject = (formData.get("subject") as string).trim();
+  const body    = (formData.get("body") as string).trim();
+
+  if (id) {
+    await prisma.emailTemplate.updateMany({
+      where: { id, clientId },
+      data:  { name, subject, body },
+    });
+  } else {
+    await prisma.emailTemplate.create({
+      data: { clientId, name, subject, body, type: "CUSTOMER" },
+    });
+  }
+
+  revalidatePath("/settings");
+}
+
+export async function deleteEmailTemplateAction(id: string) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.emailTemplate.deleteMany({ where: { id, clientId } });
+
+  revalidatePath("/settings");
+}
+
 export async function disconnectGoogleAdsAction() {
   const session  = await getSession();
   const clientId = session.clientId!;

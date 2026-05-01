@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { cookies } from "next/headers";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getSession();
   const clientId = session.clientId!;
 
@@ -18,7 +18,7 @@ export async function GET() {
     sameSite: "lax",
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  const appUrl = new URL(request.url).origin;
   const params = new URLSearchParams({
     client_id:     process.env.GOOGLE_CLIENT_ID!,
     redirect_uri:  `${appUrl}/api/google/oauth/callback`,

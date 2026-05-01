@@ -91,41 +91,25 @@ export async function createLead(input: CreateLeadInput) {
     },
   });
 
-  const settings = await prisma.clientSettings.findUnique({ where: { clientId: input.clientId } });
-  const trackLeadEvents = settings?.trackLeadEvents ?? true;
+  // Evento de Lead marcado como SKIPPED — o pixel da landing page já rastreia
+  // o Lead no gerenciador; CAPI envia apenas Purchase
+  await prisma.trackingEvent.create({
+    data: {
+      clientId:  input.clientId,
+      eventName: "Lead",
+      eventId,
+      status:    TrackingEventStatus.SKIPPED,
+      payload:   {},
+      leadId:    lead.id,
+    },
+  });
 
-  if (trackLeadEvents) {
-    const payload = buildLeadPayload(customer, lead, eventId);
-
+  if (input.gclid) {
     await prisma.trackingEvent.create({
       data: {
         clientId:  input.clientId,
-        eventName: "Lead",
-        eventId,
-        status:    TrackingEventStatus.PENDING,
-        payload,
-        leadId:    lead.id,
-      },
-    });
-
-    if (input.gclid) {
-      await prisma.trackingEvent.create({
-        data: {
-          clientId:  input.clientId,
-          eventName: "GoogleLead",
-          eventId:   createId(),
-          status:    TrackingEventStatus.PENDING,
-          payload:   { gclid: input.gclid, conversionDateTime: toGoogleAdsDateTime(capturedAt) },
-          leadId:    lead.id,
-        },
-      });
-    }
-  } else {
-    await prisma.trackingEvent.create({
-      data: {
-        clientId:  input.clientId,
-        eventName: "Lead",
-        eventId,
+        eventName: "GoogleLead",
+        eventId:   createId(),
         status:    TrackingEventStatus.SKIPPED,
         payload:   {},
         leadId:    lead.id,

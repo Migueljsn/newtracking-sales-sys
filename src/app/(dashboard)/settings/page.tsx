@@ -58,7 +58,6 @@ export default async function SettingsPage({
           metaAccessToken:   settings?.metaAccessToken   ?? null,
           metaTestEventCode: settings?.metaTestEventCode ?? null,
           trackingEnabled:   settings?.trackingEnabled   ?? false,
-          trackLeadEvents:   settings?.trackLeadEvents   ?? true,
           googleAdsEnabled:                  settings?.googleAdsEnabled                  ?? false,
           googleAdsCustomerId:               settings?.googleAdsCustomerId               ?? null,
           googleAdsConversionActionLead:     settings?.googleAdsConversionActionLead     ?? null,

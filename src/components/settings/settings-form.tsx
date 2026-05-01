@@ -13,7 +13,6 @@ interface Props {
     metaAccessToken:   string | null;
     metaTestEventCode: string | null;
     trackingEnabled:   boolean;
-    trackLeadEvents:   boolean;
     googleAdsEnabled:                  boolean;
     googleAdsCustomerId:               string | null;
     googleAdsConversionActionLead:     string | null;
@@ -144,24 +143,14 @@ export function SettingsForm({ settings, googleStatus, leadCaptureKey }: Props) 
             <h2 className="text-sm font-semibold text-[var(--text)]">Meta Conversions API</h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">Configurações do Pixel e token de acesso</p>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-xs text-[var(--text-muted)]">Tracking ativo</span>
-              <div className="relative">
-                <input type="checkbox" name="trackingEnabled" defaultChecked={settings.trackingEnabled} className="sr-only peer" />
-                <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-[var(--accent)]" />
-                <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
-              </div>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-xs text-[var(--text-muted)]">Rastrear leads</span>
-              <div className="relative">
-                <input type="checkbox" name="trackLeadEvents" defaultChecked={settings.trackLeadEvents} className="sr-only peer" />
-                <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-[var(--accent)]" />
-                <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
-              </div>
-            </label>
-          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-xs text-[var(--text-muted)]">Tracking ativo</span>
+            <div className="relative">
+              <input type="checkbox" name="trackingEnabled" defaultChecked={settings.trackingEnabled} className="sr-only peer" />
+              <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-[var(--accent)]" />
+              <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+            </div>
+          </label>
         </div>
 
         <div className="space-y-4">

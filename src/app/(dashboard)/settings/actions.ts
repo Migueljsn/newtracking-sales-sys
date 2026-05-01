@@ -91,3 +91,15 @@ export async function deleteAuthorizedDomainAction(id: string) {
 
   revalidatePath("/settings");
 }
+
+export async function disconnectGoogleAdsAction() {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.clientSettings.update({
+    where:  { clientId },
+    data:   { googleRefreshToken: null },
+  });
+
+  revalidatePath("/settings");
+}

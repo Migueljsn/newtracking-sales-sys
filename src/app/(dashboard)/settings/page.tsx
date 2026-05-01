@@ -6,9 +6,20 @@ import { SettingsForm } from "@/components/settings/settings-form";
 import { AuthorizedDomains } from "@/components/settings/authorized-domains";
 import { GuideCard } from "@/components/ui/guide-card";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ google_connected?: string; google_error?: string }>;
+}) {
   const session  = await getSession();
   const clientId = session.clientId!;
+  const params   = await searchParams;
+
+  const googleStatus = params.google_connected === "1"
+    ? "connected"
+    : params.google_error
+    ? "error"
+    : null;
 
   const [client, settings, authorizedDomains] = await Promise.all([
     prisma.client.findUniqueOrThrow({ where: { id: clientId } }),
@@ -44,8 +55,9 @@ export default async function SettingsPage() {
           googleAdsCustomerId:               settings?.googleAdsCustomerId               ?? null,
           googleAdsConversionActionLead:     settings?.googleAdsConversionActionLead     ?? null,
           googleAdsConversionActionPurchase: settings?.googleAdsConversionActionPurchase ?? null,
-          googleRefreshToken:                settings?.googleRefreshToken                ?? null,
+          hasGoogleRefreshToken:             !!settings?.googleRefreshToken,
         }}
+        googleStatus={googleStatus}
         leadCaptureKey={client.leadCaptureKey}
       />
 

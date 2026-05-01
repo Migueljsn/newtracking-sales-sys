@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Copy, Eye, EyeOff, RefreshCw, Check } from "lucide-react";
-import { saveGoogleSettingsAction } from "@/app/(dashboard)/settings/actions";
+import { saveGoogleSettingsAction, disconnectGoogleAdsAction } from "@/app/(dashboard)/settings/actions";
 import { saveSettingsAction, rotateLeadCaptureKeyAction } from "@/app/(dashboard)/settings/actions";
 
 interface Props {
@@ -16,18 +17,29 @@ interface Props {
     googleAdsCustomerId:               string | null;
     googleAdsConversionActionLead:     string | null;
     googleAdsConversionActionPurchase: string | null;
-    googleRefreshToken:                string | null;
+    hasGoogleRefreshToken:             boolean;
   };
+  googleStatus: "connected" | "error" | null;
   leadCaptureKey: string;
 }
 
-export function SettingsForm({ settings, leadCaptureKey }: Props) {
-  const [loading, setLoading]           = useState(false);
-  const [rotating, setRotating]         = useState(false);
-  const [showToken, setShowToken]       = useState(false);
-  const [showRefresh, setShowRefresh]   = useState(false);
-  const [copied, setCopied]             = useState(false);
+export function SettingsForm({ settings, googleStatus, leadCaptureKey }: Props) {
+  const router = useRouter();
+  const [loading, setLoading]             = useState(false);
+  const [rotating, setRotating]           = useState(false);
+  const [showToken, setShowToken]         = useState(false);
+  const [copied, setCopied]               = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    if (googleStatus === "connected") {
+      toast.success("Google Ads conectado com sucesso!");
+      router.replace("/settings");
+    } else if (googleStatus === "error") {
+      toast.error("Erro ao conectar Google Ads. Tente novamente.");
+      router.replace("/settings");
+    }
+  }, [googleStatus, router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -275,23 +287,27 @@ export function SettingsForm({ settings, leadCaptureKey }: Props) {
 
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              Refresh Token (OAuth2)
+              Conta Google Ads
             </label>
-            <div className="relative">
-              <input
-                name="googleRefreshToken"
-                type={showRefresh ? "text" : "password"}
-                defaultValue={settings.googleRefreshToken ?? ""}
-                className="input w-full pr-10"
-                placeholder="1//0g..."
-              />
-              <button
-                type="button"
-                onClick={() => setShowRefresh(!showRefresh)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]"
-              >
-                {showRefresh ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2.5">
+              <div className={`h-2 w-2 shrink-0 rounded-full ${settings.hasGoogleRefreshToken ? "bg-[var(--success)]" : "bg-[var(--text-muted)]"}`} />
+              <span className="text-xs text-[var(--text)]">
+                {settings.hasGoogleRefreshToken ? "Conta conectada" : "Nenhuma conta conectada"}
+              </span>
+              {settings.hasGoogleRefreshToken ? (
+                <form action={disconnectGoogleAdsAction} className="ml-auto">
+                  <button type="submit" className="text-xs text-[var(--danger)] hover:underline">
+                    Desconectar
+                  </button>
+                </form>
+              ) : (
+                <a
+                  href="/api/google/oauth/start"
+                  className="ml-auto rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                >
+                  Conectar Google Ads
+                </a>
+              )}
             </div>
           </div>
         </div>

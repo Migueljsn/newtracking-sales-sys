@@ -1,23 +1,20 @@
 export const dynamic = "force-dynamic";
 
+import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
 import { getSession } from "@/lib/auth/session";
-import { prisma } from "@/lib/db/prisma";
+import { fetchLeadsForClient } from "@/lib/queries/leads";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { CreateLeadModal } from "@/components/leads/create-lead-modal";
 import { GuideCard } from "@/components/ui/guide-card";
 
 export default async function LeadsPage() {
-  const session = await getSession();
+  const session  = await getSession();
   const clientId = session.clientId!;
 
-  const leads = await prisma.lead.findMany({
-    where: { clientId },
-    include: {
-      customer: {
-        select: { name: true, phone: true, email: true, document: true },
-      },
-    },
-    orderBy: { capturedAt: "desc" },
+  const queryClient = new QueryClient();
+  await queryClient.prefetchQuery({
+    queryKey: ["leads"],
+    queryFn:  () => fetchLeadsForClient(clientId),
   });
 
   return (
@@ -25,7 +22,6 @@ export default async function LeadsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text)]">Leads</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-0.5">{leads.length} leads cadastradas</p>
         </div>
         <CreateLeadModal />
       </div>
@@ -41,7 +37,9 @@ export default async function LeadsPage() {
         tone="tip"
       />
 
-      <LeadsTable leads={leads} />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <LeadsTable />
+      </HydrationBoundary>
     </div>
   );
 }

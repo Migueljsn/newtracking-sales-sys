@@ -9,6 +9,7 @@ import { buildPurchasePayload } from "@/lib/domain/tracking/build-payload";
 import { updateCustomerLifecycle } from "@/lib/domain/customer/update-lifecycle";
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 import { prisma } from "@/lib/db/prisma";
+import { invalidate, cacheKeys } from "@/lib/cache/invalidate";
 
 function parseItems(formData: FormData) {
   const names      = formData.getAll("itemName")     as string[];
@@ -46,6 +47,7 @@ export async function registerSaleAction(formData: FormData) {
 
   after(() => processPendingEvents());
 
+  await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId), cacheKeys.sales(clientId), cacheKeys.metrics(clientId));
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
   revalidatePath("/sales");
@@ -69,6 +71,7 @@ export async function markAsLostAction(leadId: string) {
     },
   });
 
+  await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(session.clientId!), cacheKeys.metrics(session.clientId!));
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
 }
@@ -128,6 +131,12 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
 
   after(() => processPendingEvents());
 
+  await invalidate(
+    cacheKeys.leads(clientId),
+    cacheKeys.leadDetail(sourceLeadId),
+    cacheKeys.sales(clientId),
+    cacheKeys.metrics(clientId),
+  );
   revalidatePath("/leads");
   revalidatePath("/sales");
   revalidatePath("/");
@@ -173,6 +182,7 @@ export async function updateCustomerAction(formData: FormData) {
     throw err;
   }
 
+  await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId));
   revalidatePath(`/leads/${leadId}`);
 }
 
@@ -195,6 +205,7 @@ export async function updateLeadAction(formData: FormData) {
     data:  { notes, utmSource, utmMedium, utmCampaign, utmContent, utmTerm },
   });
 
+  await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId));
   revalidatePath(`/leads/${leadId}`);
 }
 
@@ -221,6 +232,7 @@ export async function deleteLeadAction(leadId: string) {
   // Lead cascade deleta LeadStatusHistory
   await prisma.lead.delete({ where: { id: leadId } });
 
+  await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId), cacheKeys.sales(clientId), cacheKeys.metrics(clientId));
   revalidatePath("/leads");
   revalidatePath("/sales");
   revalidatePath("/");
@@ -276,6 +288,7 @@ export async function updateSaleAction(formData: FormData) {
 
   after(() => processPendingEvents());
 
+  await invalidate(cacheKeys.leadDetail(sale.leadId), cacheKeys.sales(clientId));
   revalidatePath(`/leads/${sale.leadId}`);
   revalidatePath("/sales");
 }
@@ -307,6 +320,7 @@ export async function deleteSaleAction(saleId: string) {
 
   await updateCustomerLifecycle(sale.customerId);
 
+  await invalidate(cacheKeys.leadDetail(sale.leadId), cacheKeys.leads(clientId), cacheKeys.sales(clientId), cacheKeys.metrics(clientId));
   revalidatePath(`/leads/${sale.leadId}`);
   revalidatePath("/leads");
   revalidatePath("/sales");

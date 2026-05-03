@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
-import { prisma } from "@/lib/db/prisma";
+import { fetchLeadDetail } from "@/lib/queries/lead-detail";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { RegisterSaleModal } from "@/components/leads/register-sale-modal";
 import { RegisterLtvSaleModal } from "@/components/leads/register-ltv-sale-modal";
@@ -34,23 +34,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const session = await getSession();
 
-  const lead = await prisma.lead.findUnique({
-    where: { id, clientId: session.clientId! },
-    include: {
-      customer: {
-        include: {
-          sales: { orderBy: { soldAt: "desc" } },
-          leads: {
-            orderBy: { capturedAt: "desc" },
-            include: { sale: true },
-          },
-        },
-      },
-      sale: { include: { items: true } },
-      trackingEvents: { orderBy: { createdAt: "asc" } },
-      statusHistory: { orderBy: { createdAt: "asc" } },
-    },
-  });
+  const lead = await fetchLeadDetail(id, session.clientId!);
 
   if (!lead) notFound();
 

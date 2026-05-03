@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import type { TrackingEventStatus } from "@prisma/client";
@@ -8,7 +9,7 @@ import type { TrackingEventStatus } from "@prisma/client";
 interface Sale {
   id: string;
   value: unknown;
-  soldAt: Date;
+  soldAt: string;
   isRepeatPurchase: boolean;
   leadId: string;
   customer: { name: string; phone: string; document: string | null };
@@ -32,11 +33,17 @@ const trackingLabel: Record<TrackingEventStatus, string> = {
   SKIPPED: "Ignorado",
 };
 
-export function SalesTable({ sales }: { sales: Sale[] }) {
+export function SalesTable() {
+  const { data: sales = [] } = useQuery<Sale[]>({
+    queryKey: ["sales"],
+    queryFn:  () => fetch("/api/sales").then((r) => r.json()),
+  });
+
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(0);
 
-  useEffect(() => { setPage(0); }, [search]);
+  const totalRevenue = sales.reduce((acc, s) => acc + Number(s.value), 0);
+  const repeatCount  = sales.filter((s) => s.isRepeatPurchase).length;
 
   const filtered = sales.filter((s) => {
     const q = search.toLowerCase();
@@ -53,8 +60,34 @@ export function SalesTable({ sales }: { sales: Sale[] }) {
   const safePage   = Math.min(page, totalPages - 1);
   const paginated  = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
+  const resetPage = () => setPage(0);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="card p-5">
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Receita total</p>
+          <p className="text-2xl font-bold text-[var(--success)]">
+            {totalRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </p>
+        </div>
+        <div className="card p-5">
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Total de vendas</p>
+          <p className="text-2xl font-bold text-[var(--text)]">{sales.length}</p>
+        </div>
+        <div className="card p-5">
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Recompras</p>
+          <p className="text-2xl font-bold text-[var(--text)]">
+            {repeatCount}
+            <span className="text-sm font-normal text-[var(--text-muted)] ml-1">
+              ({sales.length > 0 ? Math.round((repeatCount / sales.length) * 100) : 0}%)
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* Search */}
       <div className="relative max-w-sm">
         <Search
           size={15}
@@ -62,7 +95,7 @@ export function SalesTable({ sales }: { sales: Sale[] }) {
         />
         <input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); resetPage(); }}
           placeholder="Buscar por nome, telefone ou CPF..."
           className="input w-full"
           style={{ paddingLeft: "3rem" }}
@@ -152,7 +185,7 @@ export function SalesTable({ sales }: { sales: Sale[] }) {
         )}
       </div>
 
-      {/* Footer com paginação */}
+      {/* Paginação */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-[var(--text-muted)]">
           {filtered.length === 0

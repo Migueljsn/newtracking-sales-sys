@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search, Users } from "lucide-react";
 import { LeadStatusBadge } from "./lead-status-badge";
@@ -11,7 +11,7 @@ interface Lead {
   id: string;
   status: LeadStatus;
   source: LeadSource;
-  capturedAt: Date;
+  capturedAt: string;
   customer: {
     name: string;
     phone: string;
@@ -35,19 +35,19 @@ const statusTabs: { value: LeadStatus | "ALL"; label: string }[] = [
   { value: "LOST", label: "Perdidas" },
 ];
 
-export function LeadsTable({ leads }: { leads: Lead[] }) {
-  const router = useRouter();
-  const [search, setSearch]           = useState("");
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | "ALL">("ALL");
-  const [page, setPage]               = useState(0);
+export function LeadsTable() {
+  const { data: leads = [] } = useQuery<Lead[]>({
+    queryKey:       ["leads"],
+    queryFn:        () => fetch("/api/leads").then((r) => r.json()),
+    refetchInterval: 30_000,
+  });
 
-  useEffect(() => {
-    const id = setInterval(() => router.refresh(), 30_000);
-    return () => clearInterval(id);
-  }, [router]);
+  const [search, setSearch]             = useState("");
+  const [statusFilter, setStatusFilter] = useState<LeadStatus | "ALL">("ALL");
+  const [page, setPage]                 = useState(0);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [search, statusFilter]);
+  const resetPage = () => setPage(0);
 
   const counts: Record<LeadStatus | "ALL", number> = {
     ALL:  leads.length,
@@ -85,7 +85,7 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
           />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); resetPage(); }}
             placeholder="Buscar por nome, telefone ou CPF/CNPJ..."
             className="input w-full"
             style={{ paddingLeft: "3rem" }}
@@ -98,7 +98,7 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
             return (
               <button
                 key={tab.value}
-                onClick={() => setStatusFilter(tab.value)}
+                onClick={() => { setStatusFilter(tab.value); resetPage(); }}
                 className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all duration-150 ${
                   active
                     ? "bg-[var(--surface-strong)] text-[var(--text)] shadow-sm"

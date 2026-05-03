@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth/session";
 import { createLead } from "@/lib/domain/lead/create";
 import { createSale } from "@/lib/domain/sale/create";
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
+import { invalidate, cacheKeys } from "@/lib/cache/invalidate";
 
 function normalizeDigits(value: string | null) {
   return value?.replace(/\D/g, "") || "";
@@ -82,6 +83,8 @@ export async function createLeadAction(
 
   if (!duplicate) after(() => processPendingEvents());
 
+  await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId));
+  if (saleCreated) await invalidate(cacheKeys.sales(clientId));
   revalidatePath("/leads");
   return { duplicate, saleCreated };
 }

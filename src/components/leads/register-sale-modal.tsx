@@ -85,12 +85,27 @@ export function RegisterSaleModal({ leadId, customerName }: Props) {
             <form ref={formRef} onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
               <input type="hidden" name="leadId" value={leadId} />
 
-              {/* Valor */}
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                  Valor da venda (R$) *
-                </label>
-                <CurrencyInput name="value" required className="input w-full" />
+              {/* Data + Valor */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                    Data da venda *
+                  </label>
+                  <input
+                    type="date"
+                    name="soldAt"
+                    required
+                    defaultValue={new Date().toISOString().split("T")[0]}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                    Valor da venda (R$) *
+                  </label>
+                  <CurrencyInput name="value" required className="input w-full" />
+                </div>
               </div>
 
               {/* Observações */}

@@ -29,9 +29,11 @@ export async function registerSaleAction(formData: FormData) {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const leadId = formData.get("leadId") as string;
-  const value  = parseFloat(formData.get("value") as string);
-  const notes  = (formData.get("notes") as string)?.trim() || undefined;
+  const leadId    = formData.get("leadId") as string;
+  const value     = parseFloat(formData.get("value") as string);
+  const notes     = (formData.get("notes") as string)?.trim() || undefined;
+  const soldAtStr = (formData.get("soldAt") as string)?.trim();
+  const soldAt    = soldAtStr ? new Date(soldAtStr) : undefined;
 
   if (!leadId || isNaN(value) || value <= 0) throw new Error("Valor da venda inválido");
 
@@ -41,6 +43,7 @@ export async function registerSaleAction(formData: FormData) {
     clientId,
     leadId,
     value,
+    soldAt,
     notes,
     items: items.length > 0 ? items : undefined,
   });
@@ -84,6 +87,8 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
   const sourceLeadId = formData.get("sourceLeadId") as string;
   const value        = parseFloat(formData.get("value") as string);
   const notes        = (formData.get("notes") as string)?.trim() || undefined;
+  const soldAtStr    = (formData.get("soldAt") as string)?.trim();
+  const soldAt       = soldAtStr ? new Date(soldAtStr) : undefined;
 
   if (!sourceLeadId || isNaN(value) || value <= 0) throw new Error("Valor da venda inválido");
 
@@ -125,6 +130,7 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
     clientId,
     leadId: lead.id,
     value,
+    soldAt,
     notes,
     items: items.length > 0 ? items : undefined,
   });

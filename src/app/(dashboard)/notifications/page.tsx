@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { AlertCircle, Bell, CheckCircle, Info, TriangleAlert } from "lucide-react";
+import { AlertCircle, Bell, CheckCircle, Info, TriangleAlert, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
@@ -65,17 +65,13 @@ export default async function NotificationsPage() {
       ) : (
         <div className="card divide-y divide-[var(--border)] overflow-hidden">
           {notifications.map((n) => {
-            const cfg   = typeConfig[n.type];
-            const Icon  = cfg.icon;
+            const cfg    = typeConfig[n.type];
+            const Icon   = cfg.icon;
             const leadId = extractLeadId(n.metadata);
+            const href   = leadId ? `/leads/${leadId}` : null;
 
-            return (
-              <div
-                key={n.id}
-                className={`flex items-start gap-4 px-5 py-4 transition-colors ${
-                  !n.isRead ? "bg-[var(--accent-soft)]/30" : ""
-                }`}
-              >
+            const inner = (
+              <>
                 <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${cfg.iconClass}`}>
                   <Icon size={16} />
                 </span>
@@ -93,19 +89,28 @@ export default async function NotificationsPage() {
                   {n.body && (
                     <p className="mt-0.5 text-xs text-[var(--text-muted)]">{n.body}</p>
                   )}
-                  {leadId && (
-                    <Link
-                      href={`/leads/${leadId}`}
-                      className="mt-1 inline-block text-xs font-medium text-[var(--accent)] hover:underline"
-                    >
-                      Ver lead
-                    </Link>
-                  )}
                 </div>
 
-                <time className="shrink-0 text-xs text-[var(--text-muted)]">
-                  {new Date(n.createdAt).toLocaleDateString("pt-BR")}
-                </time>
+                <div className="flex shrink-0 items-center gap-3">
+                  <time className="text-xs text-[var(--text-muted)]">
+                    {new Date(n.createdAt).toLocaleDateString("pt-BR")}
+                  </time>
+                  {href && <ChevronRight size={15} className="text-[var(--text-muted)]" />}
+                </div>
+              </>
+            );
+
+            const rowClass = `flex items-start gap-4 px-5 py-4 transition-colors ${
+              !n.isRead ? "bg-[var(--accent-soft)]/30" : ""
+            } ${href ? "hover:bg-[var(--surface-muted)] cursor-pointer" : ""}`;
+
+            return href ? (
+              <Link key={n.id} href={href} className={rowClass}>
+                {inner}
+              </Link>
+            ) : (
+              <div key={n.id} className={rowClass}>
+                {inner}
               </div>
             );
           })}

@@ -11,10 +11,10 @@ export async function processPendingEvents() {
 
 async function processMetaPendingEvents() {
   const events = await prisma.trackingEvent.findMany({
-    where: { status: "PENDING", eventName: { in: ["Lead", "Purchase"] } },
+    where:   { status: "PENDING", eventName: { in: ["Lead", "Purchase"] } },
     include: { client: { include: { settings: true } } },
     orderBy: { createdAt: "asc" },
-    take: 50,
+    take:    50,
   });
 
   for (const event of events) {
@@ -62,31 +62,40 @@ async function processMetaPendingEvents() {
 }
 
 async function handleFailure(
-  event: { id: string; attempts: number; clientId: string; eventId: string },
+  event: { id: string; attempts: number; clientId: string; eventId: string; leadId: string | null },
   errorData: unknown,
   clientId: string
 ) {
   const newAttempts = event.attempts + 1;
   const failed = newAttempts >= MAX_ATTEMPTS;
 
+  const errorMessage = JSON.stringify(errorData);
+
   await prisma.trackingEvent.update({
     where: { id: event.id },
     data: {
       status: failed ? TrackingEventStatus.FAILED : TrackingEventStatus.PENDING,
-      errorMessage: JSON.stringify(errorData),
+      errorMessage,
       lastAttemptAt: new Date(),
       attempts: newAttempts,
     },
   });
 
   if (failed) {
+    const errorObj  = typeof errorData === "object" && errorData !== null ? errorData : {};
+    const apiMessage = (errorObj as Record<string, unknown>)?.error?.toString() ?? errorMessage;
+
     await prisma.notification.create({
       data: {
         clientId,
-        type: "TRACKING_ERROR",
+        type:  "TRACKING_ERROR",
         title: "Falha no envio de evento para o Meta",
-        body: `Evento ${event.eventId} falhou após ${MAX_ATTEMPTS} tentativas.`,
-        metadata: { eventId: event.eventId, error: JSON.stringify(errorData) },
+        body:  apiMessage.slice(0, 280),
+        metadata: {
+          eventId: event.eventId,
+          leadId:  event.leadId ?? undefined,
+          error:   errorMessage,
+        },
       },
     });
   }

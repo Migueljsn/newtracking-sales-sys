@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, LayoutDashboard, LogOut, Menu, Settings, ShoppingBag, Upload, Users, X } from "lucide-react";
@@ -74,13 +75,11 @@ export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
       {/* ─── Mobile top bar ──────────────────────── */}
       <div className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 py-3 backdrop-blur-xl xl:hidden">
         <div className="page-shell flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] shadow-[var(--shadow-accent)]">
-              <span className="text-xs font-black text-white">F</span>
-            </div>
+          <div className="flex items-center min-w-0">
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Portal CRM</p>
-              <p className="truncate text-sm font-semibold text-[var(--text)] leading-tight">{clientName}</p>
+              <Image src="/logo-light.png" alt="Portal CRM" height={22} width={100} className="object-contain dark:hidden" />
+              <Image src="/logo-dark.png" alt="Portal CRM" height={22} width={100} className="object-contain hidden dark:block" />
+              <p className="truncate text-xs font-medium text-[var(--text-muted)] mt-0.5 leading-tight">{clientName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -128,13 +127,11 @@ export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
           }`}
         >
           <div className="mb-5 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] shadow-[var(--shadow-accent)]">
-                <span className="text-sm font-black text-white">F</span>
-              </div>
+            <div className="flex items-center min-w-0">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Portal CRM</p>
-                <p className="truncate text-sm font-semibold text-[var(--text)]">{clientName}</p>
+                <Image src="/logo-light.png" alt="Portal CRM" height={26} width={118} className="object-contain dark:hidden" />
+                <Image src="/logo-dark.png" alt="Portal CRM" height={26} width={118} className="object-contain hidden dark:block" />
+                <p className="truncate text-sm font-semibold text-[var(--text)] mt-1 leading-tight">{clientName}</p>
               </div>
             </div>
             <button
@@ -171,15 +168,9 @@ export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
 
           {/* Brand */}
           <div className="border-b border-[var(--border)] pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] shadow-[var(--shadow-accent)]">
-                <span className="text-sm font-black text-white">F</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)]">Portal CRM</p>
-                <p className="truncate text-sm font-semibold text-[var(--text)] leading-tight mt-0.5">{clientName}</p>
-              </div>
-            </div>
+            <Image src="/logo-light.png" alt="Portal CRM" height={30} width={136} className="object-contain dark:hidden" />
+            <Image src="/logo-dark.png" alt="Portal CRM" height={30} width={136} className="object-contain hidden dark:block" />
+            <p className="truncate text-sm font-semibold text-[var(--text)] mt-2 leading-tight">{clientName}</p>
           </div>
 
           {/* Nav */}

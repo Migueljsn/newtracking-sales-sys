@@ -28,36 +28,37 @@ function parseValue(value: unknown): number | undefined {
   return isNaN(n) ? undefined : n;
 }
 
+function col(row: Record<string, unknown>, key: string): string {
+  return String(row[key] ?? "").trim();
+}
+
 export async function processXlsxImport(
   buffer: ArrayBuffer,
   clientId: string
 ): Promise<ImportResult> {
-  const workbook  = XLSX.read(buffer, { type: "array", cellDates: true });
-  const sheet     = workbook.Sheets[workbook.SheetNames[0]];
-  const rows      = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+  const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+  const rows     = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
 
   const result: ImportResult = { total: rows.length, created: 0, sold: 0, lost: 0, skipped: 0, errors: [] };
 
   for (let i = 0; i < rows.length; i++) {
     const row    = rows[i];
-    const rowNum = i + 2; // +2 porque começa na linha 2 (linha 1 é header)
+    const rowNum = i + 2;
 
     try {
-      const name  = String(row["Nome"]     || "").trim();
-      const phone = String(row["Telefone"] || "").trim();
+      const name  = col(row, "Nome");
+      const phone = col(row, "Telefone");
 
-      if (!name || !phone) {
-        result.errors.push({ row: rowNum, message: "Nome e telefone são obrigatórios" });
-        continue;
-      }
+      if (!name)  { result.errors.push({ row: rowNum, message: "Campo obrigatório em branco: Nome" });     continue; }
+      if (!phone) { result.errors.push({ row: rowNum, message: "Campo obrigatório em branco: Telefone" }); continue; }
 
-      const status    = String(row["Status"] || "NOVA").toUpperCase().trim();
-      const capturedAt = parseDate(row["Data de Captura"]);
-      const soldAt     = parseDate(row["Data da Venda"]);
-      const value      = parseValue(row["Valor da Venda (R$)"]);
+      const rawStatus = col(row, "Status").toUpperCase() || "NOVA";
+      const value     = parseValue(row["Valor da Venda (R$)"]);
+      const soldAt    = parseDate(row["Data da Venda"]);
 
-      if (status === "VENDA" && (!value || value <= 0)) {
-        result.errors.push({ row: rowNum, message: "Valor da venda é obrigatório para status VENDA" });
+      if (rawStatus === "VENDA" && (!value || value <= 0)) {
+        result.errors.push({ row: rowNum, message: "Status VENDA requer 'Valor da Venda (R$)' preenchido" });
         continue;
       }
 
@@ -65,36 +66,44 @@ export async function processXlsxImport(
         clientId,
         name,
         phone,
-        email:      String(row["Email"]      || "") || undefined,
-        document:   String(row["CPF/CNPJ"]   || "") || undefined,
-        zipCode:    String(row["CEP"]         || "") || undefined,
-        city:       String(row["Cidade"]      || "") || undefined,
-        state:      String(row["Estado"]      || "") || undefined,
-        birthDate:  parseDate(row["Data de Nascimento"]),
-        utmSource:  String(row["UTM Source"]   || "") || undefined,
-        utmMedium:  String(row["UTM Medium"]   || "") || undefined,
-        utmCampaign:String(row["UTM Campaign"] || "") || undefined,
-        utmContent: String(row["UTM Content"]  || "") || undefined,
-        utmTerm:    String(row["UTM Term"]     || "") || undefined,
-        source:     "IMPORT",
-        capturedAt,
+        email:       col(row, "Email")            || undefined,
+        document:    col(row, "CPF/CNPJ")         || undefined,
+        zipCode:     col(row, "CEP")              || undefined,
+        city:        col(row, "Cidade")           || undefined,
+        state:       col(row, "Estado")           || undefined,
+        birthDate:   parseDate(row["Data de Nascimento"]),
+        consultant:  col(row, "Consultor")        || undefined,
+        utmSource:   col(row, "UTM Source")       || undefined,
+        utmMedium:   col(row, "UTM Medium")       || undefined,
+        utmCampaign: col(row, "UTM Campaign")     || undefined,
+        utmContent:  col(row, "UTM Content")      || undefined,
+        utmTerm:     col(row, "UTM Term")         || undefined,
+        source:      "IMPORT",
+        capturedAt:  parseDate(row["Data de Captura"]),
       });
 
-      if (duplicate) {
-        result.skipped++;
-        continue;
-      }
+      if (duplicate) { result.skipped++; continue; }
 
       result.created++;
 
-      if (status === "VENDA" && value) {
-        await createSale({ clientId, leadId: lead.id, value, soldAt });
-        result.sold++;
-      } else if (status === "PERDIDA") {
+      if (rawStatus === "CADASTRADA" || rawStatus === "VENDA") {
         await prisma.lead.update({
           where: { id: lead.id },
-          data: {
-            status: "LOST",
+          data:  {
+            status:        "REGISTERED",
+            statusHistory: { create: { from: "NEW", to: "REGISTERED" } },
+          },
+        });
+      }
+
+      if (rawStatus === "VENDA" && value) {
+        await createSale({ clientId, leadId: lead.id, value, soldAt });
+        result.sold++;
+      } else if (rawStatus === "PERDIDA") {
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data:  {
+            status:        "LOST",
             statusHistory: { create: { from: "NEW", to: "LOST" } },
           },
         });
@@ -102,19 +111,18 @@ export async function processXlsxImport(
       }
     } catch (err: unknown) {
       result.errors.push({
-        row: rowNum,
+        row:     rowNum,
         message: err instanceof Error ? err.message : "Erro desconhecido",
       });
     }
   }
 
-  // Cria notificação de conclusão
   await prisma.notification.create({
     data: {
       clientId,
-      type: "IMPORT_COMPLETE",
+      type:  "IMPORT_COMPLETE",
       title: "Importação concluída",
-      body: `${result.created} leads criadas, ${result.sold} vendas, ${result.skipped} duplicatas, ${result.errors.length} erros.`,
+      body:  `${result.created} leads criadas, ${result.sold} vendas, ${result.skipped} duplicatas, ${result.errors.length} erros.`,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       metadata: result as any,
     },

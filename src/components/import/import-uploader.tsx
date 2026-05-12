@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Download, FileDown } from "lucide-react";
 import { toast } from "sonner";
 
 interface ImportResult {
@@ -43,7 +43,7 @@ export function ImportUploader() {
       const fd = new FormData();
       fd.append("file", file);
 
-      const res = await fetch("/api/import", { method: "POST", body: fd });
+      const res  = await fetch("/api/import", { method: "POST", body: fd });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || "Erro na importação");
@@ -110,6 +110,13 @@ export function ImportUploader() {
         </button>
 
         <a
+          href="/api/import/template"
+          className="flex items-center gap-2 btn-secondary px-5 py-2 text-sm"
+        >
+          <FileDown size={15} /> Baixar modelo
+        </a>
+
+        <a
           href="/api/export"
           className="flex items-center gap-2 btn-secondary px-5 py-2 text-sm"
         >
@@ -142,7 +149,7 @@ export function ImportUploader() {
                 <AlertCircle size={15} />
                 <p className="text-sm font-medium">{result.errors.length} erro(s) encontrado(s)</p>
               </div>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
+              <div className="space-y-1 max-h-48 overflow-y-auto">
                 {result.errors.map((e, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
                     <XCircle size={13} className="mt-0.5 shrink-0 text-[var(--danger)]" />

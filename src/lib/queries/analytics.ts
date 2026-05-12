@@ -44,7 +44,9 @@ function localHour(date: Date) {
 }
 
 export async function fetchAnalytics(clientId: string, from: Date, to: Date): Promise<AnalyticsData> {
-  const days          = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / 86_400_000));
+  const fromDay = new Date(from.toISOString().slice(0, 10) + "T00:00:00.000Z");
+  const toDay   = new Date(to.toISOString().slice(0, 10)   + "T00:00:00.000Z");
+  const days    = Math.max(1, Math.round((toDay.getTime() - fromDay.getTime()) / 86_400_000) + 1);
   const startDate     = from;
   const endDate       = to;
   const prevStartDate = new Date(from.getTime() - days * 86_400_000);

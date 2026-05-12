@@ -168,83 +168,74 @@ export function AnalyticsOverview() {
   return (
     <div className="space-y-6">
       {/* ── Controls ── */}
-      <div className="no-print space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* period selector */}
-          <div className="flex flex-wrap gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-1">
-            {PERIODS.map(p => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => { setMode("preset"); setDays(p.value); }}
-                className={`rounded-xl px-4 py-1.5 text-sm font-medium transition-all ${
-                  mode === "preset" && days === p.value
-                    ? "bg-[var(--accent)] text-white shadow"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+      <div className="no-print flex flex-wrap items-center gap-2">
+        {/* period selector pill */}
+        <div className="flex gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-1">
+          {PERIODS.map(p => (
             <button
+              key={p.value}
               type="button"
-              onClick={() => setMode("custom")}
-              className={`flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm font-medium transition-all ${
-                mode === "custom"
+              onClick={() => { setMode("preset"); setDays(p.value); }}
+              className={`rounded-xl px-3.5 py-1.5 text-sm font-medium transition-all ${
+                mode === "preset" && days === p.value
                   ? "bg-[var(--accent)] text-white shadow"
                   : "text-[var(--text-muted)] hover:text-[var(--text)]"
               }`}
             >
-              <CalendarIcon size={13} />
-              Personalizado
+              {p.label}
             </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isFetching && (
-              <span className="text-xs text-[var(--text-muted)] animate-pulse">Atualizando...</span>
-            )}
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={!data}
-              className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
-            >
-              <Download size={14} />
-              Exportar PDF
-            </button>
-          </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setMode("custom")}
+            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-sm font-medium transition-all ${
+              mode === "custom"
+                ? "bg-[var(--accent)] text-white shadow"
+                : "text-[var(--text-muted)] hover:text-[var(--text)]"
+            }`}
+          >
+            <CalendarIcon size={13} />
+            Personalizado
+          </button>
         </div>
 
-        {/* custom date range */}
+        {/* compact inline date range — only when custom is active */}
         {mode === "custom" && (
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-[var(--text-muted)]">De</label>
-              <input
-                type="date"
-                value={customFrom}
-                max={customTo || TODAY}
-                onChange={e => setCustomFrom(e.target.value)}
-                className="input py-1.5 text-sm"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-[var(--text-muted)]">Até</label>
-              <input
-                type="date"
-                value={customTo}
-                min={customFrom}
-                max={TODAY}
-                onChange={e => setCustomTo(e.target.value)}
-                className="input py-1.5 text-sm"
-              />
-            </div>
-            {customFrom && customTo && customFrom > customTo && (
-              <span className="text-xs font-medium text-[var(--danger)]">Data inicial deve ser anterior à final</span>
-            )}
+          <div className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5">
+            <input
+              type="date"
+              value={customFrom}
+              max={customTo || TODAY}
+              onChange={e => setCustomFrom(e.target.value)}
+              className="bg-transparent text-sm text-[var(--text)] outline-none"
+            />
+            <span className="text-[var(--text-muted)] text-xs select-none">→</span>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom}
+              max={TODAY}
+              onChange={e => setCustomTo(e.target.value)}
+              className="bg-transparent text-sm text-[var(--text)] outline-none"
+            />
           </div>
         )}
+
+        {/* right side */}
+        <div className="ml-auto flex items-center gap-2">
+          {isFetching && (
+            <span className="text-xs text-[var(--text-muted)] animate-pulse">Atualizando...</span>
+          )}
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={!data}
+            className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+          >
+            <Download size={14} />
+            Exportar PDF
+          </button>
+        </div>
       </div>
 
       {/* ── Printable area ── */}

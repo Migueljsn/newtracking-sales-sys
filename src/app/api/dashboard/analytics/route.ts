@@ -13,9 +13,8 @@ export async function GET(req: NextRequest) {
   let from: Date, to: Date;
 
   if (fromParam && toParam) {
-    from = new Date(fromParam);
-    to   = new Date(toParam);
-    to.setHours(23, 59, 59, 999);
+    from = new Date(`${fromParam}T00:00:00.000Z`);
+    to   = new Date(`${toParam}T23:59:59.999Z`);
   } else {
     const days = Math.min(365, Math.max(1, Number(p.get("days") ?? 30)));
     to   = new Date();

@@ -16,7 +16,6 @@ interface Customer {
   zipCode:   string | null;
   city:      string | null;
   state:     string | null;
-  birthDate: Date | null;
 }
 
 interface Props {
@@ -157,16 +156,6 @@ export function EditCustomerModal({ leadId, customer }: Props) {
               <div>
                 <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Cidade</label>
                 <input name="city" defaultValue={customer.city ?? ""} className="input w-full" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Data de nascimento</label>
-                <input
-                  name="birthDate"
-                  type="date"
-                  defaultValue={customer.birthDate ? customer.birthDate.toISOString().split("T")[0] : ""}
-                  className="input w-full"
-                />
               </div>
 
               <div className="col-span-2 flex gap-3 pt-2">

@@ -71,7 +71,6 @@ export async function processXlsxImport(
         zipCode:     col(row, "CEP")              || undefined,
         city:        col(row, "Cidade")           || undefined,
         state:       col(row, "Estado")           || undefined,
-        birthDate:   parseDate(row["Data de Nascimento"]),
         consultant:  col(row, "Consultor")        || undefined,
         utmSource:   col(row, "UTM Source")       || undefined,
         utmMedium:   col(row, "UTM Medium")       || undefined,

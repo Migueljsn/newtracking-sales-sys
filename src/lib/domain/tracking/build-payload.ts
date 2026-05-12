@@ -1,7 +1,7 @@
 import type { Customer, Lead, Sale } from "@prisma/client";
 import {
   hashPhone, hashEmail, hashName, hashZipCode,
-  hashCity, hashState, hashBirthDate, hashId,
+  hashCity, hashState, hashId,
 } from "./hash";
 
 type UserData = Record<string, string | number>;
@@ -19,7 +19,6 @@ function buildUserData(customer: Customer, lead: Lead): UserData {
   if (customer.zipCode)   data.zp  = hashZipCode(customer.zipCode);
   if (customer.city)      data.ct  = hashCity(customer.city);
   if (customer.state)     data.st  = hashState(customer.state);
-  if (customer.birthDate) data.db  = hashBirthDate(customer.birthDate);
   if (lead.fbc)           data.fbc = lead.fbc;
   if (lead.fbp)           data.fbp = lead.fbp;
 

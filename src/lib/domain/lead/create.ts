@@ -14,7 +14,6 @@ interface CreateLeadInput {
   zipCode?: string;
   city?: string;
   state?: string;
-  birthDate?: Date;
   source?: LeadSource;
   consultant?: string;
   utmSource?: string;
@@ -40,7 +39,6 @@ export async function createLead(input: CreateLeadInput) {
     zipCode: input.zipCode,
     city: input.city,
     state: input.state,
-    birthDate: input.birthDate,
   });
 
   // Verifica duplicata ativa (NEW ou REGISTERED)

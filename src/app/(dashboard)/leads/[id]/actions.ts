@@ -204,15 +204,13 @@ export async function updateCustomerAction(formData: FormData) {
   const zipCode  = (formData.get("zipCode")  as string)?.replace(/\D/g, "") || null;
   const city     = (formData.get("city")     as string)?.trim()             || null;
   const state    = (formData.get("state")    as string)?.trim()             || null;
-  const bdStr    = (formData.get("birthDate") as string)?.trim();
-  const birthDate = bdStr ? new Date(bdStr) : null;
 
   if (!name || !phone) throw new Error("Nome e telefone são obrigatórios");
 
   try {
     await prisma.customer.update({
       where: { id: lead.customerId },
-      data:  { name, phone, email, document, zipCode, city, state, birthDate },
+      data:  { name, phone, email, document, zipCode, city, state },
     });
   } catch (err: unknown) {
     if ((err as { code?: string }).code === "P2002") {

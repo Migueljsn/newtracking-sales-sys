@@ -129,7 +129,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 zipCode:   customer.zipCode,
                 city:      customer.city,
                 state:     customer.state,
-                birthDate: customer.birthDate,
               }} />
             </div>
           </div>
@@ -151,9 +150,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               { label: "CEP",        value: customer.zipCode },
               { label: "Cidade",     value: customer.city },
               { label: "Estado",     value: customer.state },
-              { label: "Nascimento", value: customer.birthDate
-                  ? new Date(customer.birthDate).toLocaleDateString("pt-BR")
-                  : null },
             ].map(({ label, value }) => value ? (
               <div key={label} className="flex justify-between text-sm">
                 <dt className="text-[var(--text-muted)]">{label}</dt>

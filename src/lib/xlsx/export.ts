@@ -37,9 +37,6 @@ export async function generateLeadsXlsx(clientId: string): Promise<Buffer> {
     "CEP":                   lead.customer.zipCode ?? "",
     "Cidade":                lead.customer.city ?? "",
     "Estado":                lead.customer.state ?? "",
-    "Data de Nascimento":    lead.customer.birthDate
-                               ? lead.customer.birthDate.toLocaleDateString("pt-BR")
-                               : "",
     "Consultor":             lead.consultant ?? "",
     "Status":                statusLabel(lead.status),
     "Valor da Venda (R$)":   lead.sale ? Number(lead.sale.value) : "",

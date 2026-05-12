@@ -9,7 +9,6 @@ interface CustomerInput {
   zipCode?: string;
   city?: string;
   state?: string;
-  birthDate?: Date;
 }
 
 export async function findOrCreateCustomer(input: CustomerInput) {
@@ -34,7 +33,6 @@ export async function findOrCreateCustomer(input: CustomerInput) {
     if (!customer.zipCode   && input.zipCode)   updates.zipCode   = input.zipCode;
     if (!customer.city      && input.city)      updates.city      = input.city;
     if (!customer.state     && input.state)     updates.state     = input.state;
-    if (!customer.birthDate && input.birthDate) updates.birthDate = input.birthDate;
 
     if (Object.keys(updates).length > 0) {
       customer = await prisma.customer.update({

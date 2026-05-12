@@ -9,7 +9,7 @@ export async function GET() {
 
   const headers = [
     "Nome", "Telefone", "Email", "CPF/CNPJ", "CEP", "Cidade", "Estado",
-    "Data de Nascimento", "Consultor", "Status",
+    "Consultor", "Status",
     "Valor da Venda (R$)", "Data da Venda", "Data de Captura",
     "UTM Source", "UTM Medium", "UTM Campaign", "UTM Content", "UTM Term",
   ];
@@ -22,7 +22,6 @@ export async function GET() {
     "CEP":                  "01310-100",
     "Cidade":               "São Paulo",
     "Estado":               "SP",
-    "Data de Nascimento":   "01/01/1990",
     "Consultor":            "Maria",
     "Status":               "NOVA",
     "Valor da Venda (R$)":  "",
@@ -41,7 +40,7 @@ export async function GET() {
 
   ws["!cols"] = [
     { wch: 25 }, { wch: 16 }, { wch: 25 }, { wch: 16 },
-    { wch: 12 }, { wch: 16 }, { wch: 8  }, { wch: 16 },
+    { wch: 12 }, { wch: 16 }, { wch: 8  },
     { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
     { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 20 },
     { wch: 16 }, { wch: 14 },

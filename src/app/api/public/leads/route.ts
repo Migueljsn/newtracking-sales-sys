@@ -49,7 +49,6 @@ export async function POST(req: NextRequest) {
       zipCode:        body.zip_code,
       city:           body.city,
       state:          body.state,
-      birthDate:      body.birth_date ? new Date(body.birth_date) : undefined,
       utmSource:      body.utm_source,
       utmMedium:      body.utm_medium,
       utmCampaign:    body.utm_campaign,

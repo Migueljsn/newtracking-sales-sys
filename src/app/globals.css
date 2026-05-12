@@ -383,31 +383,62 @@ button {
 /* ─── Print (analytics PDF) ─────────────────── */
 
 @media print {
-  body * { visibility: hidden; }
+  @page { margin: 10mm; size: A4 landscape; }
 
-  #analytics-print-area,
-  #analytics-print-area * { visibility: visible; }
-
-  #analytics-print-area {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    padding: 16px;
-    background: #fff;
-    overflow: visible;
-  }
-
-  .no-print { display: none !important; }
-
-  .card, .stat-card {
+  /* base */
+  html, body {
     background: #fff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: none !important;
-    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
+
+  /* hide sidebar, top bar, controls, backdrop elements */
+  aside,
+  .no-print,
+  [data-mobile-bar],
+  [aria-label="Abrir navegação"],
+  [aria-label="Fechar navegação"] { display: none !important; }
+
+  /* remove layout constraints */
+  body > div, .flex.min-h-screen { display: block !important; }
+  main { overflow: visible !important; width: 100% !important; }
+  .page-shell { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+
+  /* force white backgrounds + borders on cards */
+  .card, .stat-card {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* force dark text regardless of theme */
+  * { color: #1e293b !important; }
+
+  /* recharts axis labels and ticks */
+  .recharts-text tspan,
+  .recharts-cartesian-axis-tick-value tspan { fill: #64748b !important; }
+
+  /* recharts grid */
+  .recharts-cartesian-grid line,
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-cartesian-grid-vertical line { stroke: #e2e8f0 !important; }
+
+  /* keep chart colors */
+  .recharts-area-area,
+  .recharts-bar-rectangle path,
+  .recharts-layer path,
+  .recharts-surface { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   svg { overflow: visible !important; }
 
-  @page { margin: 8mm; size: A4 landscape; }
+  /* progress bars in HBarList */
+  #analytics-print-area div[style*="background"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 

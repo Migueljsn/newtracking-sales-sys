@@ -74,7 +74,7 @@ export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
   return (
     <>
       {/* ─── Mobile top bar ──────────────────────── */}
-      <div className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 py-3 backdrop-blur-xl xl:hidden">
+      <div className="no-print sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 py-3 backdrop-blur-xl xl:hidden">
         <div className="page-shell flex items-center justify-between gap-3">
           <div className="flex items-center min-w-0">
             <div className="min-w-0">

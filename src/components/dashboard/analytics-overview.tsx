@@ -181,6 +181,15 @@ export function AnalyticsOverview() {
       {/* ── Printable area ── */}
       <div id="analytics-print-area" className="space-y-6">
 
+        {/* print-only header */}
+        <div className="hidden print:flex items-center justify-between border-b border-slate-200 pb-3 mb-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Relatório Analytics</p>
+            <p className="text-lg font-bold text-slate-800">Período: últimos {days} dias</p>
+          </div>
+          <p className="text-sm text-slate-500">{new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
+        </div>
+
         {/* ── KPI cards ── */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard

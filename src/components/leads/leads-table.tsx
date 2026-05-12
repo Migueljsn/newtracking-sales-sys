@@ -29,10 +29,11 @@ const sourceLabel: Record<LeadSource, string> = {
 };
 
 const statusTabs: { value: LeadStatus | "ALL"; label: string }[] = [
-  { value: "ALL",  label: "Todas" },
-  { value: "NEW",  label: "Novas" },
-  { value: "SOLD", label: "Vendas" },
-  { value: "LOST", label: "Perdidas" },
+  { value: "ALL",        label: "Todas"      },
+  { value: "NEW",        label: "Novas"      },
+  { value: "REGISTERED", label: "Cadastradas"},
+  { value: "SOLD",       label: "Vendidas"   },
+  { value: "LOST",       label: "Perdidas"   },
 ];
 
 export function LeadsTable() {
@@ -50,10 +51,11 @@ export function LeadsTable() {
   const resetPage = () => setPage(0);
 
   const counts: Record<LeadStatus | "ALL", number> = {
-    ALL:  leads.length,
-    NEW:  leads.filter((l) => l.status === "NEW").length,
-    SOLD: leads.filter((l) => l.status === "SOLD").length,
-    LOST: leads.filter((l) => l.status === "LOST").length,
+    ALL:        leads.length,
+    NEW:        leads.filter((l) => l.status === "NEW").length,
+    REGISTERED: leads.filter((l) => l.status === "REGISTERED").length,
+    SOLD:       leads.filter((l) => l.status === "SOLD").length,
+    LOST:       leads.filter((l) => l.status === "LOST").length,
   };
 
   const filtered = leads.filter((lead) => {

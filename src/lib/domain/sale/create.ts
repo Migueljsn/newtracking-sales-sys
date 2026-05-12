@@ -26,10 +26,10 @@ export async function createSale(input: CreateSaleInput) {
     include: { customer: true },
   });
 
-  if (lead.status !== "NEW") {
+  if (lead.status !== "REGISTERED" && lead.status !== "NEW") {
     throw new Error(
       lead.status === "SOLD"
-        ? "Esta lead já tem uma venda registrada. Use o botão 'Nova venda' para registrar uma recompra."
+        ? "Esta lead já tem uma venda registrada. Use o botão 'Registrar recompra' para registrar uma nova venda."
         : "Leads perdidas não podem receber vendas diretamente."
     );
   }
@@ -63,7 +63,7 @@ export async function createSale(input: CreateSaleInput) {
     where: { id: input.leadId },
     data: {
       status: "SOLD",
-      statusHistory: { create: { from: "NEW", to: "SOLD" } },
+      statusHistory: { create: { from: lead.status, to: "SOLD" } },
     },
   });
 

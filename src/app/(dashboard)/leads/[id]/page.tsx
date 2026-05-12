@@ -9,6 +9,7 @@ import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { RegisterSaleModal } from "@/components/leads/register-sale-modal";
 import { RegisterLtvSaleModal } from "@/components/leads/register-ltv-sale-modal";
 import { MarkLostButton } from "@/components/leads/mark-lost-button";
+import { MarkRegisteredButton } from "@/components/leads/mark-registered-button";
 import { EditCustomerModal } from "@/components/leads/edit-customer-modal";
 import { EditLeadModal } from "@/components/leads/edit-lead-modal";
 import { EditSaleModal } from "@/components/leads/edit-sale-modal";
@@ -64,12 +65,21 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         <div className="flex flex-wrap items-center gap-3">
           <DeleteLeadButton leadId={lead.id} hasSale={!!lead.sale} />
 
-          {lead.status === "NEW" ? (
+          {lead.status === "NEW" && (
+            <>
+              <MarkLostButton leadId={lead.id} />
+              <MarkRegisteredButton leadId={lead.id} />
+            </>
+          )}
+
+          {lead.status === "REGISTERED" && (
             <>
               <MarkLostButton leadId={lead.id} />
               <RegisterSaleModal leadId={lead.id} customerName={customer.name} />
             </>
-          ) : (
+          )}
+
+          {(lead.status === "SOLD" || lead.status === "LOST") && (
             <RegisterLtvSaleModal
               sourceLeadId={lead.id}
               customerName={customer.name}
@@ -89,6 +99,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <div className="flex items-center gap-2">
               <EditLeadModal
                 leadId={lead.id}
+                consultant={lead.consultant}
                 notes={lead.notes}
                 utmSource={lead.utmSource}
                 utmMedium={lead.utmMedium}
@@ -108,6 +119,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               }} />
             </div>
           </div>
+
+          {lead.consultant && (
+            <div className="flex items-center justify-between rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-sm">
+              <span className="text-[var(--text-muted)]">Consultor</span>
+              <span className="font-semibold text-[var(--text)]">{lead.consultant}</span>
+            </div>
+          )}
 
           <dl className="space-y-3">
             {[

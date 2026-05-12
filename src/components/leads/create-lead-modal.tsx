@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-r
 import { toast } from "sonner";
 import { createLeadAction } from "@/app/(dashboard)/leads/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { ConsultantSelect } from "@/components/leads/consultant-select";
 
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
@@ -190,6 +191,10 @@ export function CreateLeadModal() {
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Cidade</label>
                   <input name="city" className="input w-full" placeholder="São Paulo" />
                 </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Consultor responsável</label>
+                  <ConsultantSelect name="consultant" />
+                </div>
               </div>
 
               {/* UTMs colapsável */}
@@ -255,11 +260,26 @@ export function CreateLeadModal() {
                       </p>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                        Valor da venda (R$) *
-                      </label>
-                      <CurrencyInput name="saleValue" required={sellNow} className="input w-full" />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                          Data da venda *
+                        </label>
+                        <input
+                          type="date"
+                          name="soldAt"
+                          required={sellNow}
+                          defaultValue={new Date().toISOString().split("T")[0]}
+                          max={new Date().toISOString().split("T")[0]}
+                          className="input w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                          Valor da venda (R$) *
+                        </label>
+                        <CurrencyInput name="saleValue" required={sellNow} className="input w-full" />
+                      </div>
                     </div>
 
                     <div>

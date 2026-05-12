@@ -16,6 +16,7 @@ interface CreateLeadInput {
   state?: string;
   birthDate?: Date;
   source?: LeadSource;
+  consultant?: string;
   utmSource?: string;
   utmMedium?: string;
   utmCampaign?: string;
@@ -42,12 +43,12 @@ export async function createLead(input: CreateLeadInput) {
     birthDate: input.birthDate,
   });
 
-  // Verifica duplicata ativa
+  // Verifica duplicata ativa (NEW ou REGISTERED)
   const duplicate = await prisma.lead.findFirst({
     where: {
-      clientId: input.clientId,
+      clientId:   input.clientId,
       customerId: customer.id,
-      status: "NEW",
+      status:     { in: ["NEW", "REGISTERED"] },
     },
   });
 
@@ -72,22 +73,21 @@ export async function createLead(input: CreateLeadInput) {
 
   const lead = await prisma.lead.create({
     data: {
-      clientId: input.clientId,
-      customerId: customer.id,
-      source: input.source ?? LeadSource.FORM,
-      utmSource: input.utmSource,
-      utmMedium: input.utmMedium,
-      utmCampaign: input.utmCampaign,
-      utmContent: input.utmContent,
-      utmTerm: input.utmTerm,
-      fbc: input.fbc,
-      fbp: input.fbp,
-      gclid: input.gclid,
+      clientId:      input.clientId,
+      customerId:    customer.id,
+      source:        input.source ?? LeadSource.FORM,
+      consultant:    input.consultant || null,
+      utmSource:     input.utmSource,
+      utmMedium:     input.utmMedium,
+      utmCampaign:   input.utmCampaign,
+      utmContent:    input.utmContent,
+      utmTerm:       input.utmTerm,
+      fbc:           input.fbc,
+      fbp:           input.fbp,
+      gclid:         input.gclid,
       eventSourceUrl: input.eventSourceUrl,
       capturedAt,
-      statusHistory: {
-        create: { to: "NEW" },
-      },
+      statusHistory: { create: { to: "NEW" } },
     },
   });
 

@@ -9,8 +9,13 @@ const config: Record<
     className: "bg-[var(--accent-soft)] text-[var(--accent)]",
     dotClass: "bg-[var(--accent)] animate-pulse",
   },
+  REGISTERED: {
+    label: "Cadastrada",
+    className: "bg-[var(--warning-soft)] text-[var(--warning)]",
+    dotClass: "bg-[var(--warning)] animate-pulse",
+  },
   SOLD: {
-    label: "Venda",
+    label: "Vendida",
     className: "bg-[var(--success-soft)] text-[var(--success)]",
     dotClass: "bg-[var(--success)]",
   },

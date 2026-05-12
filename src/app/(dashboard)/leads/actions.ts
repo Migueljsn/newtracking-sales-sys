@@ -31,16 +31,19 @@ export async function createLeadAction(
   const utmContent  = (formData.get("utmContent")  as string)?.trim() || undefined;
   const utmTerm     = (formData.get("utmTerm")     as string)?.trim() || undefined;
 
+  const consultant = (formData.get("consultant") as string)?.trim() || undefined;
+
   const { lead, duplicate } = await createLead({
     clientId,
     name,
     phone,
-    email:    (formData.get("email")   as string)?.trim() || undefined,
-    document: document || undefined,
-    zipCode:  zipCode  || undefined,
-    city:     (formData.get("city")    as string)?.trim() || undefined,
-    state:    (formData.get("state")   as string)?.trim() || undefined,
-    source:   "MANUAL",
+    email:      (formData.get("email")   as string)?.trim() || undefined,
+    document:   document || undefined,
+    zipCode:    zipCode  || undefined,
+    city:       (formData.get("city")    as string)?.trim() || undefined,
+    state:      (formData.get("state")   as string)?.trim() || undefined,
+    source:     "MANUAL",
+    consultant,
     utmSource,
     utmMedium,
     utmCampaign,
@@ -67,10 +70,14 @@ export async function createLeadAction(
         }))
         .filter((item) => item.name.trim() !== "");
 
+      const soldAtStr = (formData.get("soldAt") as string)?.trim();
+      const soldAt    = soldAtStr ? new Date(soldAtStr) : undefined;
+
       await createSale({
         clientId,
         leadId: lead.id,
         value:  saleValue,
+        soldAt,
         notes:  (formData.get("saleNotes") as string)?.trim() || undefined,
         items:  items.length > 0 ? items : undefined,
       });

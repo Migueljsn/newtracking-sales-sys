@@ -59,6 +59,9 @@ model ClientSettings {
   metaTestEventCode                 String?
   trackingEnabled                   Boolean  @default(true)
 
+  // Consultores / vendedores
+  consultants                       String[] @default([])
+
   // Google Ads Conversions API
   googleAdsEnabled                  Boolean  @default(false)
   googleAdsCustomerId               String?  // ex: 123-456-7890
@@ -157,6 +160,7 @@ model Lead {
   gclid          String?     // Google Click ID (não hashear)
   eventSourceUrl String?     // URL da landing page no momento da captura
 
+  consultant     String?     // nome do consultor/vendedor responsável
   notes          String?
   capturedAt     DateTime    @default(now()) // pode ser sobrescrito em importações
   createdAt      DateTime    @default(now())
@@ -174,9 +178,10 @@ model Lead {
 }
 
 enum LeadStatus {
-  NEW    // recém capturada
-  SOLD   // venda registrada
-  LOST   // descartada
+  NEW        // recém capturada, aguardando primeiro contato
+  REGISTERED // cadastrada no sistema da distribuidora, ainda não comprou
+  SOLD       // venda registrada
+  LOST       // descartada em qualquer etapa do funil
 }
 
 enum LeadSource {

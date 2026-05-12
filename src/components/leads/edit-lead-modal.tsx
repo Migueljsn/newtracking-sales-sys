@@ -5,9 +5,11 @@ import { createPortal } from "react-dom";
 import { ChevronDown, ChevronUp, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { updateLeadAction } from "@/app/(dashboard)/leads/[id]/actions";
+import { ConsultantSelect } from "@/components/leads/consultant-select";
 
 interface Props {
   leadId:      string;
+  consultant:  string | null;
   notes:       string | null;
   utmSource:   string | null;
   utmMedium:   string | null;
@@ -16,7 +18,7 @@ interface Props {
   utmTerm:     string | null;
 }
 
-export function EditLeadModal({ leadId, notes, utmSource, utmMedium, utmCampaign, utmContent, utmTerm }: Props) {
+export function EditLeadModal({ leadId, consultant, notes, utmSource, utmMedium, utmCampaign, utmContent, utmTerm }: Props) {
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
   const [utmOpen, setUtmOpen] = useState(!!(utmSource || utmMedium || utmCampaign));
@@ -58,6 +60,11 @@ export function EditLeadModal({ leadId, notes, utmSource, utmMedium, utmCampaign
 
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
               <input type="hidden" name="leadId" value={leadId} />
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Consultor responsável</label>
+                <ConsultantSelect name="consultant" defaultValue={consultant} />
+              </div>
 
               <div>
                 <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Observações</label>

@@ -152,7 +152,7 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
-  const { data: leads = [] } = useQuery<Lead[]>({
+  const { data: leads = [], isLoading, isFetching } = useQuery<Lead[]>({
     queryKey:        ["leads"],
     queryFn:         () => fetch("/api/leads").then((r) => r.json()),
     refetchInterval: 30_000,
@@ -401,7 +401,42 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
 
       {/* Table */}
       <div className="table-shell">
-        {paginated.length === 0 ? (
+        {isLoading ? (
+          <div className="table-scroll">
+            <table className="w-full text-sm">
+              <thead className="bg-[var(--surface-muted)]">
+                <tr className="border-b border-[var(--border)]">
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
+                  {visibleCols.has("phone")      && <th className="px-4 py-3" />}
+                  {visibleCols.has("emailDoc")   && <th className="px-4 py-3" />}
+                  {visibleCols.has("status")     && <th className="px-4 py-3" />}
+                  {visibleCols.has("state")      && <th className="px-4 py-3" />}
+                  {visibleCols.has("consultant") && <th className="px-4 py-3" />}
+                  {visibleCols.has("source")     && <th className="px-4 py-3" />}
+                  {visibleCols.has("capturedAt") && <th className="px-4 py-3" />}
+                  {visibleCols.has("inactivity") && <th className="px-4 py-3" />}
+                  <th />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)]">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-4"><div className="h-3.5 w-32 rounded-md bg-[var(--border)]" /></td>
+                    {visibleCols.has("phone")      && <td className="px-4 py-4"><div className="h-3.5 w-24 rounded-md bg-[var(--border)]" /></td>}
+                    {visibleCols.has("emailDoc")   && <td className="px-4 py-4"><div className="h-3.5 w-36 rounded-md bg-[var(--border)]" /></td>}
+                    {visibleCols.has("status")     && <td className="px-4 py-4"><div className="h-5 w-20 rounded-full bg-[var(--border)]" /></td>}
+                    {visibleCols.has("state")      && <td className="px-4 py-4"><div className="h-3.5 w-8  rounded-md bg-[var(--border)]" /></td>}
+                    {visibleCols.has("consultant") && <td className="px-4 py-4"><div className="h-3.5 w-20 rounded-md bg-[var(--border)]" /></td>}
+                    {visibleCols.has("source")     && <td className="px-4 py-4"><div className="h-3.5 w-20 rounded-md bg-[var(--border)]" /></td>}
+                    {visibleCols.has("capturedAt") && <td className="px-4 py-4"><div className="h-3.5 w-20 rounded-md bg-[var(--border)]" /></td>}
+                    {visibleCols.has("inactivity") && <td className="px-4 py-4"><div className="h-3.5 w-10 rounded-md bg-[var(--border)]" /></td>}
+                    <td className="px-4 py-4"><div className="h-3.5 w-10 rounded-md bg-[var(--border)]" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : paginated.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--text-muted)]">
               {hasActiveFilters ? <Search size={22} /> : <Users size={22} />}
@@ -516,10 +551,18 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <p className="text-xs text-[var(--text-muted)]">
-            {filtered.length === 0
+            {isLoading
+              ? "Carregando..."
+              : filtered.length === 0
               ? "0 leads"
               : `${safePage * pageSize + 1}–${Math.min((safePage + 1) * pageSize, filtered.length)} de ${filtered.length} leads`}
           </p>
+          {isFetching && !isLoading && (
+            <span className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+              Atualizando
+            </span>
+          )}
 
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-[var(--text-muted)]">Por página:</span>

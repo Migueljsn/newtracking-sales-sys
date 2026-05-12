@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
 interface Props {
   name:         string;
@@ -32,16 +33,19 @@ export function ConsultantSelect({ name, defaultValue }: Props) {
     if (!trimmed) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/consultants", {
+      const res  = await fetch("/api/consultants", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ name: trimmed }),
       });
+      if (!res.ok) throw new Error("Falha ao salvar consultor");
       const data = await res.json() as { consultants: string[] };
-      setConsultants(data.consultants);
+      setConsultants(data.consultants ?? []);
       setValue(trimmed);
       setNewName("");
       setAdding(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar consultor");
     } finally {
       setSaving(false);
     }

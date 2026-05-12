@@ -46,20 +46,29 @@ const COLUMNS: { key: ColumnKey; label: string; defaultOn: boolean }[] = [
   { key: "inactivity", label: "Dias inativo", defaultOn: false },
 ];
 
-const STORAGE_KEY = "leads-columns-v1";
+const COLUMNS_KEY  = "leads-columns-v1";
+const PAGE_SIZE_KEY = "leads-page-size-v1";
+const PAGE_SIZES    = [25, 50, 100];
 
 function loadColumns(): Set<ColumnKey> {
   if (typeof window === "undefined") return new Set(COLUMNS.filter(c => c.defaultOn).map(c => c.key));
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(COLUMNS_KEY);
     if (stored) return new Set(JSON.parse(stored) as ColumnKey[]);
   } catch {}
   return new Set(COLUMNS.filter(c => c.defaultOn).map(c => c.key));
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function loadPageSize(): number {
+  if (typeof window === "undefined") return 50;
+  try {
+    const n = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    if (PAGE_SIZES.includes(n)) return n;
+  } catch {}
+  return 50;
+}
 
-const PAGE_SIZE = 50;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const sourceLabel: Record<LeadSource, string> = {
   FORM:   "Formulário",
@@ -77,6 +86,8 @@ const statusTabs: { value: LeadStatus | "ALL"; label: string }[] = [
 
 const INACTIVITY_PRESETS = [7, 15, 30, 45];
 
+const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+
 function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
 }
@@ -87,7 +98,18 @@ function getInactivityDays(lead: Lead): number {
   return daysAgo(lead.capturedAt);
 }
 
-const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  const result: (number | "...")[] = [];
+  const rangeStart = Math.max(1, current - 1);
+  const rangeEnd   = Math.min(total - 2, current + 1);
+  result.push(0);
+  if (rangeStart > 1) result.push("...");
+  for (let i = rangeStart; i <= rangeEnd; i++) result.push(i);
+  if (rangeEnd < total - 2) result.push("...");
+  result.push(total - 1);
+  return result;
+}
 
 // ─── CSV export ───────────────────────────────────────────────────────────────
 
@@ -140,22 +162,40 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
   const [search,           setSearch]           = useState("");
   const [statusFilter,     setStatusFilter]     = useState<LeadStatus | "ALL">("ALL");
   const [stateFilter,      setStateFilter]      = useState<string>("ALL");
+  const [consultantFilter, setConsultantFilter] = useState<string>("ALL");
   const [inactivityFilter, setInactivityFilter] = useState<number | null>(null);
   const [page,             setPage]             = useState(0);
 
+  // Page size
+  const [pageSize, setPageSize] = useState<number>(loadPageSize);
+
   // Columns
-  const [visibleCols, setVisibleCols] = useState<Set<ColumnKey>>(() => loadColumns());
-  const [colPanelOpen, setColPanelOpen] = useState(false);
+  const [visibleCols,   setVisibleCols]   = useState<Set<ColumnKey>>(() => loadColumns());
+  const [colPanelOpen,  setColPanelOpen]  = useState(false);
   const colPanelRef = useRef<HTMLDivElement>(null);
+
+  // Consultants list
+  const [consultants, setConsultants] = useState<string[]>([]);
 
   const resetPage = () => setPage(0);
 
-  // Persist column selection
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...visibleCols]));
+    fetch("/api/consultants")
+      .then((r) => r.json())
+      .then((d) => setConsultants(d.consultants ?? []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(COLUMNS_KEY, JSON.stringify([...visibleCols]));
   }, [visibleCols]);
 
-  // Close column panel on outside click
+  useEffect(() => {
+    localStorage.setItem(PAGE_SIZE_KEY, String(pageSize));
+    resetPage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize]);
+
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (colPanelRef.current && !colPanelRef.current.contains(e.target as Node)) {
@@ -174,7 +214,7 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
     });
   }
 
-  // Counts
+  // Counts (always based on full list, not filtered)
   const counts: Record<LeadStatus | "ALL", number> = {
     ALL:        leads.length,
     NEW:        leads.filter((l) => l.status === "NEW").length,
@@ -193,23 +233,34 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
       lead.customer.document?.includes(q) ||
       lead.customer.email?.toLowerCase().includes(q);
 
-    const matchStatus     = statusFilter === "ALL" || lead.status === statusFilter;
-    const matchState      = stateFilter  === "ALL" || lead.customer.state === stateFilter;
-    const matchInactivity = inactivityFilter === null || getInactivityDays(lead) >= inactivityFilter;
+    const matchStatus     = statusFilter     === "ALL" || lead.status          === statusFilter;
+    const matchState      = stateFilter      === "ALL" || lead.customer.state  === stateFilter;
+    const matchConsultant = consultantFilter === "ALL" || lead.consultant       === consultantFilter;
+    const matchInactivity = inactivityFilter === null  || getInactivityDays(lead) >= inactivityFilter;
 
-    return matchSearch && matchStatus && matchState && matchInactivity;
+    return matchSearch && matchStatus && matchState && matchConsultant && matchInactivity;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage   = Math.min(page, totalPages - 1);
-  const paginated  = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const paginated  = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
+  const pageNums   = getPageNumbers(safePage, totalPages);
 
-  const hasActiveFilters = stateFilter !== "ALL" || inactivityFilter !== null || search !== "" || statusFilter !== "ALL";
+  const hasActiveFilters = search !== "" || statusFilter !== "ALL" || stateFilter !== "ALL" || consultantFilter !== "ALL" || inactivityFilter !== null;
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("ALL");
+    setStateFilter("ALL");
+    setConsultantFilter("ALL");
+    setInactivityFilter(null);
+    resetPage();
+  }
 
   return (
     <div className="space-y-4">
 
-      {/* Row 1: search + state + inactivity */}
+      {/* Row 1: search + state + consultant + inactivity */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
@@ -222,7 +273,6 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
           />
         </div>
 
-        {/* State filter */}
         <select
           value={stateFilter}
           onChange={(e) => { setStateFilter(e.target.value); resetPage(); }}
@@ -232,7 +282,17 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
           {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
         </select>
 
-        {/* Inactivity preset buttons */}
+        {consultants.length > 0 && (
+          <select
+            value={consultantFilter}
+            onChange={(e) => { setConsultantFilter(e.target.value); resetPage(); }}
+            className="input w-full lg:w-36"
+          >
+            <option value="ALL">Consultor</option>
+            {consultants.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+
         <div className="soft-panel flex items-center gap-1 p-1.5">
           <span className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Inativo há</span>
           {INACTIVITY_PRESETS.map((d) => {
@@ -254,7 +314,7 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
         </div>
       </div>
 
-      {/* Row 2: status tabs + column editor + export */}
+      {/* Row 2: status tabs + column editor + export + clear */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="soft-panel flex flex-1 flex-wrap gap-1 p-1.5">
           {statusTabs.map((tab) => {
@@ -329,10 +389,9 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
           <Download size={15} />
         </button>
 
-        {/* Clear filters */}
         {hasActiveFilters && (
           <button
-            onClick={() => { setSearch(""); setStatusFilter("ALL"); setStateFilter("ALL"); setInactivityFilter(null); resetPage(); }}
+            onClick={clearFilters}
             className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--danger)]"
           >
             <X size={13} /> Limpar filtros
@@ -453,16 +512,37 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-[var(--text-muted)]">
-          {filtered.length === 0
-            ? "0 leads"
-            : `${safePage * PAGE_SIZE + 1}–${Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} de ${filtered.length} leads`}
-        </p>
+      {/* Footer: count + page size + pagination */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-[var(--text-muted)]">
+            {filtered.length === 0
+              ? "0 leads"
+              : `${safePage * pageSize + 1}–${Math.min((safePage + 1) * pageSize, filtered.length)} de ${filtered.length} leads`}
+          </p>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[var(--text-muted)]">Por página:</span>
+            <div className="flex items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-0.5">
+              {PAGE_SIZES.map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setPageSize(size)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                    pageSize === size
+                      ? "bg-[var(--surface)] text-[var(--text)] shadow-sm"
+                      : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={safePage === 0}
@@ -470,7 +550,27 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
             >
               <ChevronLeft size={15} />
             </button>
-            <span className="text-xs text-[var(--text-muted)]">{safePage + 1} / {totalPages}</span>
+
+            {pageNums.map((n, i) =>
+              n === "..." ? (
+                <span key={`ellipsis-${i}`} className="flex h-8 w-8 items-center justify-center text-xs text-[var(--text-muted)]">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  onClick={() => setPage(n)}
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-semibold transition-all ${
+                    n === safePage
+                      ? "bg-[var(--accent)] text-white shadow-sm"
+                      : "border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  {n + 1}
+                </button>
+              )
+            )}
+
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={safePage === totalPages - 1}

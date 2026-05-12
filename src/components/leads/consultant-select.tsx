@@ -19,7 +19,7 @@ export function ConsultantSelect({ name, defaultValue }: Props) {
   useEffect(() => {
     fetch("/api/consultants")
       .then((r) => r.json())
-      .then((data: string[]) => setConsultants(data))
+      .then((d: { consultants: string[] }) => setConsultants(d.consultants ?? []))
       .catch(() => {});
   }, []);
 

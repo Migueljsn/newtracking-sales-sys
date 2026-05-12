@@ -6,7 +6,22 @@ import { fetchAnalytics } from "@/lib/queries/analytics";
 
 export async function GET(req: NextRequest) {
   const session  = await getSession();
-  const days     = Math.min(90, Math.max(7, Number(req.nextUrl.searchParams.get("days") ?? 30)));
-  const data     = await fetchAnalytics(session.clientId!, days);
+  const p        = req.nextUrl.searchParams;
+  const fromParam = p.get("from");
+  const toParam   = p.get("to");
+
+  let from: Date, to: Date;
+
+  if (fromParam && toParam) {
+    from = new Date(fromParam);
+    to   = new Date(toParam);
+    to.setHours(23, 59, 59, 999);
+  } else {
+    const days = Math.min(365, Math.max(1, Number(p.get("days") ?? 30)));
+    to   = new Date();
+    from = new Date(Date.now() - days * 86_400_000);
+  }
+
+  const data = await fetchAnalytics(session.clientId!, from, to);
   return NextResponse.json(data);
 }

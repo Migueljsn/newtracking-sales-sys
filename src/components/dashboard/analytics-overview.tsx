@@ -7,8 +7,8 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
-  ArrowDownRight, ArrowUpRight, Download, Minus,
-  Users, DollarSign, PercentSquare, Ticket,
+  ArrowDownRight, ArrowUpRight, Calendar as CalendarIcon,
+  Download, Minus, Users, DollarSign, PercentSquare, Ticket,
 } from "lucide-react";
 import type { AnalyticsData } from "@/lib/queries/analytics";
 
@@ -126,14 +126,38 @@ const PERIODS = [
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+const TODAY = new Date().toISOString().slice(0, 10);
+
+function daysAgo(n: number) {
+  return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+}
+
 export function AnalyticsOverview() {
-  const [days, setDays] = useState(30);
+  const [mode,       setMode]       = useState<"preset" | "custom">("preset");
+  const [days,       setDays]       = useState(30);
+  const [customFrom, setCustomFrom] = useState(daysAgo(30));
+  const [customTo,   setCustomTo]   = useState(TODAY);
+
+  const isCustomReady = mode === "custom" && customFrom && customTo && customFrom <= customTo;
+
+  const queryKey = mode === "preset"
+    ? ["analytics", "preset", days]
+    : ["analytics", "custom", customFrom, customTo];
+
+  const queryUrl = mode === "preset"
+    ? `/api/dashboard/analytics?days=${days}`
+    : `/api/dashboard/analytics?from=${customFrom}&to=${customTo}`;
 
   const { data, isFetching } = useQuery<AnalyticsData>({
-    queryKey: ["analytics", days],
-    queryFn:  () => fetch(`/api/dashboard/analytics?days=${days}`).then(r => r.json()),
+    queryKey,
+    queryFn:  () => fetch(queryUrl).then(r => r.json()),
     staleTime: 60_000,
+    enabled:  mode === "preset" || !!isCustomReady,
   });
+
+  const periodLabel = mode === "preset"
+    ? `últimos ${days} dias`
+    : `${customFrom} até ${customTo}`;
 
   function handleExport() {
     window.print();
@@ -144,38 +168,83 @@ export function AnalyticsOverview() {
   return (
     <div className="space-y-6">
       {/* ── Controls ── */}
-      <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-1">
-          {PERIODS.map(p => (
+      <div className="no-print space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* period selector */}
+          <div className="flex flex-wrap gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-1">
+            {PERIODS.map(p => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => { setMode("preset"); setDays(p.value); }}
+                className={`rounded-xl px-4 py-1.5 text-sm font-medium transition-all ${
+                  mode === "preset" && days === p.value
+                    ? "bg-[var(--accent)] text-white shadow"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
             <button
-              key={p.value}
               type="button"
-              onClick={() => setDays(p.value)}
-              className={`rounded-xl px-4 py-1.5 text-sm font-medium transition-all ${
-                days === p.value
+              onClick={() => setMode("custom")}
+              className={`flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm font-medium transition-all ${
+                mode === "custom"
                   ? "bg-[var(--accent)] text-white shadow"
                   : "text-[var(--text-muted)] hover:text-[var(--text)]"
               }`}
             >
-              {p.label}
+              <CalendarIcon size={13} />
+              Personalizado
             </button>
-          ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isFetching && (
+              <span className="text-xs text-[var(--text-muted)] animate-pulse">Atualizando...</span>
+            )}
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={!data}
+              className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+            >
+              <Download size={14} />
+              Exportar PDF
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {isFetching && (
-            <span className="text-xs text-[var(--text-muted)] animate-pulse">Atualizando...</span>
-          )}
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={!data}
-            className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
-          >
-            <Download size={14} />
-            Exportar PDF
-          </button>
-        </div>
+        {/* custom date range */}
+        {mode === "custom" && (
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-[var(--text-muted)]">De</label>
+              <input
+                type="date"
+                value={customFrom}
+                max={customTo || TODAY}
+                onChange={e => setCustomFrom(e.target.value)}
+                className="input py-1.5 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-[var(--text-muted)]">Até</label>
+              <input
+                type="date"
+                value={customTo}
+                min={customFrom}
+                max={TODAY}
+                onChange={e => setCustomTo(e.target.value)}
+                className="input py-1.5 text-sm"
+              />
+            </div>
+            {customFrom && customTo && customFrom > customTo && (
+              <span className="text-xs font-medium text-[var(--danger)]">Data inicial deve ser anterior à final</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Printable area ── */}
@@ -185,7 +254,7 @@ export function AnalyticsOverview() {
         <div className="hidden print:flex items-center justify-between border-b border-slate-200 pb-3 mb-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Relatório Analytics</p>
-            <p className="text-lg font-bold text-slate-800">Período: últimos {days} dias</p>
+            <p className="text-lg font-bold text-slate-800">Período: {periodLabel}</p>
           </div>
           <p className="text-sm text-slate-500">{new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
         </div>

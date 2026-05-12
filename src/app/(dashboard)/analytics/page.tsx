@@ -9,10 +9,13 @@ export default async function AnalyticsPage() {
   const session  = await getSession();
   const clientId = session.clientId!;
 
+  const to   = new Date();
+  const from = new Date(Date.now() - 30 * 86_400_000);
+
   const queryClient = new QueryClient();
   await queryClient.prefetchQuery({
-    queryKey: ["analytics", 30],
-    queryFn:  () => fetchAnalytics(clientId, 30),
+    queryKey: ["analytics", "preset", 30],
+    queryFn:  () => fetchAnalytics(clientId, from, to),
   });
 
   return (

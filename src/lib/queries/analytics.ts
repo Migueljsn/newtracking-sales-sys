@@ -43,15 +43,16 @@ function localHour(date: Date) {
   return (date.getUTCHours() + 21) % 24;
 }
 
-export async function fetchAnalytics(clientId: string, days: number): Promise<AnalyticsData> {
-  const now           = Date.now();
-  const startDate     = new Date(now - days * 86_400_000);
-  const prevStartDate = new Date(now - 2 * days * 86_400_000);
+export async function fetchAnalytics(clientId: string, from: Date, to: Date): Promise<AnalyticsData> {
+  const days          = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / 86_400_000));
+  const startDate     = from;
+  const endDate       = to;
+  const prevStartDate = new Date(from.getTime() - days * 86_400_000);
   const todayStart    = new Date(); todayStart.setHours(0, 0, 0, 0);
 
   const [leads, sales, prevLeadsCount, prevSalesAgg] = await Promise.all([
     prisma.lead.findMany({
-      where:  { clientId, capturedAt: { gte: startDate } },
+      where:  { clientId, capturedAt: { gte: startDate, lte: endDate } },
       select: {
         id: true, status: true, capturedAt: true,
         utmSource: true, utmCampaign: true, consultant: true,
@@ -59,7 +60,7 @@ export async function fetchAnalytics(clientId: string, days: number): Promise<An
       },
     }),
     prisma.sale.findMany({
-      where:  { clientId, soldAt: { gte: startDate } },
+      where:  { clientId, soldAt: { gte: startDate, lte: endDate } },
       select: {
         id: true, value: true, soldAt: true,
         lead: {
@@ -95,9 +96,10 @@ export async function fetchAnalytics(clientId: string, days: number): Promise<An
     mapRevenue.set(d, (mapRevenue.get(d) ?? 0) + Number(s.value));
   });
   const byDay: DayPoint[] = [];
-  for (let i = 0; i < days; i++) {
+  for (let i = 0; i <= days; i++) {
     const d = new Date(startDate);
     d.setDate(d.getDate() + i);
+    if (d > endDate) break;
     const k = d.toISOString().slice(0, 10);
     byDay.push({ date: k, leads: mapLeads.get(k) ?? 0, sales: mapSales.get(k) ?? 0, revenue: mapRevenue.get(k) ?? 0 });
   }

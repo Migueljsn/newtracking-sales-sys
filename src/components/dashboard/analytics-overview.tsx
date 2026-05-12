@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
@@ -8,9 +8,8 @@ import {
 } from "recharts";
 import {
   ArrowDownRight, ArrowUpRight, Download, Minus,
-  TrendingUp, Users, DollarSign, PercentSquare, Ticket,
+  Users, DollarSign, PercentSquare, Ticket,
 } from "lucide-react";
-import { toast } from "sonner";
 import type { AnalyticsData } from "@/lib/queries/analytics";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -128,9 +127,7 @@ const PERIODS = [
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function AnalyticsOverview() {
-  const [days,    setDays]    = useState(30);
-  const [exporting, setExporting] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
+  const [days, setDays] = useState(30);
 
   const { data, isFetching } = useQuery<AnalyticsData>({
     queryKey: ["analytics", days],
@@ -138,39 +135,8 @@ export function AnalyticsOverview() {
     staleTime: 60_000,
   });
 
-  async function handleExport() {
-    if (!printRef.current || !data) return;
-    setExporting(true);
-    try {
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF }   = await import("jspdf");
-
-      const isDark  = document.documentElement.classList.contains("dark");
-      const bgColor = isDark ? "#0e1726" : "#ffffff";
-
-      const canvas = await html2canvas(printRef.current, {
-        scale:           2,
-        useCORS:         true,
-        allowTaint:      true,
-        backgroundColor: bgColor,
-        logging:         false,
-        windowWidth:     printRef.current.scrollWidth,
-        windowHeight:    printRef.current.scrollHeight,
-      });
-
-      const imgData  = canvas.toDataURL("image/png");
-      const pdfW     = canvas.width  / 2;
-      const pdfH     = canvas.height / 2;
-      const pdf      = new jsPDF({ orientation: pdfW > pdfH ? "landscape" : "portrait", unit: "px", format: [pdfW, pdfH] });
-      pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
-      pdf.save(`analytics-${days}d-${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success("PDF exportado com sucesso!");
-    } catch (err) {
-      toast.error("Erro ao exportar PDF. Tente novamente.");
-      console.error(err);
-    } finally {
-      setExporting(false);
-    }
+  function handleExport() {
+    window.print();
   }
 
   const s = data?.summary;
@@ -178,7 +144,7 @@ export function AnalyticsOverview() {
   return (
     <div className="space-y-6">
       {/* ── Controls ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-1">
           {PERIODS.map(p => (
             <button
@@ -203,17 +169,17 @@ export function AnalyticsOverview() {
           <button
             type="button"
             onClick={handleExport}
-            disabled={exporting || !data}
+            disabled={!data}
             className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
           >
             <Download size={14} />
-            {exporting ? "Exportando..." : "Exportar PDF"}
+            Exportar PDF
           </button>
         </div>
       </div>
 
       {/* ── Printable area ── */}
-      <div ref={printRef} className="space-y-6">
+      <div id="analytics-print-area" className="space-y-6">
 
         {/* ── KPI cards ── */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

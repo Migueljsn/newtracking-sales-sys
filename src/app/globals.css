@@ -379,3 +379,35 @@ button {
 .link-accent:hover {
   color: var(--accent-strong);
 }
+
+/* ─── Print (analytics PDF) ─────────────────── */
+
+@media print {
+  body * { visibility: hidden; }
+
+  #analytics-print-area,
+  #analytics-print-area * { visibility: visible; }
+
+  #analytics-print-area {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    padding: 16px;
+    background: #fff;
+    overflow: visible;
+  }
+
+  .no-print { display: none !important; }
+
+  .card, .stat-card {
+    background: #fff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  svg { overflow: visible !important; }
+
+  @page { margin: 8mm; size: A4 landscape; }
+}
+

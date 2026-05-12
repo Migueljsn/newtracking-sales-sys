@@ -5,23 +5,25 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
-  name:         string;
+  name:          string;
   defaultValue?: string | null;
 }
 
 export function ConsultantSelect({ name, defaultValue }: Props) {
   const [consultants, setConsultants] = useState<string[]>([]);
-  const [value, setValue]             = useState(defaultValue ?? "");
-  const [adding, setAdding]           = useState(false);
-  const [newName, setNewName]         = useState("");
-  const [saving, setSaving]           = useState(false);
+  const [value,       setValue]       = useState(defaultValue ?? "");
+  const [fetching,    setFetching]    = useState(true);
+  const [adding,      setAdding]      = useState(false);
+  const [newName,     setNewName]     = useState("");
+  const [saving,      setSaving]      = useState(false);
   const inputRef                      = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/consultants")
       .then((r) => r.json())
       .then((d: { consultants: string[] }) => setConsultants(d.consultants ?? []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setFetching(false));
   }, []);
 
   useEffect(() => {
@@ -57,48 +59,57 @@ export function ConsultantSelect({ name, defaultValue }: Props) {
         name={name}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="input w-full"
+        disabled={fetching}
+        className="input w-full disabled:opacity-60"
       >
-        <option value="">— Sem consultor —</option>
-        {consultants.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
+        {fetching ? (
+          <option value="">Carregando consultores...</option>
+        ) : (
+          <>
+            <option value="">— Sem consultor —</option>
+            {consultants.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </>
+        )}
       </select>
 
-      {adding ? (
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}
-            placeholder="Nome do consultor"
-            className="input flex-1"
-          />
+      {!fetching && (
+        adding ? (
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}
+              placeholder="Nome do consultor"
+              className="input flex-1"
+            />
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={saving || !newName.trim()}
+              className="btn-primary px-3 py-2 text-xs disabled:opacity-50"
+            >
+              {saving ? "..." : "Adicionar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAdding(false); setNewName(""); }}
+              className="btn-secondary px-3 py-2 text-xs"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
-            onClick={handleAdd}
-            disabled={saving || !newName.trim()}
-            className="btn-primary px-3 py-2 text-xs disabled:opacity-50"
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:text-[var(--accent-strong)]"
           >
-            {saving ? "..." : "Adicionar"}
+            <Plus size={12} /> Adicionar consultor
           </button>
-          <button
-            type="button"
-            onClick={() => { setAdding(false); setNewName(""); }}
-            className="btn-secondary px-3 py-2 text-xs"
-          >
-            Cancelar
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:text-[var(--accent-strong)]"
-        >
-          <Plus size={12} /> Adicionar consultor
-        </button>
+        )
       )}
     </div>
   );

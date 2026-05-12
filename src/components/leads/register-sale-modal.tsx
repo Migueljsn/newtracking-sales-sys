@@ -1,14 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { registerSaleAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
 
 interface Props {
-  leadId: string;
-  customerName: string;
+  leadId:           string;
+  customerName:     string;
+  customerEmail?:   string | null;
+  customerDocument?: string | null;
+  customerZipCode?: string | null;
 }
 
 interface Item {
@@ -17,11 +20,16 @@ interface Item {
   price: string;
 }
 
-export function RegisterSaleModal({ leadId, customerName }: Props) {
+export function RegisterSaleModal({ leadId, customerName, customerEmail, customerDocument, customerZipCode }: Props) {
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems]     = useState<Item[]>([]);
   const formRef               = useRef<HTMLFormElement>(null);
+
+  const missingFields: string[] = [];
+  if (!customerEmail)    missingFields.push("e-mail");
+  if (!customerDocument) missingFields.push("CPF/CNPJ");
+  if (!customerZipCode)  missingFields.push("CEP");
 
   function addItem() {
     setItems((prev) => [...prev, { name: "", quantity: "1", price: "" }]);
@@ -81,6 +89,22 @@ export function RegisterSaleModal({ leadId, customerName }: Props) {
                 <X size={18} />
               </button>
             </div>
+
+            {missingFields.length > 0 && (
+              <div className="mx-6 mt-5 flex items-start gap-3 rounded-xl border border-[var(--warning)] bg-[var(--warning-soft)] px-4 py-3">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0 text-[var(--warning)]" />
+                <div className="text-sm text-[var(--warning)]">
+                  <p className="font-semibold">Dados incompletos do cliente</p>
+                  <p className="mt-0.5 text-xs opacity-90">
+                    O campo{missingFields.length > 1 ? "s" : ""}{" "}
+                    <strong>{missingFields.join(", ")}</strong>{" "}
+                    {missingFields.length > 1 ? "não estão preenchidos" : "não está preenchido"}.
+                    Preencher esses dados aumenta a precisão do rastreamento da venda no Meta.
+                    Você pode continuar mesmo assim.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <form ref={formRef} onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
               <input type="hidden" name="leadId" value={leadId} />

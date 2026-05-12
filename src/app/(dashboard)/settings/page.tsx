@@ -7,6 +7,7 @@ import { SettingsForm } from "@/components/settings/settings-form";
 import { AuthorizedDomains } from "@/components/settings/authorized-domains";
 import { LtvEmailConfig } from "@/components/settings/ltv-email-config";
 import { EmailTemplates } from "@/components/settings/email-templates";
+import { WhatsappTemplateForm } from "@/components/settings/whatsapp-template-form";
 import { GuideCard } from "@/components/ui/guide-card";
 
 const TABS = [
@@ -114,6 +115,8 @@ export default async function SettingsPage({
             googleStatus={googleStatus}
             leadCaptureKey={client.leadCaptureKey}
           />
+
+          <WhatsappTemplateForm currentTemplate={settings?.whatsappTemplate ?? null} />
 
           <AuthorizedDomains domains={authorizedDomains} />
         </>

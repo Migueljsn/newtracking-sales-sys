@@ -157,3 +157,18 @@ export async function disconnectGoogleAdsAction() {
 
   revalidatePath("/settings");
 }
+
+export async function saveWhatsappTemplateAction(formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const whatsappTemplate = (formData.get("whatsappTemplate") as string)?.trim() || null;
+
+  await prisma.clientSettings.upsert({
+    where:  { clientId },
+    create: { clientId, whatsappTemplate },
+    update: { whatsappTemplate },
+  });
+
+  revalidatePath("/settings");
+}

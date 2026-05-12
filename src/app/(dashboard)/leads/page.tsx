@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
 import { getSession } from "@/lib/auth/session";
+import { prisma } from "@/lib/db/prisma";
 import { fetchLeadsForClient } from "@/lib/queries/leads";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { CreateLeadModal } from "@/components/leads/create-lead-modal";
@@ -11,11 +12,17 @@ export default async function LeadsPage() {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const queryClient = new QueryClient();
-  await queryClient.prefetchQuery({
-    queryKey: ["leads"],
-    queryFn:  () => fetchLeadsForClient(clientId),
-  });
+  const [queryClient, clientSettings] = await Promise.all([
+    (async () => {
+      const qc = new QueryClient();
+      await qc.prefetchQuery({ queryKey: ["leads"], queryFn: () => fetchLeadsForClient(clientId) });
+      return qc;
+    })(),
+    prisma.clientSettings.findUnique({
+      where:  { clientId },
+      select: { whatsappTemplate: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -38,7 +45,7 @@ export default async function LeadsPage() {
       />
 
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <LeadsTable />
+        <LeadsTable whatsappTemplate={clientSettings?.whatsappTemplate ?? null} />
       </HydrationBoundary>
     </div>
   );

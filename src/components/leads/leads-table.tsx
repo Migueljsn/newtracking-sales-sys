@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search, Users } from "lucide-react";
 import { LeadStatusBadge } from "./lead-status-badge";
+import { WhatsAppButton } from "./whatsapp-button";
 import type { LeadStatus, LeadSource } from "@prisma/client";
 
 interface Lead {
@@ -13,10 +14,12 @@ interface Lead {
   source: LeadSource;
   capturedAt: string;
   customer: {
-    name: string;
-    phone: string;
-    email: string | null;
+    name:     string;
+    phone:    string;
+    email:    string | null;
     document: string | null;
+    state:    string | null;
+    city:     string | null;
   };
 }
 
@@ -36,7 +39,11 @@ const statusTabs: { value: LeadStatus | "ALL"; label: string }[] = [
   { value: "LOST",       label: "Perdidas"   },
 ];
 
-export function LeadsTable() {
+interface LeadsTableProps {
+  whatsappTemplate?: string | null;
+}
+
+export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
   const { data: leads = [] } = useQuery<Lead[]>({
     queryKey:       ["leads"],
     queryFn:        () => fetch("/api/leads").then((r) => r.json()),
@@ -188,12 +195,22 @@ export function LeadsTable() {
                       {new Date(lead.capturedAt).toLocaleDateString("pt-BR")}
                     </td>
                     <td className="px-4 py-3.5">
-                      <Link
-                        href={`/leads/${lead.id}`}
-                        className="link-accent inline-flex items-center gap-1 text-xs"
-                      >
-                        Ver <ChevronRight size={13} />
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <WhatsAppButton
+                          phone={lead.customer.phone}
+                          name={lead.customer.name}
+                          state={lead.customer.state}
+                          city={lead.customer.city}
+                          template={whatsappTemplate}
+                          variant="icon"
+                        />
+                        <Link
+                          href={`/leads/${lead.id}`}
+                          className="link-accent inline-flex items-center gap-1 text-xs"
+                        >
+                          Ver <ChevronRight size={13} />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -62,6 +62,9 @@ model ClientSettings {
   // Consultores / vendedores
   consultants                       String[] @default([])
 
+  // Mensagem padrão WhatsApp (variáveis: {nome}, {estado}, {cidade})
+  whatsappTemplate                  String?
+
   // Google Ads Conversions API
   googleAdsEnabled                  Boolean  @default(false)
   googleAdsCustomerId               String?  // ex: 123-456-7890

@@ -4,12 +4,14 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
+import { prisma } from "@/lib/db/prisma";
 import { fetchLeadDetail } from "@/lib/queries/lead-detail";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { RegisterSaleModal } from "@/components/leads/register-sale-modal";
 import { RegisterLtvSaleModal } from "@/components/leads/register-ltv-sale-modal";
 import { MarkLostButton } from "@/components/leads/mark-lost-button";
 import { MarkRegisteredButton } from "@/components/leads/mark-registered-button";
+import { WhatsAppButton } from "@/components/leads/whatsapp-button";
 import { EditCustomerModal } from "@/components/leads/edit-customer-modal";
 import { EditLeadModal } from "@/components/leads/edit-lead-modal";
 import { EditSaleModal } from "@/components/leads/edit-sale-modal";
@@ -35,7 +37,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const session = await getSession();
 
-  const lead = await fetchLeadDetail(id, session.clientId!);
+  const [lead, clientSettings] = await Promise.all([
+    fetchLeadDetail(id, session.clientId!),
+    prisma.clientSettings.findUnique({
+      where:  { clientId: session.clientId! },
+      select: { whatsappTemplate: true },
+    }),
+  ]);
 
   if (!lead) notFound();
 
@@ -75,7 +83,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           {lead.status === "REGISTERED" && (
             <>
               <MarkLostButton leadId={lead.id} />
-              <RegisterSaleModal leadId={lead.id} customerName={customer.name} />
+              <RegisterSaleModal
+                leadId={lead.id}
+                customerName={customer.name}
+                customerEmail={customer.email}
+                customerDocument={customer.document}
+                customerZipCode={customer.zipCode}
+              />
             </>
           )}
 
@@ -156,14 +170,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           )}
 
           {customer.phone && (
-            <a
-              href={`https://wa.me/55${customer.phone.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 flex items-center gap-2 text-sm font-medium text-[var(--success)]"
-            >
-              <ExternalLink size={14} /> Abrir WhatsApp
-            </a>
+            <WhatsAppButton
+              phone={customer.phone}
+              name={customer.name}
+              state={customer.state}
+              city={customer.city}
+              template={clientSettings?.whatsappTemplate}
+            />
           )}
         </div>
 

@@ -6,7 +6,7 @@ export async function fetchLeadsForClient(clientId: string) {
   return getOrSet(cacheKeys.leads(clientId), 60, () =>
     prisma.lead.findMany({
       where:   { clientId },
-      include: { customer: { select: { name: true, phone: true, email: true, document: true } } },
+      include: { customer: { select: { name: true, phone: true, email: true, document: true, state: true, city: true } } },
       orderBy: { capturedAt: "desc" },
     })
   );

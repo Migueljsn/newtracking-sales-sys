@@ -140,18 +140,25 @@ export function AnalyticsOverview() {
 
   const isCustomReady = mode === "custom" && customFrom && customTo && customFrom <= customTo;
 
-  const queryKey = mode === "preset"
+  type QueryKey =
+    | ["analytics", "preset", number]
+    | ["analytics", "custom", string, string];
+
+  const queryKey: QueryKey = mode === "preset"
     ? ["analytics", "preset", days]
     : ["analytics", "custom", customFrom, customTo];
 
-  const queryUrl = mode === "preset"
-    ? `/api/dashboard/analytics?days=${days}`
-    : `/api/dashboard/analytics?from=${customFrom}&to=${customTo}`;
-
   const { data, isFetching } = useQuery<AnalyticsData>({
     queryKey,
-    queryFn:  () => fetch(queryUrl).then(r => r.json()),
-    staleTime: 60_000,
+    queryFn: async ({ queryKey: key }) => {
+      const url = key[1] === "preset"
+        ? `/api/dashboard/analytics?days=${key[2]}`
+        : `/api/dashboard/analytics?from=${key[2]}&to=${key[3]}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Erro ao buscar dados");
+      return res.json();
+    },
+    staleTime: 30_000,
     enabled:  mode === "preset" || !!isCustomReady,
   });
 

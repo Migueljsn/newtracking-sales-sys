@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { AlertCircle, Bell, CheckCircle, Info, TriangleAlert, ChevronRight } from "lucide-react";
+import { AlertCircle, Bell, CheckCircle, Info, TriangleAlert, ChevronRight, Clock, UserCheck, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
@@ -16,6 +16,9 @@ const typeConfig: Record<
   IMPORT_COMPLETE:        { icon: CheckCircle,   iconClass: "bg-[var(--success-soft)] text-[var(--success)]", label: "Importação concluída" },
   IMPORT_ERROR:           { icon: TriangleAlert, iconClass: "bg-[var(--warning-soft)] text-[var(--warning)]", label: "Erro de importação" },
   LOW_EMAIL_COVERAGE:     { icon: Info,          iconClass: "bg-[var(--accent-soft)] text-[var(--accent)]",   label: "Cobertura de email baixa" },
+  SPEED_TO_LEAD:          { icon: Clock,         iconClass: "bg-[var(--danger-soft)] text-[var(--danger)]",   label: "Speed-to-lead" },
+  ACTIVATION_ALERT:       { icon: UserCheck,     iconClass: "bg-[var(--warning-soft)] text-[var(--warning)]", label: "Cadastro parado" },
+  LTV_REACTIVATION:       { icon: RefreshCw,     iconClass: "bg-[var(--accent-soft)] text-[var(--accent)]",   label: "Reativação LTV" },
 };
 
 function extractLeadId(metadata: unknown): string | null {

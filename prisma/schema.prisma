@@ -296,6 +296,7 @@ model Notification {
   body       String?
   isRead     Boolean              @default(false)
   metadata   Json?                // dados extras (ex: leadId, eventId, erro)
+  dedupeKey  String?              @unique
   createdAt  DateTime             @default(now())
 
   client     Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -309,6 +310,9 @@ enum NotificationType {
   IMPORT_COMPLETE       // importação XLSX concluída
   IMPORT_ERROR          // erro em linha(s) da importação
   LOW_EMAIL_COVERAGE    // muitas leads sem email (match rate em risco)
+  SPEED_TO_LEAD         // lead NEW sem primeiro contato (2h / 8h)
+  ACTIVATION_ALERT      // lead REGISTERED sem venda (3d / 7d)
+  LTV_REACTIVATION      // lead SOLD sem recompra (30d / 60d / 90d)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import {
   ArrowDownRight, ArrowUpRight, Download, Minus,
   TrendingUp, Users, DollarSign, PercentSquare, Ticket,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { AnalyticsData } from "@/lib/queries/analytics";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -142,16 +143,31 @@ export function AnalyticsOverview() {
     setExporting(true);
     try {
       const html2canvas = (await import("html2canvas")).default;
-      const jsPDF       = (await import("jspdf")).default;
+      const { jsPDF }   = await import("jspdf");
+
+      const isDark  = document.documentElement.classList.contains("dark");
+      const bgColor = isDark ? "#0e1726" : "#ffffff";
+
       const canvas = await html2canvas(printRef.current, {
         scale:           2,
         useCORS:         true,
-        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#ffffff",
+        allowTaint:      true,
+        backgroundColor: bgColor,
+        logging:         false,
+        windowWidth:     printRef.current.scrollWidth,
+        windowHeight:    printRef.current.scrollHeight,
       });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+
+      const imgData  = canvas.toDataURL("image/png");
+      const pdfW     = canvas.width  / 2;
+      const pdfH     = canvas.height / 2;
+      const pdf      = new jsPDF({ orientation: pdfW > pdfH ? "landscape" : "portrait", unit: "px", format: [pdfW, pdfH] });
+      pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
       pdf.save(`analytics-${days}d-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success("PDF exportado com sucesso!");
+    } catch (err) {
+      toast.error("Erro ao exportar PDF. Tente novamente.");
+      console.error(err);
     } finally {
       setExporting(false);
     }

@@ -170,7 +170,7 @@ model Lead {
 
   client         Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   customer       Customer    @relation(fields: [customerId], references: [id])
-  sale           Sale?
+  sales          Sale[]
   statusHistory  LeadStatusHistory[]
   trackingEvents TrackingEvent[]
 
@@ -212,7 +212,7 @@ model Sale {
   id               String   @id @default(cuid())
   clientId         String
   customerId       String
-  leadId           String   @unique  // uma lead gera no máximo uma venda
+  leadId           String
   value            Decimal  @db.Decimal(10, 2)
   isRepeatPurchase Boolean  @default(false)
   notes            String?

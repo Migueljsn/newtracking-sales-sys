@@ -17,6 +17,7 @@ interface SaleItem {
 interface Props {
   saleId:          string;
   defaultValue:    number;
+  defaultSoldAt:   string; // ISO date string YYYY-MM-DD
   defaultNotes:    string | null;
   defaultItems:    SaleItem[];
   hasSuccessEvent: boolean;
@@ -28,7 +29,7 @@ interface Item {
   price:    string;
 }
 
-export function EditSaleModal({ saleId, defaultValue, defaultNotes, defaultItems, hasSuccessEvent }: Props) {
+export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNotes, defaultItems, hasSuccessEvent }: Props) {
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems]     = useState<Item[]>(() =>
@@ -97,9 +98,22 @@ export function EditSaleModal({ saleId, defaultValue, defaultNotes, defaultItems
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
               <input type="hidden" name="saleId" value={saleId} />
 
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Valor da venda (R$) *</label>
-                <CurrencyInput name="value" required defaultValue={defaultValue} className="input w-full" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Data da venda *</label>
+                  <input
+                    type="date"
+                    name="soldAt"
+                    required
+                    defaultValue={defaultSoldAt}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Valor da venda (R$) *</label>
+                  <CurrencyInput name="value" required defaultValue={defaultValue} className="input w-full" />
+                </div>
               </div>
 
               <div>

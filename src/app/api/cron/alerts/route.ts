@@ -105,17 +105,20 @@ export async function GET(req: NextRequest) {
     const candidates = await prisma.lead.findMany({
       where: {
         status: "SOLD",
-        sale:   { soldAt: { lte: daysAgo(days), gte: daysAgo(120) } },
+        // nenhuma venda nos últimos N dias, mas pelo menos uma nos últimos 120
+        sales: {
+          none: { soldAt: { gt: daysAgo(days) } },
+          some: { soldAt: { gte: daysAgo(120) } },
+        },
       },
       include: {
         customer: {
           select: {
             name: true, state: true,
-            // Última venda do cliente (para checar se houve recompra depois desta)
             sales: { orderBy: { soldAt: "desc" }, take: 1, select: { leadId: true } },
           },
         },
-        sale: { select: { soldAt: true } },
+        sales: { orderBy: { soldAt: "desc" }, take: 1, select: { soldAt: true } },
       },
     });
 

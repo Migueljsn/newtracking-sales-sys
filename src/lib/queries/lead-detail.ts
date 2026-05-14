@@ -12,11 +12,11 @@ export async function fetchLeadDetail(leadId: string, clientId: string) {
             sales: { orderBy: { soldAt: "desc" } },
             leads: {
               orderBy: { capturedAt: "desc" },
-              include: { sale: true },
+              include: { sales: { orderBy: { soldAt: "desc" }, take: 1 } },
             },
           },
         },
-        sale:           { include: { items: true } },
+        sales:          { include: { items: true }, orderBy: { soldAt: "desc" } },
         trackingEvents: { orderBy: { createdAt: "asc" } },
         statusHistory:  { orderBy: { createdAt: "asc" } },
       },

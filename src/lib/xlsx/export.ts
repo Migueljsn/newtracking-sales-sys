@@ -13,7 +13,7 @@ export async function generateLeadsXlsx(clientId: string): Promise<Buffer> {
     where: { clientId },
     include: {
       customer: true,
-      sale: true,
+      sales: { orderBy: { soldAt: "desc" as const }, take: 1 },
       trackingEvents: {
         where: { eventName: "Lead" },
         select: { status: true },
@@ -39,8 +39,8 @@ export async function generateLeadsXlsx(clientId: string): Promise<Buffer> {
     "Estado":                lead.customer.state ?? "",
     "Consultor":             lead.consultant ?? "",
     "Status":                statusLabel(lead.status),
-    "Valor da Venda (R$)":   lead.sale ? Number(lead.sale.value) : "",
-    "Data da Venda":         lead.sale ? lead.sale.soldAt.toLocaleDateString("pt-BR") : "",
+    "Valor da Venda (R$)":   lead.sales[0] ? Number(lead.sales[0].value) : "",
+    "Data da Venda":         lead.sales[0] ? lead.sales[0].soldAt.toLocaleDateString("pt-BR") : "",
     "Data de Captura":       lead.capturedAt.toLocaleDateString("pt-BR"),
     "UTM Source":            lead.utmSource ?? "",
     "UTM Medium":            lead.utmMedium ?? "",
@@ -49,7 +49,7 @@ export async function generateLeadsXlsx(clientId: string): Promise<Buffer> {
     "UTM Term":              lead.utmTerm ?? "",
     "ID da Lead":            lead.id,
     "Evento Lead (Meta)":    lead.trackingEvents[0]?.status ?? "—",
-    "Evento Purchase (Meta)":lead.sale ? (purchaseMap.get(lead.sale.id) ?? "—") : "—",
+    "Evento Purchase (Meta)":lead.sales[0] ? (purchaseMap.get(lead.sales[0].id) ?? "—") : "—",
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows);

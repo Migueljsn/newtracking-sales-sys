@@ -20,7 +20,7 @@ interface Lead {
   capturedAt: string;
   updatedAt:  string;
   consultant: string | null;
-  sale:       { soldAt: string } | null;
+  sales:      { soldAt: string; value: number }[];
   customer: {
     name:     string;
     phone:    string;
@@ -33,20 +33,22 @@ interface Lead {
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
-type ColumnKey = "phone" | "emailDoc" | "status" | "state" | "consultant" | "source" | "capturedAt" | "inactivity";
+type ColumnKey = "phone" | "emailDoc" | "status" | "state" | "consultant" | "source" | "capturedAt" | "inactivity" | "totalSales" | "lastSale";
 
 const COLUMNS: { key: ColumnKey; label: string; defaultOn: boolean }[] = [
-  { key: "phone",      label: "Telefone",     defaultOn: true  },
-  { key: "emailDoc",   label: "Email / CPF",  defaultOn: true  },
-  { key: "status",     label: "Status",       defaultOn: true  },
-  { key: "state",      label: "Estado",       defaultOn: false },
-  { key: "consultant", label: "Consultor",    defaultOn: false },
-  { key: "source",     label: "Origem",       defaultOn: true  },
-  { key: "capturedAt", label: "Capturada em", defaultOn: true  },
-  { key: "inactivity", label: "Dias inativo", defaultOn: false },
+  { key: "phone",      label: "Telefone",       defaultOn: true  },
+  { key: "emailDoc",   label: "Email / CPF",    defaultOn: true  },
+  { key: "status",     label: "Status",         defaultOn: true  },
+  { key: "state",      label: "Estado",         defaultOn: false },
+  { key: "consultant", label: "Consultor",      defaultOn: false },
+  { key: "source",     label: "Origem",         defaultOn: true  },
+  { key: "capturedAt", label: "Capturada em",   defaultOn: true  },
+  { key: "inactivity", label: "Inativo",        defaultOn: false },
+  { key: "totalSales", label: "Total compras",  defaultOn: true  },
+  { key: "lastSale",   label: "Última compra",  defaultOn: true  },
 ];
 
-const COLUMNS_KEY  = "leads-columns-v1";
+const COLUMNS_KEY  = "leads-columns-v2";
 const PAGE_SIZE_KEY = "leads-page-size-v1";
 const PAGE_SIZES    = [25, 50, 100];
 
@@ -93,9 +95,17 @@ function daysAgo(dateStr: string): number {
 }
 
 function getInactivityDays(lead: Lead): number {
-  if (lead.status === "SOLD" && lead.sale?.soldAt) return daysAgo(lead.sale.soldAt);
+  if (lead.status === "SOLD" && lead.sales[0]?.soldAt) return daysAgo(lead.sales[0].soldAt);
   if (lead.status === "REGISTERED") return daysAgo(lead.updatedAt);
   return daysAgo(lead.capturedAt);
+}
+
+function getTotalSalesValue(lead: Lead): number {
+  return lead.sales.reduce((sum, s) => sum + Number(s.value), 0);
+}
+
+function formatBRL(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
@@ -122,6 +132,8 @@ function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
   if (visibleCols.has("source"))     headers.push("Origem");
   if (visibleCols.has("capturedAt")) headers.push("Capturada em");
   if (visibleCols.has("inactivity")) headers.push("Dias inativo");
+  if (visibleCols.has("totalSales")) headers.push("Vol. Compras (R$)");
+  if (visibleCols.has("lastSale"))   headers.push("Última Compra (R$)");
 
   const rows = leads.map((l) => {
     const cols = [l.customer.name, l.customer.phone];
@@ -132,6 +144,8 @@ function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
     if (visibleCols.has("source"))     cols.push(sourceLabel[l.source]);
     if (visibleCols.has("capturedAt")) cols.push(new Date(l.capturedAt).toLocaleDateString("pt-BR"));
     if (visibleCols.has("inactivity")) cols.push(String(getInactivityDays(l)));
+    if (visibleCols.has("totalSales")) cols.push(String(getTotalSalesValue(l).toFixed(2)));
+    if (visibleCols.has("lastSale"))   cols.push(l.sales[0] ? String(Number(l.sales[0].value).toFixed(2)) : "");
     return cols.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
 
@@ -435,6 +449,8 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
                   {visibleCols.has("source")     && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Origem</th>}
                   {visibleCols.has("capturedAt") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Capturada em</th>}
                   {visibleCols.has("inactivity") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Dias inativo</th>}
+                  {visibleCols.has("totalSales") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Vol. Compras</th>}
+                  {visibleCols.has("lastSale")   && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Última Compra</th>}
                   <th />
                 </tr>
               </thead>
@@ -494,6 +510,20 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
                           }`}>
                             {inactiveDays}d
                           </span>
+                        </td>
+                      )}
+                      {visibleCols.has("totalSales") && (
+                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
+                          {lead.sales.length > 0
+                            ? <span className="font-semibold text-[var(--success)]">{formatBRL(getTotalSalesValue(lead))}</span>
+                            : "—"}
+                        </td>
+                      )}
+                      {visibleCols.has("lastSale") && (
+                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
+                          {lead.sales[0]
+                            ? <span className="font-medium text-[var(--text)]">{formatBRL(Number(lead.sales[0].value))}</span>
+                            : "—"}
                         </td>
                       )}
                       <td className="px-4 py-3.5">

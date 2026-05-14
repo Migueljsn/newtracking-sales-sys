@@ -8,7 +8,7 @@ export async function fetchLeadsForClient(clientId: string) {
       where:   { clientId },
       include: {
         customer: { select: { name: true, phone: true, email: true, document: true, state: true, city: true } },
-        sale:     { select: { soldAt: true } },
+        sales:    { select: { soldAt: true, value: true }, orderBy: { soldAt: "desc" } },
       },
       orderBy: { capturedAt: "desc" },
     })

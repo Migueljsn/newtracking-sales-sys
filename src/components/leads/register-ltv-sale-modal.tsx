@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createLtvSaleAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -33,7 +33,6 @@ export function RegisterLtvSaleModal({
 
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
-  const [utmOpen, setUtmOpen] = useState(false);
   const [items, setItems]     = useState<Item[]>([]);
   const formRef               = useRef<HTMLFormElement>(null);
 
@@ -103,23 +102,6 @@ export function RegisterLtvSaleModal({
               </button>
             </div>
 
-            {/* Warning banner */}
-            <div className="mx-6 mt-5 flex items-start gap-3 rounded-xl border border-[var(--warning)] bg-[var(--warning-soft)] px-4 py-3">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-[var(--warning)]" />
-              <div className="text-sm text-[var(--warning)]">
-                <p className="font-semibold">
-                  {leadStatus === "SOLD"
-                    ? "Esta lead já tem uma venda registrada."
-                    : "Esta lead está marcada como perdida."}
-                </p>
-                <p className="mt-0.5 text-xs opacity-90">
-                  Uma nova entrada será criada automaticamente para registrar esta{" "}
-                  {isRepeat ? "recompra" : "venda"}.
-                  {isRepeat && ` ${customerName} terá ${previousSalesCount + 1}ª venda no total.`}
-                </p>
-              </div>
-            </div>
-
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
               <input type="hidden" name="sourceLeadId" value={sourceLeadId} />
 
@@ -173,35 +155,6 @@ export function RegisterLtvSaleModal({
                   className="input w-full resize-none"
                   placeholder="Detalhes sobre a venda..."
                 />
-              </div>
-
-              {/* UTMs colapsável */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setUtmOpen((v) => !v)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-[var(--accent)] hover:text-[var(--accent-strong)]"
-                >
-                  {utmOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  {utmOpen ? "Ocultar" : "Adicionar"} dados de campanha (UTM)
-                </button>
-
-                {utmOpen && (
-                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {[
-                      { name: "utmSource",   label: "UTM Source",   placeholder: "facebook" },
-                      { name: "utmMedium",   label: "UTM Medium",   placeholder: "cpc" },
-                      { name: "utmCampaign", label: "UTM Campaign", placeholder: "nome-da-campanha" },
-                      { name: "utmContent",  label: "UTM Content",  placeholder: "variação-do-anuncio" },
-                      { name: "utmTerm",     label: "UTM Term",     placeholder: "palavra-chave" },
-                    ].map(({ name, label, placeholder }) => (
-                      <div key={name}>
-                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">{label}</label>
-                        <input name={name} className="input w-full" placeholder={placeholder} />
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Itens */}

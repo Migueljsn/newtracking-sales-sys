@@ -17,6 +17,7 @@ import { EditLeadModal } from "@/components/leads/edit-lead-modal";
 import { EditSaleModal } from "@/components/leads/edit-sale-modal";
 import { DeleteLeadButton } from "@/components/leads/delete-lead-button";
 import { DeleteSaleButton } from "@/components/leads/delete-sale-button";
+import { ResendEventButton } from "@/components/leads/resend-event-button";
 import { GuideCard } from "@/components/ui/guide-card";
 
 const trackingStatusLabel: Record<string, string> = {
@@ -51,7 +52,12 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const hasUtms        = lead.utmSource || lead.utmMedium || lead.utmCampaign || lead.fbc || lead.fbp;
   const fbclid         = lead.fbc ? lead.fbc.split(".").slice(3).join(".") : null;
   const otherLeads     = customer.leads.filter((l) => l.id !== lead.id);
-  const hasSuccessEvent = lead.trackingEvents.some((e) => e.status === "SUCCESS");
+  const totalSalesValue = lead.sales.reduce((sum, s) => sum + Number(s.value), 0);
+  const saleSuccessIds  = new Set(
+    lead.trackingEvents
+      .filter((e) => e.eventName === "Purchase" && e.status === "SUCCESS" && e.saleId)
+      .map((e) => e.saleId as string)
+  );
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -71,7 +77,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <DeleteLeadButton leadId={lead.id} hasSale={!!lead.sale} />
+          <DeleteLeadButton leadId={lead.id} hasSale={lead.sales.length > 0} />
 
           {lead.status === "NEW" && (
             <>
@@ -99,7 +105,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               customerName={customer.name}
               hasEmail={!customer.email}
               leadStatus={lead.status}
-              previousSalesCount={customer.sales.length}
+              previousSalesCount={lead.sales.length}
             />
           )}
         </div>
@@ -176,106 +182,118 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           )}
         </div>
 
-        {/* Venda ou origem da campanha */}
-        {lead.sale ? (
-          <div className="card space-y-4 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[var(--text)]">Venda registrada</h2>
-              <div className="flex items-center gap-2">
-                <EditSaleModal
-                  saleId={lead.sale.id}
-                  defaultValue={Number(lead.sale.value)}
-                  defaultNotes={lead.sale.notes}
-                  defaultItems={lead.sale.items.map((i) => ({
-                    id:       i.id,
-                    name:     i.name,
-                    quantity: i.quantity,
-                    price:    Number(i.price),
-                  }))}
-                  hasSuccessEvent={hasSuccessEvent}
-                />
-                <DeleteSaleButton saleId={lead.sale.id} hasSuccessEvent={hasSuccessEvent} />
-              </div>
-            </div>
-
+        {/* Origem da campanha — sempre visível */}
+        <div className="card space-y-4 p-5">
+          <h2 className="text-sm font-semibold text-[var(--text)]">Origem da campanha</h2>
+          {hasUtms ? (
             <dl className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <dt className="text-[var(--text-muted)]">Valor</dt>
-                <dd className="text-base font-semibold text-[var(--success)]">
-                  {Number(lead.sale.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                </dd>
-              </div>
-              <div className="flex justify-between text-sm">
-                <dt className="text-[var(--text-muted)]">Data</dt>
-                <dd className="text-[var(--text)]">{new Date(lead.sale.soldAt).toLocaleDateString("pt-BR")}</dd>
-              </div>
-              <div className="flex justify-between text-sm">
-                <dt className="text-[var(--text-muted)]">Recompra</dt>
-                <dd className="text-[var(--text)]">{lead.sale.isRepeatPurchase ? "Sim" : "Não"}</dd>
-              </div>
-              {lead.sale.notes && (
-                <div className="text-sm">
-                  <dt className="text-[var(--text-muted)] mb-1">Observações</dt>
-                  <dd className="text-[var(--text)] bg-[var(--bg)] rounded-lg p-3 text-xs">{lead.sale.notes}</dd>
+              {[
+                { label: "UTM Source",   value: lead.utmSource },
+                { label: "UTM Medium",   value: lead.utmMedium },
+                { label: "UTM Campaign", value: lead.utmCampaign },
+                { label: "UTM Content",  value: lead.utmContent },
+                { label: "UTM Term",     value: lead.utmTerm },
+                { label: "fbclid",       value: fbclid },
+                { label: "fbp",          value: lead.fbp },
+              ].map(({ label, value }) => value ? (
+                <div key={label} className="flex justify-between text-sm">
+                  <dt className="text-[var(--text-muted)]">{label}</dt>
+                  <dd className="text-[var(--text)] font-medium truncate max-w-[60%]">{value}</dd>
                 </div>
-              )}
+              ) : null)}
             </dl>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">Sem dados de UTM para esta lead.</p>
+          )}
+          {lead.eventSourceUrl && (
+            <a
+              href={lead.eventSourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link-accent flex items-center gap-1 truncate text-xs"
+            >
+              <ExternalLink size={12} />
+              {lead.eventSourceUrl}
+            </a>
+          )}
+        </div>
+      </div>
 
-            {lead.sale.items.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-[var(--text-muted)] mb-2">Itens</p>
-                <div className="space-y-1">
-                  {lead.sale.items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-xs text-[var(--text)]">
-                      <span>{item.name} × {item.quantity}</span>
-                      <span className="text-[var(--text-muted)]">
-                        {Number(item.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+      {/* Histórico de vendas */}
+      {lead.sales.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-[var(--text)]">
+              Vendas ({lead.sales.length})
+            </h2>
+            {lead.sales.length > 1 && (
+              <span className="text-sm font-semibold text-[var(--success)]">
+                Total: {totalSalesValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </span>
+            )}
+          </div>
+          <div className="space-y-3">
+            {lead.sales.map((sale, idx) => (
+              <div key={sale.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="text-base font-semibold text-[var(--success)]">
+                        {Number(sale.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </span>
+                      {idx === 0 && lead.sales.length > 1 && (
+                        <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                          Mais recente
+                        </span>
+                      )}
+                      {sale.isRepeatPurchase && (
+                        <span className="rounded-full bg-[var(--surface-strong)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                          Recompra
+                        </span>
+                      )}
                     </div>
-                  ))}
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {new Date(sale.soldAt).toLocaleDateString("pt-BR")}
+                    </p>
+                    {sale.notes && (
+                      <p className="text-xs text-[var(--text)] bg-[var(--bg)] rounded-lg px-3 py-2">{sale.notes}</p>
+                    )}
+                    {sale.items.length > 0 && (
+                      <div className="space-y-1 pt-1">
+                        {sale.items.map((item) => (
+                          <div key={item.id} className="flex justify-between text-xs text-[var(--text)]">
+                            <span>{item.name} × {item.quantity}</span>
+                            <span className="text-[var(--text-muted)]">
+                              {Number(item.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <ResendEventButton saleId={sale.id} hasSuccessEvent={saleSuccessIds.has(sale.id)} />
+                    <EditSaleModal
+                      saleId={sale.id}
+                      defaultValue={Number(sale.value)}
+                      defaultSoldAt={new Date(sale.soldAt).toISOString().split("T")[0]}
+                      defaultNotes={sale.notes}
+                      defaultItems={sale.items.map((i) => ({
+                        id:       i.id,
+                        name:     i.name,
+                        quantity: i.quantity,
+                        price:    Number(i.price),
+                      }))}
+                      hasSuccessEvent={saleSuccessIds.has(sale.id)}
+                    />
+                    <DeleteSaleButton saleId={sale.id} hasSuccessEvent={saleSuccessIds.has(sale.id)} />
+                  </div>
                 </div>
               </div>
-            )}
+            ))}
           </div>
-        ) : (
-          <div className="card space-y-4 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[var(--text)]">Origem da campanha</h2>
-            </div>
-            {hasUtms ? (
-              <dl className="space-y-3">
-                {[
-                  { label: "UTM Source",   value: lead.utmSource },
-                  { label: "UTM Medium",   value: lead.utmMedium },
-                  { label: "UTM Campaign", value: lead.utmCampaign },
-                  { label: "UTM Content",  value: lead.utmContent },
-                  { label: "UTM Term",     value: lead.utmTerm },
-                  { label: "fbclid",       value: fbclid },
-                  { label: "fbp",          value: lead.fbp },
-                ].map(({ label, value }) => value ? (
-                  <div key={label} className="flex justify-between text-sm">
-                    <dt className="text-[var(--text-muted)]">{label}</dt>
-                    <dd className="text-[var(--text)] font-medium truncate max-w-[60%]">{value}</dd>
-                  </div>
-                ) : null)}
-              </dl>
-            ) : (
-              <p className="text-sm text-[var(--text-muted)]">Sem dados de UTM para esta lead.</p>
-            )}
-            {lead.eventSourceUrl && (
-              <a
-                href={lead.eventSourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="link-accent flex items-center gap-1 truncate text-xs"
-              >
-                <ExternalLink size={12} />
-                {lead.eventSourceUrl}
-              </a>
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Eventos de tracking</h2>
@@ -341,9 +359,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   <span className="text-[var(--text-muted)]">
                     {new Date(l.capturedAt).toLocaleDateString("pt-BR")}
                   </span>
-                  {l.sale && (
+                  {l.sales[0] && (
                     <span className="font-medium text-[var(--success)]">
-                      {Number(l.sale.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      {Number(l.sales[0].value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </span>
                   )}
                 </div>

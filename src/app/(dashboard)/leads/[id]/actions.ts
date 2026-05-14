@@ -4,7 +4,6 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { createSale } from "@/lib/domain/sale/create";
-import { createLead } from "@/lib/domain/lead/create";
 import { buildPurchasePayload } from "@/lib/domain/tracking/build-payload";
 import { updateCustomerLifecycle } from "@/lib/domain/customer/update-lifecycle";
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
@@ -103,7 +102,7 @@ export async function markAsLostAction(leadId: string) {
   revalidatePath("/leads");
 }
 
-// Registra uma nova venda para um cliente já existente (LTV / recompra)
+// Registra uma nova venda para um cliente já existente (recompra) na mesma lead
 export async function createLtvSaleAction(formData: FormData): Promise<string> {
   const session  = await getSession();
   const clientId = session.clientId!;
@@ -130,39 +129,19 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
     });
   }
 
-  // Se os campos UTM ficarem em branco, herda da lead original
-  const utmSource   = (formData.get("utmSource")   as string)?.trim() || sourceLead.utmSource   || undefined;
-  const utmMedium   = (formData.get("utmMedium")   as string)?.trim() || sourceLead.utmMedium   || undefined;
-  const utmCampaign = (formData.get("utmCampaign") as string)?.trim() || sourceLead.utmCampaign || undefined;
-  const utmContent  = (formData.get("utmContent")  as string)?.trim() || sourceLead.utmContent  || undefined;
-  const utmTerm     = (formData.get("utmTerm")     as string)?.trim() || sourceLead.utmTerm     || undefined;
-
-  const consultant = (formData.get("consultant") as string)?.trim() || undefined;
-
-  const { lead } = await createLead({
-    clientId,
-    name:       sourceLead.customer.name,
-    phone:      sourceLead.customer.phone,
-    source:     "MANUAL",
-    consultant,
-    utmSource,
-    utmMedium,
-    utmCampaign,
-    utmContent,
-    utmTerm,
-  });
-
-  // LTV: lead começa já como REGISTERED pois o cliente é existente
-  await prisma.lead.update({
-    where: { id: lead.id },
-    data:  { status: "REGISTERED", statusHistory: { create: { from: "NEW", to: "REGISTERED" } } },
-  });
+  // Se lead está LOST, reativa para REGISTERED antes de criar a venda
+  if (sourceLead.status === "LOST") {
+    await prisma.lead.update({
+      where: { id: sourceLeadId },
+      data:  { status: "REGISTERED", statusHistory: { create: { from: "LOST", to: "REGISTERED" } } },
+    });
+  }
 
   const items = parseItems(formData);
 
   await createSale({
     clientId,
-    leadId: lead.id,
+    leadId: sourceLeadId,
     value,
     soldAt,
     notes,
@@ -182,7 +161,7 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
   revalidatePath("/");
   revalidatePath(`/leads/${sourceLeadId}`);
 
-  return lead.id;
+  return sourceLeadId;
 }
 
 // ─── CRUD: Customer ──────────────────────────────────────────────────────────
@@ -256,16 +235,17 @@ export async function deleteLeadAction(leadId: string) {
 
   const lead = await prisma.lead.findUniqueOrThrow({
     where:   { id: leadId, clientId },
-    include: { sale: true },
+    include: { sales: { select: { id: true } } },
   });
 
   // Tracking events não têm cascade no schema — deletar manualmente
   await prisma.trackingEvent.deleteMany({ where: { leadId } });
 
-  if (lead.sale) {
-    await prisma.trackingEvent.deleteMany({ where: { saleId: lead.sale.id } });
+  if (lead.sales.length > 0) {
+    const saleIds = lead.sales.map((s) => s.id);
+    await prisma.trackingEvent.deleteMany({ where: { saleId: { in: saleIds } } });
     // Sale cascade deleta SaleItem
-    await prisma.sale.delete({ where: { id: lead.sale.id } });
+    await prisma.sale.deleteMany({ where: { id: { in: saleIds } } });
   }
 
   // Lead cascade deleta LeadStatusHistory
@@ -283,9 +263,11 @@ export async function updateSaleAction(formData: FormData) {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const saleId = formData.get("saleId") as string;
-  const value  = parseFloat(formData.get("value") as string);
-  const notes  = (formData.get("notes") as string)?.trim() || null;
+  const saleId    = formData.get("saleId") as string;
+  const value     = parseFloat(formData.get("value") as string);
+  const notes     = (formData.get("notes") as string)?.trim() || null;
+  const soldAtStr = (formData.get("soldAt") as string)?.trim();
+  const soldAt    = soldAtStr ? new Date(`${soldAtStr}T12:00:00.000Z`) : undefined;
 
   if (!saleId || isNaN(value) || value <= 0) throw new Error("Valor inválido");
 
@@ -301,11 +283,12 @@ export async function updateSaleAction(formData: FormData) {
     data:  {
       value,
       notes,
+      ...(soldAt && { soldAt }),
       items: { deleteMany: {}, create: items },
     },
   });
 
-  // Se o evento ainda não foi enviado ao Meta, atualiza o payload com o novo valor
+  // Se o evento ainda não foi enviado ao Meta, atualiza o payload com o novo valor/data
   const pendingEvent = await prisma.trackingEvent.findFirst({
     where: { saleId, status: { in: ["PENDING", "FAILED"] } },
   });
@@ -316,7 +299,7 @@ export async function updateSaleAction(formData: FormData) {
     const payload      = buildPurchasePayload(
       sale.lead.customer,
       sale.lead,
-      { ...updatedSale, soldAt: sale.soldAt, leadId: sale.leadId, customerId: sale.customerId },
+      { ...updatedSale, soldAt: soldAt ?? sale.soldAt, leadId: sale.leadId, customerId: sale.customerId },
       newEventId
     );
     await prisma.trackingEvent.update({
@@ -330,6 +313,39 @@ export async function updateSaleAction(formData: FormData) {
   await invalidate(cacheKeys.leadDetail(sale.leadId), cacheKeys.sales(clientId));
   revalidatePath(`/leads/${sale.leadId}`);
   revalidatePath("/sales");
+}
+
+// ─── Reenviar evento de Purchase ao Meta ─────────────────────────────────────
+
+export async function resendPurchaseEventAction(saleId: string) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const sale = await prisma.sale.findUniqueOrThrow({
+    where:   { id: saleId, clientId },
+    include: { lead: { include: { customer: true } } },
+  });
+
+  const { createId } = await import("@paralleldrive/cuid2");
+  const newEventId   = createId();
+  const payload      = buildPurchasePayload(sale.lead.customer, sale.lead, sale, newEventId);
+
+  await prisma.trackingEvent.create({
+    data: {
+      clientId,
+      eventName: "Purchase",
+      eventId:   newEventId,
+      status:    "PENDING",
+      payload,
+      leadId:    sale.leadId,
+      saleId:    sale.id,
+    },
+  });
+
+  after(() => processPendingEvents());
+
+  await invalidate(cacheKeys.leadDetail(sale.leadId));
+  revalidatePath(`/leads/${sale.leadId}`);
 }
 
 // ─── CRUD: Delete Sale ────────────────────────────────────────────────────────
@@ -348,14 +364,17 @@ export async function deleteSaleAction(saleId: string) {
   // Sale cascade deleta SaleItem
   await prisma.sale.delete({ where: { id: saleId } });
 
-  // Reverte a lead para REGISTERED (estava cadastrada antes de comprar)
-  await prisma.lead.update({
-    where: { id: sale.leadId },
-    data:  {
-      status:        "REGISTERED",
-      statusHistory: { create: { from: "SOLD", to: "REGISTERED" } },
-    },
-  });
+  // Só reverte para REGISTERED se não há mais vendas nesta lead
+  const remainingSales = await prisma.sale.count({ where: { leadId: sale.leadId } });
+  if (remainingSales === 0) {
+    await prisma.lead.update({
+      where: { id: sale.leadId },
+      data:  {
+        status:        "REGISTERED",
+        statusHistory: { create: { from: "SOLD", to: "REGISTERED" } },
+      },
+    });
+  }
 
   await updateCustomerLifecycle(sale.customerId);
 

@@ -26,12 +26,8 @@ export async function createSale(input: CreateSaleInput) {
     include: { customer: true },
   });
 
-  if (lead.status !== "REGISTERED" && lead.status !== "NEW") {
-    throw new Error(
-      lead.status === "SOLD"
-        ? "Esta lead já tem uma venda registrada. Use o botão 'Registrar recompra' para registrar uma nova venda."
-        : "Leads perdidas não podem receber vendas diretamente."
-    );
+  if (lead.status === "LOST") {
+    throw new Error("Leads perdidas não podem receber vendas diretamente.");
   }
 
   // Verifica recompra
@@ -58,14 +54,16 @@ export async function createSale(input: CreateSaleInput) {
     },
   });
 
-  // Atualiza status da lead
-  await prisma.lead.update({
-    where: { id: input.leadId },
-    data: {
-      status: "SOLD",
-      statusHistory: { create: { from: lead.status, to: "SOLD" } },
-    },
-  });
+  // Atualiza status da lead (apenas se ainda não estiver SOLD)
+  if (lead.status !== "SOLD") {
+    await prisma.lead.update({
+      where: { id: input.leadId },
+      data: {
+        status: "SOLD",
+        statusHistory: { create: { from: lead.status, to: "SOLD" } },
+      },
+    });
+  }
 
   // Cria evento de Purchase
   const payload = buildPurchasePayload(lead.customer, lead, sale, eventId);

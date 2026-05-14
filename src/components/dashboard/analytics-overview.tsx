@@ -9,8 +9,9 @@ import {
 import {
   ArrowDownRight, ArrowUpRight, Calendar as CalendarIcon,
   Download, Minus, Users, DollarSign, PercentSquare, Ticket,
+  RefreshCw, TrendingUp,
 } from "lucide-react";
-import type { AnalyticsData } from "@/lib/queries/analytics";
+import type { AnalyticsData, LtvData } from "@/lib/queries/analytics";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -347,19 +348,8 @@ export function AnalyticsOverview() {
           </div>
         </div>
 
-        {/* ── By hour ── */}
-        <div className="card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Vendas por horário (BRT)</h2>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={data?.byHour ?? []} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--text-muted)" }} interval={1} />
-              <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={28} allowDecimals={false} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="sales" name="Vendas" fill={ACCENT} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {/* ── LTV / Recompra ── */}
+        {data && <LtvBlock ltv={data.ltv} />}
 
         {/* ── UTM Source + UTM Campaign ── */}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -373,6 +363,135 @@ export function AnalyticsOverview() {
           <BarListCard title="Por Consultor" data={data?.byConsultant ?? []} />
         </div>
 
+      </div>
+    </div>
+  );
+}
+
+// ─── LTV / Recompra block ────────────────────────────────────────────────────
+
+const LIFECYCLE_LABELS: Record<string, string> = {
+  NEW_BUYER: "Primeira compra",
+  LOYAL:     "Fiel",
+  CHAMPION:  "Campeão",
+  AT_RISK:   "Em risco",
+  INACTIVE:  "Inativo",
+};
+
+const LIFECYCLE_COLORS: Record<string, string> = {
+  NEW_BUYER: "#6366f1",
+  LOYAL:     "#22c55e",
+  CHAMPION:  "#f59e0b",
+  AT_RISK:   "#f97316",
+  INACTIVE:  "#ef4444",
+};
+
+const LIFECYCLE_ORDER = ["NEW_BUYER", "LOYAL", "CHAMPION", "AT_RISK", "INACTIVE"] as const;
+
+function LtvBlock({ ltv }: { ltv: LtvData }) {
+  const totalCustomers = LIFECYCLE_ORDER.reduce((a, k) => a + ltv.lifecycle[k], 0);
+  const totalPeriod    = ltv.newRevenue + ltv.repeatRevenue;
+  const newPct         = totalPeriod > 0 ? Math.round((ltv.newRevenue    / totalPeriod) * 100) : 0;
+  const repeatPct      = totalPeriod > 0 ? Math.round((ltv.repeatRevenue / totalPeriod) * 100) : 0;
+
+  return (
+    <div className="card p-5 space-y-6">
+      <h2 className="text-sm font-semibold text-[var(--text)]">LTV &amp; Recompra</h2>
+
+      {/* ── 3 KPIs ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="soft-panel flex items-center gap-4 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)]">
+            <RefreshCw size={16} className="text-[var(--accent)]" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[var(--text)]">{ltv.repeatRate}%</p>
+            <p className="text-xs text-[var(--text-muted)]">Taxa de recompra</p>
+            <p className="text-[10px] text-[var(--text-muted)] opacity-70">do total de vendas no período</p>
+          </div>
+        </div>
+        <div className="soft-panel flex items-center gap-4 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--success-soft)]">
+            <DollarSign size={16} className="text-[var(--success)]" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[var(--success)]">{brl(ltv.repeatRevenue)}</p>
+            <p className="text-xs text-[var(--text-muted)]">Receita de recompra</p>
+            <p className="text-[10px] text-[var(--text-muted)] opacity-70">no período selecionado</p>
+          </div>
+        </div>
+        <div className="soft-panel flex items-center gap-4 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--warning-soft)]">
+            <TrendingUp size={16} className="text-[var(--warning)]" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[var(--text)]">{brl(ltv.avgLtv)}</p>
+            <p className="text-xs text-[var(--text-muted)]">LTV médio por cliente</p>
+            <p className="text-[10px] text-[var(--text-muted)] opacity-70">gasto total acumulado</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* ── Receita: nova venda vs recompra ── */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Receita no período</p>
+          {totalPeriod === 0 ? (
+            <p className="text-sm text-[var(--text-muted)]">Sem vendas no período.</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-[var(--text)]">Primeira compra</span>
+                  <span className="tabular-nums font-bold text-[var(--text-muted)]">{brl(ltv.newRevenue)} <span className="text-[10px]">({newPct}%)</span></span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
+                  <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${newPct}%` }} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-[var(--text)]">Recompra</span>
+                  <span className="tabular-nums font-bold text-[var(--text-muted)]">{brl(ltv.repeatRevenue)} <span className="text-[10px]">({repeatPct}%)</span></span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
+                  <div className="h-full rounded-full bg-[var(--success)] transition-all duration-500" style={{ width: `${repeatPct}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Ciclo de vida dos clientes ── */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            Ciclo de vida — {fmt(totalCustomers)} clientes
+          </p>
+          {totalCustomers === 0 ? (
+            <p className="text-sm text-[var(--text-muted)]">Nenhum cliente cadastrado.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {LIFECYCLE_ORDER.filter(k => ltv.lifecycle[k] > 0).map(k => {
+                const count = ltv.lifecycle[k];
+                const pct   = Math.round((count / totalCustomers) * 100);
+                return (
+                  <div key={k} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-[var(--text)]">{LIFECYCLE_LABELS[k]}</span>
+                      <span className="tabular-nums font-bold text-[var(--text-muted)]">{fmt(count)} <span className="text-[10px]">({pct}%)</span></span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: LIFECYCLE_COLORS[k] }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

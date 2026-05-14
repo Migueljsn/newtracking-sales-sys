@@ -14,21 +14,28 @@ export interface AnalyticsSummary {
 
 export interface DayPoint     { date: string; leads: number; sales: number; revenue: number }
 export interface FunnelStep   { label: string; status: string; count: number; pct: number }
-export interface HourPoint    { hour: number; label: string; sales: number; revenue: number }
 export interface WeekdayPoint { day: number; label: string; sales: number; revenue: number }
 export interface BarItem      { label: string; leads: number; sales: number; revenue: number; rate: number }
+
+export interface LtvData {
+  repeatRate:    number;
+  repeatRevenue: number;
+  newRevenue:    number;
+  avgLtv:        number;
+  lifecycle: { NEW_BUYER: number; LOYAL: number; CHAMPION: number; AT_RISK: number; INACTIVE: number };
+}
 
 export interface AnalyticsData {
   period:        number;
   summary:       AnalyticsSummary;
   byDay:         DayPoint[];
   funnel:        FunnelStep[];
-  byHour:        HourPoint[];
   byWeekday:     WeekdayPoint[];
   byUtmSource:   BarItem[];
   byUtmCampaign: BarItem[];
   byState:       BarItem[];
   byConsultant:  BarItem[];
+  ltv:           LtvData;
 }
 
 function pct(a: number, b: number) {
@@ -37,10 +44,6 @@ function pct(a: number, b: number) {
 function trend(curr: number, prev: number) {
   if (prev === 0) return curr > 0 ? 100 : 0;
   return Math.round(((curr - prev) / prev) * 100);
-}
-// UTC-3 (Brazil)
-function localHour(date: Date) {
-  return (date.getUTCHours() + 21) % 24;
 }
 
 export async function fetchAnalytics(clientId: string, from: Date, to: Date): Promise<AnalyticsData> {
@@ -52,7 +55,7 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
   const prevStartDate = new Date(from.getTime() - days * 86_400_000);
   const todayStart    = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-  const [leads, sales, prevLeadsCount, prevSalesAgg] = await Promise.all([
+  const [leads, sales, prevLeadsCount, prevSalesAgg, lifecycleRows, customerSalesRows] = await Promise.all([
     prisma.lead.findMany({
       where:  { clientId, capturedAt: { gte: startDate, lte: endDate } },
       select: {
@@ -64,7 +67,7 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     prisma.sale.findMany({
       where:  { clientId, soldAt: { gte: startDate, lte: endDate } },
       select: {
-        id: true, value: true, soldAt: true,
+        id: true, value: true, soldAt: true, isRepeatPurchase: true,
         lead: {
           select: {
             utmSource: true, utmCampaign: true, consultant: true,
@@ -76,6 +79,16 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     prisma.lead.count({ where: { clientId, capturedAt: { gte: prevStartDate, lt: startDate } } }),
     prisma.sale.aggregate({
       where: { clientId, soldAt: { gte: prevStartDate, lt: startDate } },
+      _sum:  { value: true },
+    }),
+    prisma.customer.groupBy({
+      by:    ["lifecycle"],
+      where: { clientId },
+      _count: { id: true },
+    }),
+    prisma.sale.groupBy({
+      by:    ["customerId"],
+      where: { clientId },
       _sum:  { value: true },
     }),
   ]);
@@ -117,11 +130,6 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     { label: "Perdidas",    status: "LOST",        count: sc.LOST,       pct: pct(sc.LOST,       maxSC) },
   ];
 
-  // ── By Hour ─────────────────────────────────────────────────────────────────
-  const hS = new Array(24).fill(0), hR = new Array(24).fill(0);
-  sales.forEach(s => { const h = localHour(new Date(s.soldAt)); hS[h]++; hR[h] += Number(s.value); });
-  const byHour: HourPoint[] = hS.map((s, h) => ({ hour: h, label: `${h}h`, sales: s, revenue: hR[h] }));
-
   // ── By Weekday ──────────────────────────────────────────────────────────────
   const WD = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const wS = new Array(7).fill(0), wR = new Array(7).fill(0);
@@ -149,6 +157,19 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
       .slice(0, top);
   }
 
+  // ── LTV / Recompra ──────────────────────────────────────────────────────────
+  const repeatSales   = sales.filter(s => s.isRepeatPurchase);
+  const repeatRevenue = repeatSales.reduce((a, s) => a + Number(s.value), 0);
+  const newRevenue    = totalRevenue - repeatRevenue;
+  const repeatRate    = pct(repeatSales.length, sales.length);
+
+  const lc = { NEW_BUYER: 0, LOYAL: 0, CHAMPION: 0, AT_RISK: 0, INACTIVE: 0 };
+  lifecycleRows.forEach(r => { if (r.lifecycle in lc) lc[r.lifecycle as keyof typeof lc] = r._count.id; });
+
+  const avgLtv = customerSalesRows.length > 0
+    ? customerSalesRows.reduce((a, r) => a + Number(r._sum.value ?? 0), 0) / customerSalesRows.length
+    : 0;
+
   return {
     period:  days,
     summary: {
@@ -164,11 +185,11 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     },
     byDay,
     funnel,
-    byHour,
     byWeekday,
     byUtmSource:   group(l => l.utmSource ?? "",   s => s.lead?.utmSource ?? ""),
     byUtmCampaign: group(l => l.utmCampaign ?? "", s => s.lead?.utmCampaign ?? ""),
     byState:       group(l => l.customer?.state ?? "", s => s.lead?.customer?.state ?? ""),
     byConsultant:  group(l => l.consultant ?? "",  s => s.lead?.consultant ?? ""),
+    ltv: { repeatRate, repeatRevenue, newRevenue, avgLtv, lifecycle: lc },
   };
 }

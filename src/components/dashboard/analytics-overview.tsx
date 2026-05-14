@@ -9,12 +9,15 @@ import {
 import {
   ArrowDownRight, ArrowUpRight, Calendar as CalendarIcon,
   Download, Minus, Users, DollarSign, PercentSquare, Ticket,
-  RefreshCw, TrendingUp,
+  RefreshCw, TrendingUp, Clock, AlertCircle,
 } from "lucide-react";
-import type { AnalyticsData, LtvData } from "@/lib/queries/analytics";
+import type { AnalyticsData, LtvData, CohortData, PipelineData } from "@/lib/queries/analytics";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
+function pct(a: number, b: number) {
+  return b === 0 ? 0 : Math.round((a / b) * 100);
+}
 function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 }
@@ -296,6 +299,9 @@ export function AnalyticsOverview() {
           />
         </div>
 
+        {/* ── Pipeline atual ── */}
+        {data && <PipelineBlock pipeline={data.pipeline} />}
+
         {/* ── Area chart: leads & revenue by day ── */}
         <div className="card p-5">
           <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Leads e Receita por dia</h2>
@@ -322,6 +328,9 @@ export function AnalyticsOverview() {
             </AreaChart>
           </ResponsiveContainer>
         </div>
+
+        {/* ── Cohort do período ── */}
+        {data && <CohortBlock cohort={data.cohort} />}
 
         {/* ── Funnel + Weekday ── */}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -363,6 +372,116 @@ export function AnalyticsOverview() {
           <BarListCard title="Por Consultor" data={data?.byConsultant ?? []} />
         </div>
 
+      </div>
+    </div>
+  );
+}
+
+// ─── Pipeline atual ──────────────────────────────────────────────────────────
+
+function PipelineBlock({ pipeline }: { pipeline: PipelineData }) {
+  const total = pipeline.currentNew + pipeline.currentRegistered;
+  if (total === 0) return null;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-[var(--text)]">Pipeline atual</h2>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          Todos os períodos
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)]">
+            <Users size={18} className="text-[var(--accent)]" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-3xl font-bold tabular-nums text-[var(--text)]">{fmt(pipeline.currentNew)}</p>
+            <p className="text-sm font-medium text-[var(--text-muted)]">Aguardando contato</p>
+            <p className="text-[11px] text-[var(--text-muted)] opacity-60">leads com status Nova</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--warning-soft)]">
+            <AlertCircle size={18} className="text-[var(--warning)]" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-3xl font-bold tabular-nums text-[var(--text)]">{fmt(pipeline.currentRegistered)}</p>
+            <p className="text-sm font-medium text-[var(--text-muted)]">Sem venda ainda</p>
+            <p className="text-[11px] text-[var(--text-muted)] opacity-60">leads cadastradas sem compra</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Cohort do período ───────────────────────────────────────────────────────
+
+const COHORT_STEPS = [
+  { key: "sold"       as const, label: "Convertidas",   color: "var(--success)" },
+  { key: "registered" as const, label: "Em negociação", color: "var(--accent)"  },
+  { key: "newStatus"  as const, label: "Sem contato",   color: "var(--warning)" },
+  { key: "lost"       as const, label: "Perdidas",      color: "var(--danger)"  },
+];
+
+function CohortBlock({ cohort }: { cohort: CohortData }) {
+  if (cohort.total === 0) return null;
+
+  return (
+    <div className="card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--text)]">
+            Leads capturadas no período
+          </h2>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            {fmt(cohort.total)} leads — onde estão hoje
+          </p>
+        </div>
+        {cohort.avgConvDays !== null && (
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--success-soft)]">
+              <Clock size={14} className="text-[var(--success)]" />
+            </div>
+            <div>
+              <p className="text-lg font-bold tabular-nums text-[var(--text)] leading-none">
+                {cohort.avgConvDays === 0 ? "< 1" : cohort.avgConvDays} {cohort.avgConvDays === 1 ? "dia" : "dias"}
+              </p>
+              <p className="text-[11px] text-[var(--text-muted)]">tempo médio de conversão</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        {COHORT_STEPS.map(step => {
+          const count = cohort[step.key];
+          const p     = pct(count, cohort.total);
+          return (
+            <div key={step.key} className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full shrink-0"
+                    style={{ background: step.color }}
+                  />
+                  <span className="font-medium text-[var(--text)]">{step.label}</span>
+                </div>
+                <span className="tabular-nums font-semibold text-[var(--text-muted)]">
+                  {fmt(count)} <span className="text-[10px]">({p}%)</span>
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${p}%`, background: step.color }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

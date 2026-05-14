@@ -17,6 +17,20 @@ export interface FunnelStep   { label: string; status: string; count: number; pc
 export interface WeekdayPoint { day: number; label: string; sales: number; revenue: number }
 export interface BarItem      { label: string; leads: number; sales: number; revenue: number; rate: number }
 
+export interface CohortData {
+  total:       number;
+  sold:        number;
+  registered:  number;
+  newStatus:   number;
+  lost:        number;
+  avgConvDays: number | null;
+}
+
+export interface PipelineData {
+  currentNew:        number;
+  currentRegistered: number;
+}
+
 export interface LtvData {
   repeatRate:    number;
   repeatRevenue: number;
@@ -36,6 +50,8 @@ export interface AnalyticsData {
   byState:       BarItem[];
   byConsultant:  BarItem[];
   ltv:           LtvData;
+  cohort:        CohortData;
+  pipeline:      PipelineData;
 }
 
 function pct(a: number, b: number) {
@@ -55,13 +71,14 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
   const prevStartDate = new Date(from.getTime() - days * 86_400_000);
   const todayStart    = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-  const [leads, sales, prevLeadsCount, prevSalesAgg, lifecycleRows, customerSalesRows] = await Promise.all([
+  const [leads, sales, prevLeadsCount, prevSalesAgg, lifecycleRows, customerSalesRows, pipelineNew, pipelineRegistered] = await Promise.all([
     prisma.lead.findMany({
       where:  { clientId, capturedAt: { gte: startDate, lte: endDate } },
       select: {
         id: true, status: true, capturedAt: true,
         utmSource: true, utmCampaign: true, consultant: true,
         customer: { select: { state: true } },
+        sales: { select: { soldAt: true }, orderBy: { soldAt: "asc" as const }, take: 1 },
       },
     }),
     prisma.sale.findMany({
@@ -91,6 +108,8 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
       where: { clientId },
       _sum:  { value: true },
     }),
+    prisma.lead.count({ where: { clientId, status: "NEW" } }),
+    prisma.lead.count({ where: { clientId, status: "REGISTERED" } }),
   ]);
 
   const totalRevenue = sales.reduce((s, x) => s + Number(x.value), 0);
@@ -157,6 +176,15 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
       .slice(0, top);
   }
 
+  // ── Cohort do período ───────────────────────────────────────────────────────
+  const cohortSold = leads.filter(l => l.status === "SOLD");
+  const convTimes  = cohortSold
+    .filter(l => l.sales[0])
+    .map(l => (new Date(l.sales[0].soldAt).getTime() - new Date(l.capturedAt).getTime()) / 86_400_000);
+  const avgConvDays = convTimes.length > 0
+    ? Math.round(convTimes.reduce((a, v) => a + v, 0) / convTimes.length)
+    : null;
+
   // ── LTV / Recompra ──────────────────────────────────────────────────────────
   const repeatSales   = sales.filter(s => s.isRepeatPurchase);
   const repeatRevenue = repeatSales.reduce((a, s) => a + Number(s.value), 0);
@@ -191,5 +219,14 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     byState:       group(l => l.customer?.state ?? "", s => s.lead?.customer?.state ?? ""),
     byConsultant:  group(l => l.consultant ?? "",  s => s.lead?.consultant ?? ""),
     ltv: { repeatRate, repeatRevenue, newRevenue, avgLtv, lifecycle: lc },
+    cohort: {
+      total:      leads.length,
+      sold:       cohortSold.length,
+      registered: leads.filter(l => l.status === "REGISTERED").length,
+      newStatus:  leads.filter(l => l.status === "NEW").length,
+      lost:       leads.filter(l => l.status === "LOST").length,
+      avgConvDays,
+    },
+    pipeline: { currentNew: pipelineNew, currentRegistered: pipelineRegistered },
   };
 }

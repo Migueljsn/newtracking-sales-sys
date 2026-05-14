@@ -130,11 +130,12 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
     });
   }
 
-  const utmSource   = (formData.get("utmSource")   as string)?.trim() || undefined;
-  const utmMedium   = (formData.get("utmMedium")   as string)?.trim() || undefined;
-  const utmCampaign = (formData.get("utmCampaign") as string)?.trim() || undefined;
-  const utmContent  = (formData.get("utmContent")  as string)?.trim() || undefined;
-  const utmTerm     = (formData.get("utmTerm")     as string)?.trim() || undefined;
+  // Se os campos UTM ficarem em branco, herda da lead original
+  const utmSource   = (formData.get("utmSource")   as string)?.trim() || sourceLead.utmSource   || undefined;
+  const utmMedium   = (formData.get("utmMedium")   as string)?.trim() || sourceLead.utmMedium   || undefined;
+  const utmCampaign = (formData.get("utmCampaign") as string)?.trim() || sourceLead.utmCampaign || undefined;
+  const utmContent  = (formData.get("utmContent")  as string)?.trim() || sourceLead.utmContent  || undefined;
+  const utmTerm     = (formData.get("utmTerm")     as string)?.trim() || sourceLead.utmTerm     || undefined;
 
   const consultant = (formData.get("consultant") as string)?.trim() || undefined;
 

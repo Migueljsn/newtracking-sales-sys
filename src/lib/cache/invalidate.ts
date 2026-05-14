@@ -1,11 +1,13 @@
 import { redis } from "./redis";
 
+const V = "v2";
+
 export const cacheKeys = {
-  leads:       (clientId: string) => `leads:${clientId}`,
-  leadDetail:  (leadId:   string) => `lead:${leadId}`,
-  sales:       (clientId: string) => `sales:${clientId}`,
-  metrics:     (clientId: string) => `metrics:${clientId}`,
-  unreadCount: (clientId: string) => `notifications:unread:${clientId}`,
+  leads:       (clientId: string) => `${V}:leads:${clientId}`,
+  leadDetail:  (leadId:   string) => `${V}:lead:${leadId}`,
+  sales:       (clientId: string) => `${V}:sales:${clientId}`,
+  metrics:     (clientId: string) => `${V}:metrics:${clientId}`,
+  unreadCount: (clientId: string) => `${V}:notifications:unread:${clientId}`,
 };
 
 export async function invalidate(...keys: string[]) {

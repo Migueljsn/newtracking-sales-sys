@@ -108,21 +108,31 @@ export async function GET(req: NextRequest) {
         sale:   { soldAt: { lte: daysAgo(days), gte: daysAgo(120) } },
       },
       include: {
-        customer: { select: { name: true, state: true } },
-        sale:     { select: { soldAt: true } },
+        customer: {
+          select: {
+            name: true, state: true,
+            // Última venda do cliente (para checar se houve recompra depois desta)
+            sales: { orderBy: { soldAt: "desc" }, take: 1, select: { leadId: true } },
+          },
+        },
+        sale: { select: { soldAt: true } },
       },
     });
 
-    if (candidates.length === 0) continue;
+    // Só alerta se esta lead for a venda mais recente do cliente
+    // Se o cliente comprou de novo (recompra), a lead antiga é ignorada
+    const active = candidates.filter(l => l.customer.sales[0]?.leadId === l.id);
 
-    const dedupeKeys = candidates.map((l) => `LTV_REACTIVATION:${l.id}:${label}`);
+    if (active.length === 0) continue;
+
+    const dedupeKeys = active.map((l) => `LTV_REACTIVATION:${l.id}:${label}`);
     const existing   = await prisma.notification.findMany({
       where:  { dedupeKey: { in: dedupeKeys } },
       select: { dedupeKey: true },
     });
     const sent = new Set(existing.map((n) => n.dedupeKey));
 
-    const toCreate = candidates
+    const toCreate = active
       .filter((l) => !sent.has(`LTV_REACTIVATION:${l.id}:${label}`))
       .map((l) => ({
         clientId:  l.clientId,

@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, Search, Users,
   Download, SlidersHorizontal, X, Check, Loader2,
-  CheckSquare, UserCheck, ChevronDown,
+  CheckSquare, UserCheck, ChevronDown, Trash2, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
@@ -15,6 +15,7 @@ import {
   bulkMarkAsLostAction,
   bulkMarkAsRegisteredAction,
   bulkAssignConsultantAction,
+  bulkDeleteLeadsAction,
 } from "@/app/(dashboard)/leads/actions";
 import type { LeadStatus, LeadSource } from "@prisma/client";
 
@@ -201,7 +202,7 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
   // Bulk selection
   const [isSelecting,    setIsSelecting]    = useState(false);
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
-  const [bulkStep,       setBulkStep]       = useState<"idle" | "confirm-lost" | "confirm-registered" | "assign-consultant">("idle");
+  const [bulkStep,       setBulkStep]       = useState<"idle" | "confirm-lost" | "confirm-registered" | "assign-consultant" | "confirm-delete-1" | "confirm-delete-2">("idle");
   const [bulkConsultant, setBulkConsultant] = useState("");
   const [bulkLoading,    setBulkLoading]    = useState(false);
 
@@ -748,6 +749,12 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
                   >
                     <Download size={13} /> Exportar
                   </button>
+                  <button
+                    onClick={() => setBulkStep("confirm-delete-1")}
+                    className="flex items-center gap-1.5 rounded-xl border border-[var(--danger)] px-3 py-1.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)] hover:text-white"
+                  >
+                    <Trash2 size={13} /> Excluir
+                  </button>
                 </div>
                 <button
                   onClick={exitSelecting}
@@ -808,6 +815,52 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
                   {bulkLoading ? "..." : "Confirmar"}
                 </button>
                 <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
+                  Voltar
+                </button>
+              </>
+            )}
+
+            {bulkStep === "confirm-delete-1" && (
+              <>
+                <AlertTriangle size={16} className="shrink-0 text-[var(--warning)]" />
+                <span className="flex-1 text-sm text-[var(--text)]">
+                  Excluir <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? "lead" : "leads"}?
+                  <span className="ml-1 text-xs text-[var(--text-muted)]">Inclui todas as vendas associadas.</span>
+                </span>
+                <button
+                  onClick={() => setBulkStep("confirm-delete-2")}
+                  className="rounded-xl border border-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)] hover:text-white"
+                >
+                  Continuar
+                </button>
+                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
+                  Voltar
+                </button>
+              </>
+            )}
+
+            {bulkStep === "confirm-delete-2" && (
+              <>
+                <AlertTriangle size={16} className="shrink-0 text-[var(--danger)]" />
+                <span className="flex-1 text-sm font-semibold text-[var(--danger)]">
+                  Esta ação não pode ser desfeita. Confirma a exclusão permanente?
+                </span>
+                <button
+                  disabled={bulkLoading}
+                  onClick={async () => {
+                    setBulkLoading(true);
+                    try {
+                      const { deleted } = await bulkDeleteLeadsAction([...selectedIds]);
+                      toast.success(`${deleted} ${deleted === 1 ? "lead excluída" : "leads excluídas"} permanentemente.`);
+                      exitSelecting();
+                    } catch { toast.error("Erro ao excluir leads."); }
+                    finally { setBulkLoading(false); }
+                  }}
+                  className="shrink-0 rounded-xl bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {bulkLoading ? "..." : "Excluir definitivamente"}
+                </button>
+                <button onClick={() => setBulkStep("confirm-delete-1")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
                   Voltar
                 </button>
               </>

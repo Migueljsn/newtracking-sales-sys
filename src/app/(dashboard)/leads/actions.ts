@@ -164,3 +164,35 @@ export async function bulkAssignConsultantAction(
   revalidatePath("/leads");
   return { updated: result.count };
 }
+
+export async function bulkDeleteLeadsAction(leadIds: string[]): Promise<{ deleted: number }> {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+  if (leadIds.length === 0) return { deleted: 0 };
+
+  const leads = await prisma.lead.findMany({
+    where:   { id: { in: leadIds }, clientId },
+    include: { sales: { select: { id: true } } },
+  });
+  if (leads.length === 0) return { deleted: 0 };
+
+  const leadIdList = leads.map(l => l.id);
+  const saleIds    = leads.flatMap(l => l.sales.map(s => s.id));
+
+  await prisma.trackingEvent.deleteMany({ where: { leadId: { in: leadIdList } } });
+  if (saleIds.length > 0) {
+    await prisma.trackingEvent.deleteMany({ where: { saleId: { in: saleIds } } });
+    await prisma.sale.deleteMany({ where: { id: { in: saleIds } } });
+  }
+  await prisma.lead.deleteMany({ where: { id: { in: leadIdList } } });
+
+  await invalidate(
+    cacheKeys.leads(clientId),
+    cacheKeys.metrics(clientId),
+    cacheKeys.sales(clientId),
+  );
+  revalidatePath("/leads");
+  revalidatePath("/sales");
+  revalidatePath("/");
+  return { deleted: leads.length };
+}

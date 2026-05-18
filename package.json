@@ -13,7 +13,8 @@
     "db:studio": "prisma studio",
     "create-client": "tsx scripts/create-client.ts",
     "create-admin": "tsx scripts/create-admin.ts",
-    "test-tracking": "tsx scripts/test-tracking.ts"
+    "test-tracking": "tsx scripts/test-tracking.ts",
+    "import-leads": "tsx scripts/import-leads.ts"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",

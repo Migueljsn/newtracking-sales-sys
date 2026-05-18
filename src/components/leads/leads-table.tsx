@@ -6,9 +6,16 @@ import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, Search, Users,
   Download, SlidersHorizontal, X, Check, Loader2,
+  CheckSquare, UserCheck, ChevronDown,
 } from "lucide-react";
+import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
+import {
+  bulkMarkAsLostAction,
+  bulkMarkAsRegisteredAction,
+  bulkAssignConsultantAction,
+} from "@/app/(dashboard)/leads/actions";
 import type { LeadStatus, LeadSource } from "@prisma/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -191,6 +198,35 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
   // Consultants list
   const [consultants, setConsultants] = useState<string[]>([]);
 
+  // Bulk selection
+  const [isSelecting,    setIsSelecting]    = useState(false);
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
+  const [bulkStep,       setBulkStep]       = useState<"idle" | "confirm-lost" | "confirm-registered" | "assign-consultant">("idle");
+  const [bulkConsultant, setBulkConsultant] = useState("");
+  const [bulkLoading,    setBulkLoading]    = useState(false);
+
+  function exitSelecting() {
+    setIsSelecting(false);
+    setSelectedIds(new Set());
+    setBulkStep("idle");
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectPage(on: boolean) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      paginated.forEach(l => on ? next.add(l.id) : next.delete(l.id));
+      return next;
+    });
+  }
+
   const resetPage = () => setPage(0);
 
   useEffect(() => {
@@ -328,7 +364,7 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
         </div>
       </div>
 
-      {/* Row 2: status tabs + column editor + export + clear */}
+      {/* Row 2: status tabs + column editor + export + select + clear */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="soft-panel flex flex-1 flex-wrap gap-1 p-1.5">
           {statusTabs.map((tab) => {
@@ -394,10 +430,27 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
           )}
         </div>
 
+        {/* Select mode toggle */}
+        <button
+          onClick={() => isSelecting ? exitSelecting() : setIsSelecting(true)}
+          title={isSelecting ? "Sair da seleção" : "Selecionar leads"}
+          className={`flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+            isSelecting
+              ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+              : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] hover:text-[var(--text)]"
+          }`}
+        >
+          <CheckSquare size={14} />
+          {isSelecting && selectedIds.size > 0 ? `${selectedIds.size} selecionadas` : "Selecionar"}
+        </button>
+
         {/* Export CSV */}
         <button
-          onClick={() => exportCSV(filtered, visibleCols)}
-          title="Exportar CSV"
+          onClick={() => exportCSV(
+            isSelecting && selectedIds.size > 0 ? filtered.filter(l => selectedIds.has(l.id)) : filtered,
+            visibleCols,
+          )}
+          title={isSelecting && selectedIds.size > 0 ? "Exportar selecionadas" : "Exportar CSV"}
           className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
         >
           <Download size={15} />
@@ -440,6 +493,20 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
             <table className="w-full text-sm">
               <thead className="bg-[var(--surface-muted)]">
                 <tr className="border-b border-[var(--border)]">
+                  {isSelecting && (
+                    <th className="w-10 px-3 py-3">
+                      <button
+                        onClick={() => selectPage(!paginated.every(l => selectedIds.has(l.id)))}
+                        className={`flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors ${
+                          paginated.length > 0 && paginated.every(l => selectedIds.has(l.id))
+                            ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                            : "border-[var(--border)] bg-[var(--surface)]"
+                        }`}
+                      >
+                        {paginated.length > 0 && paginated.every(l => selectedIds.has(l.id)) && <Check size={10} />}
+                      </button>
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
                   {visibleCols.has("phone")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Telefone</th>}
                   {visibleCols.has("emailDoc")   && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Email / CPF</th>}
@@ -457,8 +524,31 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
               <tbody className="divide-y divide-[var(--border)]">
                 {paginated.map((lead) => {
                   const inactiveDays = getInactivityDays(lead);
+                  const isSelected   = selectedIds.has(lead.id);
                   return (
-                    <tr key={lead.id} className="transition-colors duration-100 hover:bg-[var(--surface-muted)]">
+                    <tr
+                      key={lead.id}
+                      onClick={() => isSelecting && toggleSelect(lead.id)}
+                      className={`transition-colors duration-100 ${
+                        isSelecting
+                          ? `cursor-pointer select-none ${isSelected ? "bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-muted)]"}`
+                          : "hover:bg-[var(--surface-muted)]"
+                      }`}
+                    >
+                      {isSelecting && (
+                        <td className="w-10 px-3 py-3.5" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => toggleSelect(lead.id)}
+                            className={`flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors ${
+                              isSelected
+                                ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                                : "border-[var(--border)] bg-[var(--surface)]"
+                            }`}
+                          >
+                            {isSelected && <Check size={10} />}
+                          </button>
+                        </td>
+                      )}
                       <td className="px-4 py-3.5">
                         <div className="max-w-[200px]">
                           <Link
@@ -526,7 +616,7 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
                             : "—"}
                         </td>
                       )}
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3.5" onClick={e => isSelecting && e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <WhatsAppButton
                             phone={lead.customer.phone}
@@ -619,6 +709,148 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
           </div>
         )}
       </div>
+      {/* ── Bulk action bar ── */}
+      {isSelecting && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-30 w-[calc(100vw-2rem)] max-w-2xl -translate-x-1/2">
+          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 shadow-xl">
+
+            {bulkStep === "idle" && (
+              <>
+                <span className="shrink-0 text-sm font-semibold text-[var(--text)]">
+                  {selectedIds.size} {selectedIds.size === 1 ? "selecionada" : "selecionadas"}
+                </span>
+                <div className="mx-1 h-5 w-px bg-[var(--border)]" />
+                <div className="flex flex-1 flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setBulkStep("confirm-lost")}
+                    className="rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)] hover:text-white"
+                  >
+                    Marcar perdida
+                  </button>
+                  <button
+                    onClick={() => setBulkStep("confirm-registered")}
+                    className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
+                  >
+                    Marcar cadastrada
+                  </button>
+                  <button
+                    onClick={() => { setBulkConsultant(""); setBulkStep("assign-consultant"); }}
+                    className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  >
+                    <UserCheck size={13} /> Consultor
+                  </button>
+                  <button
+                    onClick={() => {
+                      const list = filtered.filter(l => selectedIds.has(l.id));
+                      exportCSV(list, visibleCols);
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+                  >
+                    <Download size={13} /> Exportar
+                  </button>
+                </div>
+                <button
+                  onClick={exitSelecting}
+                  className="shrink-0 rounded-xl p-1.5 text-[var(--text-muted)] transition-colors hover:text-[var(--danger)]"
+                  title="Cancelar seleção"
+                >
+                  <X size={16} />
+                </button>
+              </>
+            )}
+
+            {bulkStep === "confirm-lost" && (
+              <>
+                <span className="flex-1 text-sm text-[var(--text)]">
+                  Marcar <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? "lead" : "leads"} como perdida?
+                  <span className="ml-1 text-xs text-[var(--text-muted)]">(apenas NEW e Cadastradas)</span>
+                </span>
+                <button
+                  disabled={bulkLoading}
+                  onClick={async () => {
+                    setBulkLoading(true);
+                    try {
+                      const { updated } = await bulkMarkAsLostAction([...selectedIds]);
+                      toast.success(`${updated} ${updated === 1 ? "lead marcada" : "leads marcadas"} como perdida.`);
+                      exitSelecting();
+                    } catch { toast.error("Erro ao atualizar leads."); }
+                    finally { setBulkLoading(false); }
+                  }}
+                  className="rounded-xl bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {bulkLoading ? "..." : "Confirmar"}
+                </button>
+                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
+                  Voltar
+                </button>
+              </>
+            )}
+
+            {bulkStep === "confirm-registered" && (
+              <>
+                <span className="flex-1 text-sm text-[var(--text)]">
+                  Marcar <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? "lead" : "leads"} como cadastrada?
+                  <span className="ml-1 text-xs text-[var(--text-muted)]">(apenas status Nova)</span>
+                </span>
+                <button
+                  disabled={bulkLoading}
+                  onClick={async () => {
+                    setBulkLoading(true);
+                    try {
+                      const { updated } = await bulkMarkAsRegisteredAction([...selectedIds]);
+                      toast.success(`${updated} ${updated === 1 ? "lead marcada" : "leads marcadas"} como cadastrada.`);
+                      exitSelecting();
+                    } catch { toast.error("Erro ao atualizar leads."); }
+                    finally { setBulkLoading(false); }
+                  }}
+                  className="rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {bulkLoading ? "..." : "Confirmar"}
+                </button>
+                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
+                  Voltar
+                </button>
+              </>
+            )}
+
+            {bulkStep === "assign-consultant" && (
+              <>
+                <span className="shrink-0 text-sm font-semibold text-[var(--text)]">Consultor:</span>
+                <div className="relative flex-1">
+                  <select
+                    value={bulkConsultant}
+                    onChange={e => setBulkConsultant(e.target.value)}
+                    className="input w-full pr-8 text-sm"
+                  >
+                    <option value="">— Remover consultor</option>
+                    {consultants.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                </div>
+                <button
+                  disabled={bulkLoading}
+                  onClick={async () => {
+                    setBulkLoading(true);
+                    try {
+                      const { updated } = await bulkAssignConsultantAction([...selectedIds], bulkConsultant || null);
+                      toast.success(`Consultor atualizado em ${updated} ${updated === 1 ? "lead" : "leads"}.`);
+                      exitSelecting();
+                    } catch { toast.error("Erro ao atualizar consultor."); }
+                    finally { setBulkLoading(false); }
+                  }}
+                  className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {bulkLoading ? "..." : "Aplicar"}
+                </button>
+                <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
+                  Voltar
+                </button>
+              </>
+            )}
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

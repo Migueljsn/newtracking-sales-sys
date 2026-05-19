@@ -385,60 +385,75 @@ button {
 @media print {
   @page { margin: 10mm; size: A4 landscape; }
 
-  /* base */
+  /* ── Redefine CSS variables para tema claro ── */
+  :root, .dark {
+    --bg:            #f4f6fb;
+    --bg-elevated:   #edf2fa;
+    --surface:       #ffffff;
+    --surface-strong:#ffffff;
+    --surface-muted: #f1f5f9;
+    --border:        rgba(148,163,184,0.35);
+    --border-strong: rgba(148,163,184,0.55);
+    --text:          #102033;
+    --text-muted:    #5d6b82;
+    --accent:        #2563eb;
+    --accent-strong: #1d4ed8;
+    --accent-soft:   rgba(37,99,235,0.12);
+    --success:       #0f9f6e;
+    --success-soft:  rgba(15,159,110,0.14);
+    --warning:       #c27b12;
+    --warning-soft:  rgba(194,123,18,0.14);
+    --danger:        #d14343;
+    --danger-soft:   rgba(209,67,67,0.14);
+    color-scheme: light;
+  }
+
+  /* ── Base ── */
   html, body {
-    background: #fff !important;
+    background: #f4f6fb !important;
+    background-image: none !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  /* hide sidebar, top bar, controls, backdrop elements */
+  /* ── Esconder elementos de navegação ── */
   aside,
   .no-print,
   [data-mobile-bar],
   [aria-label="Abrir navegação"],
   [aria-label="Fechar navegação"] { display: none !important; }
 
-  /* remove layout constraints */
+  /* ── Layout ── */
   body > div, .flex.min-h-screen { display: block !important; }
   main { overflow: visible !important; width: 100% !important; }
   .page-shell { max-width: none !important; padding: 0 !important; margin: 0 !important; }
 
-  /* force white backgrounds + borders on cards */
-  .card, .stat-card {
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    box-shadow: none !important;
+  /* ── Cards e blocos ── */
+  .card, .stat-card,
+  #analytics-print-area [class*="rounded"],
+  #analytics-print-area [class*="border"] {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  /* force dark text regardless of theme */
-  * { color: #1e293b !important; }
-
-  /* recharts axis labels and ticks */
+  /* ── Recharts ── */
   .recharts-text tspan,
   .recharts-cartesian-axis-tick-value tspan { fill: #64748b !important; }
 
-  /* recharts grid */
-  .recharts-cartesian-grid line,
-  .recharts-cartesian-grid-horizontal line,
-  .recharts-cartesian-grid-vertical line { stroke: #e2e8f0 !important; }
+  .recharts-cartesian-grid line { stroke: #e2e8f0 !important; }
 
-  /* keep chart colors */
   .recharts-area-area,
   .recharts-bar-rectangle path,
   .recharts-layer path,
-  .recharts-surface { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-  svg { overflow: visible !important; }
-
-  /* progress bars in HBarList */
+  .recharts-surface,
   #analytics-print-area div[style*="background"] {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  svg { overflow: visible !important; }
 }
 

@@ -184,7 +184,7 @@ export const journeyProcessStep = inngest.createFunction(
             const html    = renderTemplate(template.body,    vars);
 
             const { data, error } = await resend.emails.send({
-              from:    `${client.name} via Portal CRM <onboarding@resend.dev>`,
+              from:    `${client.name} via Portal CRM <noreply@fonilcompany.com.br>`,
               to:      [lead.customer.email!],
               subject,
               html,

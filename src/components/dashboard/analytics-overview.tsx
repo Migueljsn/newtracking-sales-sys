@@ -8,10 +8,12 @@ import {
 } from "recharts";
 import {
   ArrowDownRight, ArrowUpRight, Calendar as CalendarIcon,
+  ChevronLeft, ChevronRight,
   Download, Minus, Users, DollarSign, PercentSquare, Ticket,
   RefreshCw, TrendingUp, Clock, AlertCircle,
 } from "lucide-react";
 import type { AnalyticsData, LtvData, CohortData, PipelineData } from "@/lib/queries/analytics";
+import { HintTooltip } from "@/components/ui/hint-tooltip";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -26,16 +28,20 @@ function fmt(v: number) {
 }
 function TrendBadge({ value }: { value: number }) {
   if (value > 0) return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--success)]">
-      <ArrowUpRight size={12} />+{value}%
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--success-soft)] px-2 py-0.5 text-xs font-bold text-[var(--success)]">
+      <ArrowUpRight size={13} />+{value}%
     </span>
   );
   if (value < 0) return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--danger)]">
-      <ArrowDownRight size={12} />{value}%
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--danger-soft)] px-2 py-0.5 text-xs font-bold text-[var(--danger)]">
+      <ArrowDownRight size={13} />{value}%
     </span>
   );
-  return <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--text-muted)]"><Minus size={12} />0%</span>;
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-xs font-bold text-[var(--text-muted)]">
+      <Minus size={12} />0%
+    </span>
+  );
 }
 
 const ACCENT        = "var(--accent)";
@@ -144,6 +150,22 @@ export function AnalyticsOverview() {
 
   const isCustomReady = mode === "custom" && customFrom && customTo && customFrom <= customTo;
 
+  const effectiveFrom = mode === "preset" ? daysAgo(days) : customFrom;
+  const effectiveTo   = mode === "preset" ? TODAY         : customTo;
+  const canGoForward  = effectiveTo < TODAY;
+
+  function navigatePeriod(direction: -1 | 1) {
+    const f      = new Date(effectiveFrom);
+    const t      = new Date(effectiveTo);
+    const spanMs = t.getTime() - f.getTime() + 86_400_000;
+    const newF   = new Date(f.getTime() + direction * spanMs).toISOString().slice(0, 10);
+    const newT   = new Date(t.getTime() + direction * spanMs).toISOString().slice(0, 10);
+    if (direction === 1 && newT > TODAY) return;
+    setMode("custom");
+    setCustomFrom(newF);
+    setCustomTo(newT > TODAY ? TODAY : newT);
+  }
+
   type QueryKey =
     | ["analytics", "preset", number]
     | ["analytics", "custom", string, string];
@@ -180,6 +202,16 @@ export function AnalyticsOverview() {
     <div className="space-y-6">
       {/* ── Controls ── */}
       <div className="no-print flex flex-wrap items-center gap-2">
+        {/* period navigation arrows */}
+        <button
+          type="button"
+          onClick={() => navigatePeriod(-1)}
+          title="Período anterior"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+        >
+          <ChevronLeft size={16} />
+        </button>
+
         {/* period selector pill */}
         <div className="flex gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-1">
           {PERIODS.map(p => (
@@ -232,6 +264,17 @@ export function AnalyticsOverview() {
           </div>
         )}
 
+        {/* forward arrow */}
+        <button
+          type="button"
+          onClick={() => navigatePeriod(1)}
+          disabled={!canGoForward}
+          title="Próximo período"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <ChevronRight size={16} />
+        </button>
+
         {/* right side */}
         <div className="ml-auto flex items-center gap-2">
           {isFetching && (
@@ -269,6 +312,7 @@ export function AnalyticsOverview() {
             value={s ? fmt(s.totalLeads) : "—"}
             sub={`Hoje: ${s ? fmt(s.leadsToday) : "—"}`}
             trend={s?.leadsTrend}
+            hint="Leads capturadas no período selecionado, independente do status atual. Inclui formulário, cadastro manual e importação."
             iconBg="var(--accent-soft)"
             iconColor={ACCENT}
           />
@@ -278,6 +322,7 @@ export function AnalyticsOverview() {
             value={s ? brl(s.totalRevenue) : "—"}
             sub={`Hoje: ${s ? brl(s.revenueToday) : "—"}`}
             trend={s?.revenueTrend}
+            hint="Soma de todas as vendas registradas no período. Inclui primeiras compras e recompras. A tendência compara com o período imediatamente anterior de igual duração."
             iconBg="var(--success-soft)"
             iconColor={SUCCESS}
           />
@@ -286,6 +331,8 @@ export function AnalyticsOverview() {
             label="Conversão"
             value={s ? `${s.conversionRate}%` : "—"}
             sub={`${s ? fmt(s.totalSales) : "—"} vendas`}
+            trend={s?.conversionTrend}
+            hint="Percentual de leads capturadas no período que encerraram com status VENDIDA. Calculado como: vendas ÷ total de leads × 100."
             iconBg="var(--warning-soft)"
             iconColor={WARNING}
           />
@@ -293,7 +340,9 @@ export function AnalyticsOverview() {
             icon={Ticket}
             label="Ticket médio"
             value={s ? brl(s.avgTicket) : "—"}
-            sub={`Período: ${days}d`}
+            sub={`${s ? fmt(s.totalSales) : "—"} vendas`}
+            trend={s?.avgTicketTrend}
+            hint="Valor médio por venda no período. Calculado como: receita total ÷ número de vendas. Inclui recompras."
             iconBg="var(--danger-soft)"
             iconColor={DANGER}
           />
@@ -304,7 +353,10 @@ export function AnalyticsOverview() {
 
         {/* ── Area chart: leads & revenue by day ── */}
         <div className="card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Leads e Receita por dia</h2>
+          <div className="mb-4 flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-[var(--text)]">Leads e Receita por dia</h2>
+            <HintTooltip text="Evolução diária de capturas e receita no período. Passe o mouse sobre o gráfico para ver a taxa de conversão daquele dia." />
+          </div>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={data?.byDay ?? []} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <defs>
@@ -322,7 +374,31 @@ export function AnalyticsOverview() {
               <YAxis yAxisId="l" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={32} />
               <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={60}
                      tickFormatter={v => brl(v).replace("R$ ", "").replace(",00", "")} />
-              <Tooltip content={<ChartTooltip currency={false} />} />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const dayData = data?.byDay.find(d => d.date === label);
+                  const rate = dayData && dayData.leads > 0
+                    ? Math.round((dayData.sales / dayData.leads) * 100)
+                    : 0;
+                  return (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 shadow-lg text-xs">
+                      <p className="mb-1.5 font-semibold text-[var(--text)]">{label ? String(label).slice(5).replace("-", "/") : ""}</p>
+                      {payload.map(p => (
+                        <p key={p.name as string} style={{ color: p.color as string }} className="tabular-nums">
+                          {p.name}: <span className="font-bold">{p.name === "Receita" ? brl(p.value as number) : fmt(p.value as number)}</span>
+                        </p>
+                      ))}
+                      {dayData && dayData.leads > 0 && (
+                        <p className="mt-1.5 border-t border-[var(--border)] pt-1.5 text-[var(--text-muted)]">
+                          Conversão: <span className="font-bold text-[var(--text)]">{rate}%</span>
+                          <span className="ml-1 opacity-60">({dayData.sales}/{dayData.leads})</span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                }}
+              />
               <Area yAxisId="l" type="monotone" dataKey="leads"   name="Leads"   stroke={ACCENT}  fill="url(#gradLeads)"   strokeWidth={2} dot={false} />
               <Area yAxisId="r" type="monotone" dataKey="revenue" name="Receita" stroke={SUCCESS} fill="url(#gradRevenue)" strokeWidth={2} dot={false} />
             </AreaChart>
@@ -335,12 +411,18 @@ export function AnalyticsOverview() {
         {/* ── Funnel + Weekday ── */}
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="card p-5">
-            <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Funil de leads</h2>
+            <div className="mb-4 flex items-center gap-1.5">
+              <h2 className="text-sm font-semibold text-[var(--text)]">Funil de leads</h2>
+              <HintTooltip text="Distribuição dos status das leads capturadas no período. A largura da barra mostra a proporção de cada etapa em relação ao total." />
+            </div>
             <FunnelChart data={data?.funnel ?? []} />
           </div>
 
           <div className="card p-5">
-            <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Vendas por dia da semana</h2>
+            <div className="mb-4 flex items-center gap-1.5">
+              <h2 className="text-sm font-semibold text-[var(--text)]">Vendas por dia da semana</h2>
+              <HintTooltip text="Concentração de vendas fechadas por dia da semana no período. Útil para identificar os melhores dias para operação comercial." />
+            </div>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={data?.byWeekday ?? []} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -380,13 +462,16 @@ export function AnalyticsOverview() {
 // ─── Pipeline atual ──────────────────────────────────────────────────────────
 
 function PipelineBlock({ pipeline }: { pipeline: PipelineData }) {
-  const total = pipeline.currentNew + pipeline.currentRegistered;
+  const total = pipeline.currentNew + pipeline.currentInStage;
   if (total === 0) return null;
 
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-[var(--text)]">Pipeline atual</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-[var(--text)]">Pipeline atual</h2>
+          <HintTooltip text="Snapshot do funil em tempo real, independente do período selecionado. Mostra leads que ainda podem virar venda: Novas (sem etapa) e Em etapa (em negociação)." />
+        </div>
         <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Todos os períodos
         </span>
@@ -399,7 +484,7 @@ function PipelineBlock({ pipeline }: { pipeline: PipelineData }) {
           <div className="min-w-0">
             <p className="text-3xl font-bold tabular-nums text-[var(--text)]">{fmt(pipeline.currentNew)}</p>
             <p className="text-sm font-medium text-[var(--text-muted)]">Aguardando contato</p>
-            <p className="text-[11px] text-[var(--text-muted)] opacity-60">leads com status Nova</p>
+            <p className="text-[11px] text-[var(--text-muted)] opacity-60">leads sem etapa de pipeline</p>
           </div>
         </div>
         <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
@@ -407,9 +492,9 @@ function PipelineBlock({ pipeline }: { pipeline: PipelineData }) {
             <AlertCircle size={18} className="text-[var(--warning)]" />
           </div>
           <div className="min-w-0">
-            <p className="text-3xl font-bold tabular-nums text-[var(--text)]">{fmt(pipeline.currentRegistered)}</p>
-            <p className="text-sm font-medium text-[var(--text-muted)]">Sem venda ainda</p>
-            <p className="text-[11px] text-[var(--text-muted)] opacity-60">leads cadastradas sem compra</p>
+            <p className="text-3xl font-bold tabular-nums text-[var(--text)]">{fmt(pipeline.currentInStage)}</p>
+            <p className="text-sm font-medium text-[var(--text-muted)]">Em etapa</p>
+            <p className="text-[11px] text-[var(--text-muted)] opacity-60">leads em etapa de pipeline</p>
           </div>
         </div>
       </div>
@@ -420,10 +505,10 @@ function PipelineBlock({ pipeline }: { pipeline: PipelineData }) {
 // ─── Cohort do período ───────────────────────────────────────────────────────
 
 const COHORT_STEPS = [
-  { key: "sold"       as const, label: "Convertidas",   color: "var(--success)" },
-  { key: "registered" as const, label: "Em negociação", color: "var(--accent)"  },
-  { key: "newStatus"  as const, label: "Sem contato",   color: "var(--warning)" },
-  { key: "lost"       as const, label: "Perdidas",      color: "var(--danger)"  },
+  { key: "sold"      as const, label: "Convertidas", color: "var(--success)" },
+  { key: "inStage"   as const, label: "Em etapa",    color: "var(--accent)"  },
+  { key: "newStatus" as const, label: "Sem contato", color: "var(--warning)" },
+  { key: "lost"      as const, label: "Perdidas",    color: "var(--danger)"  },
 ];
 
 function CohortBlock({ cohort }: { cohort: CohortData }) {
@@ -433,9 +518,10 @@ function CohortBlock({ cohort }: { cohort: CohortData }) {
     <div className="card p-5">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--text)]">
-            Leads capturadas no período
-          </h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-[var(--text)]">Leads capturadas no período</h2>
+            <HintTooltip text="De todas as leads geradas no período selecionado, mostra onde cada uma está hoje. Indica qualidade e velocidade do funil de vendas." />
+          </div>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
             {fmt(cohort.total)} leads — onde estão hoje
           </p>
@@ -449,7 +535,10 @@ function CohortBlock({ cohort }: { cohort: CohortData }) {
               <p className="text-lg font-bold tabular-nums text-[var(--text)] leading-none">
                 {cohort.avgConvDays === 0 ? "< 1" : cohort.avgConvDays} {cohort.avgConvDays === 1 ? "dia" : "dias"}
               </p>
-              <p className="text-[11px] text-[var(--text-muted)]">tempo médio de conversão</p>
+              <div className="flex items-center gap-1">
+                <p className="text-[11px] text-[var(--text-muted)]">tempo médio de conversão</p>
+                <HintTooltip text="Média de dias entre a captura da lead e o registro da venda. Calculado apenas sobre as leads convertidas no período." />
+              </div>
             </div>
           </div>
         )}
@@ -515,7 +604,10 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
 
   return (
     <div className="card p-5 space-y-6">
-      <h2 className="text-sm font-semibold text-[var(--text)]">LTV &amp; Recompra</h2>
+      <div className="flex items-center gap-1.5">
+        <h2 className="text-sm font-semibold text-[var(--text)]">LTV &amp; Recompra</h2>
+        <HintTooltip text="Análise do valor ao longo da vida do cliente. Mede receita de recompra, frequência de retorno e classifica clientes por estágio de fidelização." />
+      </div>
 
       {/* ── 3 KPIs ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -525,7 +617,10 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
           </div>
           <div>
             <p className="text-2xl font-bold tabular-nums text-[var(--text)]">{ltv.repeatRate}%</p>
-            <p className="text-xs text-[var(--text-muted)]">Taxa de recompra</p>
+            <div className="flex items-center gap-1">
+              <p className="text-xs text-[var(--text-muted)]">Taxa de recompra</p>
+              <HintTooltip text="Percentual de vendas no período realizadas por clientes que já compraram antes. Alta taxa indica boa retenção e fidelização." />
+            </div>
             <p className="text-[10px] text-[var(--text-muted)] opacity-70">do total de vendas no período</p>
           </div>
         </div>
@@ -535,7 +630,10 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
           </div>
           <div>
             <p className="text-2xl font-bold tabular-nums text-[var(--success)]">{brl(ltv.repeatRevenue)}</p>
-            <p className="text-xs text-[var(--text-muted)]">Receita de recompra</p>
+            <div className="flex items-center gap-1">
+              <p className="text-xs text-[var(--text-muted)]">Receita de recompra</p>
+              <HintTooltip text="Valor total gerado pelas vendas de clientes que já compraram antes. Alta proporção em relação à receita total indica base de clientes fiel." />
+            </div>
             <p className="text-[10px] text-[var(--text-muted)] opacity-70">no período selecionado</p>
           </div>
         </div>
@@ -545,7 +643,10 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
           </div>
           <div>
             <p className="text-2xl font-bold tabular-nums text-[var(--text)]">{brl(ltv.avgLtv)}</p>
-            <p className="text-xs text-[var(--text-muted)]">LTV médio por cliente</p>
+            <div className="flex items-center gap-1">
+              <p className="text-xs text-[var(--text-muted)]">LTV médio por cliente</p>
+              <HintTooltip text="Receita total acumulada de todos os clientes, dividida pelo número de clientes. Representa o valor médio que cada cliente gera para o negócio ao longo do tempo." />
+            </div>
             <p className="text-[10px] text-[var(--text-muted)] opacity-70">gasto total acumulado</p>
           </div>
         </div>
@@ -554,7 +655,10 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ── Receita: nova venda vs recompra ── */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Receita no período</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Receita no período</p>
+            <HintTooltip text="Divide a receita do período entre clientes novos (primeira compra) e clientes recorrentes (recompra)." />
+          </div>
           {totalPeriod === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">Sem vendas no período.</p>
           ) : (
@@ -583,9 +687,12 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
 
         {/* ── Ciclo de vida dos clientes ── */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-            Ciclo de vida — {fmt(totalCustomers)} clientes
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Ciclo de vida — {fmt(totalCustomers)} clientes
+            </p>
+            <HintTooltip text="Classificação de todos os clientes: Nova compra (1 compra), Fiel (2–3 compras), Campeão (4+ compras), Em risco (sem compra recente), Inativo (ausente por longo período)." />
+          </div>
           {totalCustomers === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">Nenhum cliente cadastrado.</p>
           ) : (
@@ -618,24 +725,25 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
 
 // ─── KPI card ────────────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, sub, trend, iconBg, iconColor }: {
+function KpiCard({ icon: Icon, label, value, sub, trend, hint, iconBg, iconColor }: {
   icon: React.ElementType;
   label: string; value: string; sub: string;
-  trend?: number; iconBg: string; iconColor: string;
+  trend?: number; hint?: string; iconBg: string; iconColor: string;
 }) {
   return (
     <div className="stat-card">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: iconBg, color: iconColor }}>
-          <Icon size={18} />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ background: iconBg, color: iconColor }}>
+          <Icon size={20} />
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold tabular-nums leading-none text-[var(--text)]">{value}</p>
-          {trend !== undefined && <div className="mt-1"><TrendBadge value={trend} /></div>}
-        </div>
+        {trend !== undefined && <TrendBadge value={trend} />}
       </div>
-      <p className="mt-3 text-sm font-medium text-[var(--text-muted)]">{label}</p>
-      <p className="text-xs text-[var(--text-muted)] opacity-70">{sub}</p>
+      <p className="mt-4 text-3xl font-bold tabular-nums leading-none text-[var(--text)]">{value}</p>
+      <div className="mt-2 flex items-center gap-1.5">
+        <p className="text-sm font-semibold text-[var(--text)]">{label}</p>
+        {hint && <HintTooltip text={hint} />}
+      </div>
+      <p className="mt-0.5 text-xs text-[var(--text-muted)]">{sub}</p>
     </div>
   );
 }
@@ -668,7 +776,11 @@ function BarListCard({ title, data }: { title: string; data: BarItemFull[] }) {
       {data.length === 0 ? (
         <p className="text-sm text-[var(--text-muted)]">Sem dados no período.</p>
       ) : (
-        <HBarList data={data} valueKey={metric} currency={metric === "revenue"} />
+        <HBarList
+          data={[...data].sort((a, b) => b[metric] - a[metric])}
+          valueKey={metric}
+          currency={metric === "revenue"}
+        />
       )}
     </div>
   );

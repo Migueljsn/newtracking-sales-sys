@@ -57,15 +57,26 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Activation: REGISTERED há 3d ou 7d sem venda ───────────
+  // ── Activation: in pipeline stage OR REGISTERED for 3d/7d without sale ──────
   for (const { days, label, text } of [
     { days: 3, label: "3d", text: "3 dias" },
     { days: 7, label: "7d", text: "7 dias" },
   ]) {
     const candidates = await prisma.lead.findMany({
       where: {
-        status:        "REGISTERED",
-        statusHistory: { some: { to: "REGISTERED", createdAt: { lte: daysAgo(days) } } },
+        OR: [
+          // Legacy: REGISTERED status
+          {
+            status:        "REGISTERED",
+            statusHistory: { some: { to: "REGISTERED", createdAt: { lte: daysAgo(days) } } },
+          },
+          // New: NEW with pipeline stage, updated more than N days ago
+          {
+            status:          "NEW",
+            pipelineStageId: { not: null },
+            updatedAt:       { lte: daysAgo(days) },
+          },
+        ],
       },
       include: { customer: { select: { name: true, state: true } } },
     });

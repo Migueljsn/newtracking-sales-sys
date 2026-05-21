@@ -6,13 +6,20 @@ import { prisma } from "@/lib/db/prisma";
 import { fetchLeadsForClient } from "@/lib/queries/leads";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { CreateLeadModal } from "@/components/leads/create-lead-modal";
-import { GuideCard } from "@/components/ui/guide-card";
+import { RuleGroup } from "@/lib/audiences/types";
+import { evaluateGroup } from "@/lib/audiences/evaluate";
 
-export default async function LeadsPage() {
-  const session  = await getSession();
-  const clientId = session.clientId!;
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ audienceId?: string }>;
+}) {
+  const session    = await getSession();
+  const clientId   = session.clientId!;
+  const params     = await searchParams;
+  const audienceId = params.audienceId;
 
-  const [queryClient, clientSettings] = await Promise.all([
+  const [queryClient, clientSettings, pipelineStages] = await Promise.all([
     (async () => {
       const qc = new QueryClient();
       await qc.prefetchQuery({ queryKey: ["leads"], queryFn: () => fetchLeadsForClient(clientId) });
@@ -22,7 +29,58 @@ export default async function LeadsPage() {
       where:  { clientId },
       select: { whatsappTemplate: true },
     }),
+    prisma.pipelineStage.findMany({
+      where:   { clientId },
+      orderBy: { position: "asc" },
+      select:  { id: true, name: true, color: true },
+    }),
   ]);
+
+  // Audience filter
+  let audienceFilter: { ids: string[]; name: string } | null = null;
+
+  if (audienceId) {
+    const audience = await prisma.audience.findUnique({ where: { id: audienceId, clientId } });
+    if (audience) {
+      const rules = audience.rules as RuleGroup;
+      const leads = await prisma.lead.findMany({
+        where:  { clientId },
+        select: {
+          id:              true,
+          status:          true,
+          pipelineStageId: true,
+          capturedAt:      true,
+          utmSource:       true,
+          utmMedium:       true,
+          utmCampaign:     true,
+          consultant:      true,
+          customer:        { select: { state: true, city: true, email: true } },
+          sales:           { select: { value: true, soldAt: true } },
+        },
+      });
+
+      const matchedIds = leads
+        .filter((l) =>
+          evaluateGroup(
+            {
+              status:          l.status,
+              pipelineStageId: l.pipelineStageId,
+              capturedAt:      l.capturedAt,
+              utmSource:       l.utmSource,
+              utmMedium:       l.utmMedium,
+              utmCampaign:     l.utmCampaign,
+              consultant:      l.consultant,
+              customer:        l.customer,
+              sales:           l.sales.map((s) => ({ value: s.value.toString(), soldAt: s.soldAt })),
+            },
+            rules
+          )
+        )
+        .map((l) => l.id);
+
+      audienceFilter = { ids: matchedIds, name: audience.name };
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -33,19 +91,12 @@ export default async function LeadsPage() {
         <CreateLeadModal />
       </div>
 
-      <GuideCard
-        title="Como operar esta tela"
-        description="A lista de leads é o ponto de partida diário do cliente. O ideal é reduzir dúvida operacional logo aqui."
-        items={[
-          "Use a busca para localizar por nome, telefone ou CPF/CNPJ sem precisar lembrar em qual canal a lead entrou.",
-          "Abra a lead para ver origem da campanha, histórico e ações disponíveis como registrar venda ou marcar como perdida.",
-          "Se a operação ainda não tem origem confiável da lead, prefira completar a captura ou importar corretamente antes de avançar no comercial.",
-        ]}
-        tone="tip"
-      />
-
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <LeadsTable whatsappTemplate={clientSettings?.whatsappTemplate ?? null} />
+        <LeadsTable
+          whatsappTemplate={clientSettings?.whatsappTemplate ?? null}
+          pipelineStages={pipelineStages}
+          audienceFilter={audienceFilter}
+        />
       </HydrationBoundary>
     </div>
   );

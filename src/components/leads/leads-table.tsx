@@ -13,7 +13,7 @@ import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
 import {
   bulkMarkAsLostAction,
-  bulkMarkAsRegisteredAction,
+  bulkMoveToStageAction,
   bulkAssignConsultantAction,
   bulkDeleteLeadsAction,
 } from "@/app/(dashboard)/leads/actions";
@@ -29,6 +29,7 @@ interface Lead {
   updatedAt:  string;
   consultant: string | null;
   sales:      { soldAt: string; value: number }[];
+  pipelineStage: { id: string; name: string; color: string } | null;
   customer: {
     name:     string;
     phone:    string;
@@ -86,12 +87,11 @@ const sourceLabel: Record<LeadSource, string> = {
   IMPORT: "Importação",
 };
 
-const statusTabs: { value: LeadStatus | "ALL"; label: string }[] = [
-  { value: "ALL",        label: "Todas"       },
-  { value: "NEW",        label: "Novas"       },
-  { value: "REGISTERED", label: "Cadastradas" },
-  { value: "SOLD",       label: "Vendidas"    },
-  { value: "LOST",       label: "Perdidas"    },
+const statusTabs: { value: "ALL" | "NEW" | "SOLD" | "LOST"; label: string }[] = [
+  { value: "ALL",  label: "Todas"    },
+  { value: "NEW",  label: "Novas"    },
+  { value: "SOLD", label: "Vendidas" },
+  { value: "LOST", label: "Perdidas" },
 ];
 
 const INACTIVITY_PRESETS = [7, 15, 30, 45];
@@ -104,7 +104,7 @@ function daysAgo(dateStr: string): number {
 
 function getInactivityDays(lead: Lead): number {
   if (lead.status === "SOLD" && lead.sales[0]?.soldAt) return daysAgo(lead.sales[0].soldAt);
-  if (lead.status === "REGISTERED") return daysAgo(lead.updatedAt);
+  if ((lead.status === "NEW" || lead.status === "REGISTERED") && lead.pipelineStage) return daysAgo(lead.updatedAt);
   return daysAgo(lead.capturedAt);
 }
 
@@ -146,7 +146,7 @@ function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
   const rows = leads.map((l) => {
     const cols = [l.customer.name, l.customer.phone];
     if (visibleCols.has("emailDoc"))   { cols.push(l.customer.email ?? "", l.customer.document ?? ""); }
-    if (visibleCols.has("status"))     cols.push(l.status);
+    if (visibleCols.has("status"))     cols.push(l.pipelineStage?.name || l.status);
     if (visibleCols.has("state"))      cols.push(l.customer.state ?? "");
     if (visibleCols.has("consultant")) cols.push(l.consultant ?? "");
     if (visibleCols.has("source"))     cols.push(sourceLabel[l.source]);
@@ -171,9 +171,11 @@ function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
 
 interface LeadsTableProps {
   whatsappTemplate?: string | null;
+  pipelineStages?:   { id: string; name: string; color: string }[];
+  audienceFilter?:   { ids: string[]; name: string } | null;
 }
 
-export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
+export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }: LeadsTableProps) {
   const { data: leads = [], isFetching } = useQuery<Lead[]>({
     queryKey:        ["leads"],
     queryFn:         () => fetch("/api/leads").then((r) => r.json()),
@@ -182,9 +184,10 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
 
   // Filters
   const [search,           setSearch]           = useState("");
-  const [statusFilter,     setStatusFilter]     = useState<LeadStatus | "ALL">("ALL");
+  const [statusFilter,     setStatusFilter]     = useState<"ALL" | "NEW" | "SOLD" | "LOST">("ALL");
   const [stateFilter,      setStateFilter]      = useState<string>("ALL");
   const [consultantFilter, setConsultantFilter] = useState<string>("ALL");
+  const [stageFilter,      setStageFilter]      = useState<string>("ALL");
   const [inactivityFilter, setInactivityFilter] = useState<number | null>(null);
   const [page,             setPage]             = useState(0);
 
@@ -202,8 +205,9 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
   // Bulk selection
   const [isSelecting,    setIsSelecting]    = useState(false);
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
-  const [bulkStep,       setBulkStep]       = useState<"idle" | "confirm-lost" | "confirm-registered" | "assign-consultant" | "confirm-delete-1" | "confirm-delete-2">("idle");
+  const [bulkStep,       setBulkStep]       = useState<"idle" | "confirm-lost" | "move-to-stage" | "assign-consultant" | "confirm-delete-1" | "confirm-delete-2">("idle");
   const [bulkConsultant, setBulkConsultant] = useState("");
+  const [bulkStageId,    setBulkStageId]    = useState<string>("");
   const [bulkLoading,    setBulkLoading]    = useState(false);
 
   function exitSelecting() {
@@ -266,16 +270,21 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
   }
 
   // Counts (always based on full list, not filtered)
-  const counts: Record<LeadStatus | "ALL", number> = {
-    ALL:        leads.length,
-    NEW:        leads.filter((l) => l.status === "NEW").length,
-    REGISTERED: leads.filter((l) => l.status === "REGISTERED").length,
-    SOLD:       leads.filter((l) => l.status === "SOLD").length,
-    LOST:       leads.filter((l) => l.status === "LOST").length,
+  // REGISTERED leads show under "Novas" — they are legacy
+  const counts: Record<"ALL" | "NEW" | "SOLD" | "LOST", number> = {
+    ALL:  leads.length,
+    NEW:  leads.filter((l) => l.status === "NEW" || l.status === "REGISTERED").length,
+    SOLD: leads.filter((l) => l.status === "SOLD").length,
+    LOST: leads.filter((l) => l.status === "LOST").length,
   };
+
+  // Audience filter IDs (set for O(1) lookup)
+  const audienceIds = audienceFilter ? new Set(audienceFilter.ids) : null;
 
   // Filtered list
   const filtered = leads.filter((lead) => {
+    if (audienceIds && !audienceIds.has(lead.id)) return false;
+
     const q = search.toLowerCase();
     const matchSearch =
       !q ||
@@ -284,12 +293,16 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
       lead.customer.document?.includes(q) ||
       lead.customer.email?.toLowerCase().includes(q);
 
-    const matchStatus     = statusFilter     === "ALL" || lead.status          === statusFilter;
+    const matchStatus =
+      statusFilter === "ALL" ||
+      (statusFilter === "NEW" && (lead.status === "NEW" || lead.status === "REGISTERED")) ||
+      lead.status === statusFilter;
     const matchState      = stateFilter      === "ALL" || lead.customer.state  === stateFilter;
     const matchConsultant = consultantFilter === "ALL" || lead.consultant       === consultantFilter;
+    const matchStage      = stageFilter      === "ALL" || lead.pipelineStage?.id === stageFilter;
     const matchInactivity = inactivityFilter === null  || getInactivityDays(lead) >= inactivityFilter;
 
-    return matchSearch && matchStatus && matchState && matchConsultant && matchInactivity;
+    return matchSearch && matchStatus && matchState && matchConsultant && matchStage && matchInactivity;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -297,19 +310,34 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
   const paginated  = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
   const pageNums   = getPageNumbers(safePage, totalPages);
 
-  const hasActiveFilters = search !== "" || statusFilter !== "ALL" || stateFilter !== "ALL" || consultantFilter !== "ALL" || inactivityFilter !== null;
+  const hasActiveFilters = search !== "" || statusFilter !== "ALL" || stateFilter !== "ALL" || consultantFilter !== "ALL" || stageFilter !== "ALL" || inactivityFilter !== null;
 
   function clearFilters() {
     setSearch("");
     setStatusFilter("ALL");
     setStateFilter("ALL");
     setConsultantFilter("ALL");
+    setStageFilter("ALL");
     setInactivityFilter(null);
     resetPage();
   }
 
   return (
     <div className="space-y-4">
+
+      {/* Banner: filtro por público */}
+      {audienceFilter && (
+        <div className="flex items-center gap-3 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-2.5">
+          <Users size={14} className="shrink-0 text-[var(--accent)]" />
+          <span className="text-sm text-[var(--accent)]">
+            Filtrando por público: <span className="font-semibold">{audienceFilter.name}</span>
+            <span className="font-normal text-[var(--text-muted)] ml-2">— {audienceFilter.ids.length} lead{audienceFilter.ids.length !== 1 ? "s" : ""}</span>
+          </span>
+          <a href="/leads" className="ml-auto text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Limpar filtro ×
+          </a>
+        </div>
+      )}
 
       {/* Row 1: search + state + consultant + inactivity */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -341,6 +369,17 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
           >
             <option value="ALL">Consultor</option>
             {consultants.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+
+        {(pipelineStages ?? []).length > 0 && (
+          <select
+            value={stageFilter}
+            onChange={(e) => { setStageFilter(e.target.value); resetPage(); }}
+            className="input w-full lg:w-36"
+          >
+            <option value="ALL">Etapa</option>
+            {(pipelineStages ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         )}
 
@@ -574,7 +613,7 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
                         </td>
                       )}
                       {visibleCols.has("status") && (
-                        <td className="px-4 py-3.5"><LeadStatusBadge status={lead.status} /></td>
+                        <td className="px-4 py-3.5"><LeadStatusBadge status={lead.status} pipelineStage={lead.pipelineStage} /></td>
                       )}
                       {visibleCols.has("state") && (
                         <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>
@@ -728,12 +767,14 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
                   >
                     Marcar perdida
                   </button>
-                  <button
-                    onClick={() => setBulkStep("confirm-registered")}
-                    className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
-                  >
-                    Marcar cadastrada
-                  </button>
+                  {(pipelineStages ?? []).length > 0 && (
+                    <button
+                      onClick={() => { setBulkStageId(""); setBulkStep("move-to-stage"); }}
+                      className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
+                    >
+                      Mover etapa
+                    </button>
+                  )}
                   <button
                     onClick={() => { setBulkConsultant(""); setBulkStep("assign-consultant"); }}
                     className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
@@ -793,28 +834,36 @@ export function LeadsTable({ whatsappTemplate }: LeadsTableProps) {
               </>
             )}
 
-            {bulkStep === "confirm-registered" && (
+            {bulkStep === "move-to-stage" && (
               <>
-                <span className="flex-1 text-sm text-[var(--text)]">
-                  Marcar <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? "lead" : "leads"} como cadastrada?
-                  <span className="ml-1 text-xs text-[var(--text-muted)]">(apenas status Nova)</span>
-                </span>
+                <span className="shrink-0 text-sm font-semibold text-[var(--text)]">Etapa:</span>
+                <div className="relative flex-1">
+                  <select
+                    value={bulkStageId}
+                    onChange={e => setBulkStageId(e.target.value)}
+                    className="input w-full pr-8 text-sm"
+                  >
+                    <option value="">— Remover etapa</option>
+                    {(pipelineStages ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                </div>
                 <button
                   disabled={bulkLoading}
                   onClick={async () => {
                     setBulkLoading(true);
                     try {
-                      const { updated } = await bulkMarkAsRegisteredAction([...selectedIds]);
-                      toast.success(`${updated} ${updated === 1 ? "lead marcada" : "leads marcadas"} como cadastrada.`);
+                      const { updated } = await bulkMoveToStageAction([...selectedIds], bulkStageId || null);
+                      toast.success(`Etapa atualizada em ${updated} ${updated === 1 ? "lead" : "leads"}.`);
                       exitSelecting();
-                    } catch { toast.error("Erro ao atualizar leads."); }
+                    } catch { toast.error("Erro ao atualizar etapa."); }
                     finally { setBulkLoading(false); }
                   }}
-                  className="rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  {bulkLoading ? "..." : "Confirmar"}
+                  {bulkLoading ? "..." : "Aplicar"}
                 </button>
-                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
+                <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
                   Voltar
                 </button>
               </>

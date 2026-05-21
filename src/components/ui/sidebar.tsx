@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, LayoutDashboard, LogOut, Menu, Settings, ShoppingBag, Upload, Users, X } from "lucide-react";
+import { BarChart3, Bell, LayoutDashboard, LogOut, Menu, Settings, ShoppingBag, TrendingUp, Upload, Users, X, Zap } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { signOutAction } from "@/lib/auth/actions";
 
@@ -12,7 +12,9 @@ const nav = [
   { href: "/",             label: "Visão geral",   icon: LayoutDashboard, badge: false },
   { href: "/leads",        label: "Leads",         icon: Users,           badge: false },
   { href: "/sales",        label: "Vendas",        icon: ShoppingBag,     badge: false },
+  { href: "/ltv",          label: "LTV",           icon: TrendingUp,      badge: false },
   { href: "/analytics",    label: "Analytics",     icon: BarChart3,       badge: false },
+  { href: "/journeys",     label: "Jornadas",      icon: Zap,             badge: false },
   { href: "/import",       label: "Importar",      icon: Upload,          badge: false },
   { href: "/notifications",label: "Notificações",  icon: Bell,            badge: true  },
   { href: "/settings",     label: "Configurações", icon: Settings,        badge: false },

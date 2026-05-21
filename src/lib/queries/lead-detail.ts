@@ -19,6 +19,7 @@ export async function fetchLeadDetail(leadId: string, clientId: string) {
         sales:          { include: { items: true }, orderBy: { soldAt: "desc" } },
         trackingEvents: { orderBy: { createdAt: "asc" } },
         statusHistory:  { orderBy: { createdAt: "asc" } },
+        pipelineStage:  { select: { id: true, name: true, color: true } },
       },
     })
   );

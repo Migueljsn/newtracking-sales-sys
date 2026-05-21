@@ -9,6 +9,12 @@ import { updateCustomerLifecycle } from "@/lib/domain/customer/update-lifecycle"
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 import { prisma } from "@/lib/db/prisma";
 import { invalidate, cacheKeys } from "@/lib/cache/invalidate";
+import { inngest } from "@/lib/inngest/client";
+import { leadChangedEvent } from "@/lib/inngest/events";
+
+function fireLeadChanged(leadId: string, clientId: string) {
+  after(() => inngest.send(leadChangedEvent.create({ leadId, clientId })));
+}
 
 function parseItems(formData: FormData) {
   const names      = formData.getAll("itemName")     as string[];
@@ -48,6 +54,7 @@ export async function registerSaleAction(formData: FormData) {
   });
 
   after(() => processPendingEvents());
+  fireLeadChanged(leadId, clientId);
 
   await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId), cacheKeys.sales(clientId), cacheKeys.metrics(clientId));
   revalidatePath(`/leads/${leadId}`);
@@ -56,24 +63,36 @@ export async function registerSaleAction(formData: FormData) {
   revalidatePath("/");
 }
 
-export async function markAsRegisteredAction(leadId: string) {
-  const session = await getSession();
+export async function moveToStageAction(leadId: string, stageId: string | null) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
 
   const lead = await prisma.lead.findUniqueOrThrow({
-    where: { id: leadId, clientId: session.clientId! },
+    where:  { id: leadId, clientId },
+    select: { status: true, pipelineStageId: true },
   });
 
-  if (lead.status !== "NEW") throw new Error("Apenas leads novas podem ser marcadas como cadastradas");
+  if (lead.status === "SOLD" || lead.status === "LOST") {
+    throw new Error("Não é possível mover uma lead vendida ou perdida para uma etapa");
+  }
+
+  const stageName = stageId
+    ? (await prisma.pipelineStage.findUnique({ where: { id: stageId }, select: { name: true } }))?.name
+    : null;
 
   await prisma.lead.update({
     where: { id: leadId },
-    data: {
-      status: "REGISTERED",
-      statusHistory: { create: { from: "NEW", to: "REGISTERED" } },
+    data:  {
+      pipelineStageId: stageId,
+      statusHistory:   stageName
+        ? { create: { from: lead.pipelineStageId ? undefined : lead.status, to: stageName } }
+        : undefined,
     },
   });
 
-  await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(session.clientId!), cacheKeys.metrics(session.clientId!));
+  fireLeadChanged(leadId, clientId);
+
+  await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId), cacheKeys.metrics(clientId));
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
 }
@@ -96,6 +115,8 @@ export async function markAsLostAction(leadId: string) {
       statusHistory: { create: { from: lead.status, to: "LOST" } },
     },
   });
+
+  fireLeadChanged(leadId, session.clientId!);
 
   await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(session.clientId!), cacheKeys.metrics(session.clientId!));
   revalidatePath(`/leads/${leadId}`);
@@ -129,11 +150,11 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
     });
   }
 
-  // Se lead está LOST, reativa para REGISTERED antes de criar a venda
+  // Se lead está LOST, reativa para NEW antes de criar a venda
   if (sourceLead.status === "LOST") {
     await prisma.lead.update({
       where: { id: sourceLeadId },
-      data:  { status: "REGISTERED", statusHistory: { create: { from: "LOST", to: "REGISTERED" } } },
+      data:  { status: "NEW", pipelineStageId: null, statusHistory: { create: { from: "LOST", to: "NEW" } } },
     });
   }
 
@@ -149,6 +170,7 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
   });
 
   after(() => processPendingEvents());
+  fireLeadChanged(sourceLeadId, clientId);
 
   await invalidate(
     cacheKeys.leads(clientId),
@@ -199,6 +221,8 @@ export async function updateCustomerAction(formData: FormData) {
     throw err;
   }
 
+  fireLeadChanged(leadId, clientId);
+
   await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId));
   revalidatePath(`/leads/${leadId}`);
 }
@@ -222,6 +246,8 @@ export async function updateLeadAction(formData: FormData) {
     where: { id: leadId, clientId },
     data:  { consultant, notes, utmSource, utmMedium, utmCampaign, utmContent, utmTerm },
   });
+
+  fireLeadChanged(leadId, clientId);
 
   await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId));
   revalidatePath(`/leads/${leadId}`);
@@ -364,14 +390,15 @@ export async function deleteSaleAction(saleId: string) {
   // Sale cascade deleta SaleItem
   await prisma.sale.delete({ where: { id: saleId } });
 
-  // Só reverte para REGISTERED se não há mais vendas nesta lead
+  // Só reverte para NEW se não há mais vendas nesta lead
   const remainingSales = await prisma.sale.count({ where: { leadId: sale.leadId } });
   if (remainingSales === 0) {
     await prisma.lead.update({
       where: { id: sale.leadId },
       data:  {
-        status:        "REGISTERED",
-        statusHistory: { create: { from: "SOLD", to: "REGISTERED" } },
+        status:          "NEW",
+        pipelineStageId: null,
+        statusHistory:   { create: { from: "SOLD", to: "NEW" } },
       },
     });
   }

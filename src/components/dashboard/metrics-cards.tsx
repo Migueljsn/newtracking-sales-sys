@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Clock, TrendingUp, Users } from "lucide-react";
+import { HintTooltip } from "@/components/ui/hint-tooltip";
 
 interface Metrics {
   totalLeads:    number;
@@ -14,6 +15,7 @@ const cardConfig = [
   {
     key:        "totalLeads" as const,
     label:      "Total de leads",
+    hint:       "Número total de leads cadastradas no CRM, incluindo todos os status: Nova, Cadastrada, Vendida e Perdida.",
     Icon:       Users,
     iconBg:     "var(--accent-soft)",
     iconColor:  "var(--accent)",
@@ -22,6 +24,7 @@ const cardConfig = [
   {
     key:        "totalSales" as const,
     label:      "Vendas realizadas",
+    hint:       "Total de vendas registradas no sistema desde o início. Cada venda está vinculada a uma lead e pode incluir recompras.",
     Icon:       TrendingUp,
     iconBg:     "var(--success-soft)",
     iconColor:  "var(--success)",
@@ -30,6 +33,7 @@ const cardConfig = [
   {
     key:        "pendingEvents" as const,
     label:      "Eventos pendentes",
+    hint:       "Vendas cujos eventos Purchase ainda não foram enviados ao Meta Conversions API. São processados automaticamente pelo sistema ou pelo cron diário às 8h.",
     Icon:       Clock,
     iconBg:     "var(--warning-soft)",
     iconColor:  "var(--warning)",
@@ -38,6 +42,7 @@ const cardConfig = [
   {
     key:        "failedEvents" as const,
     label:      "Eventos com falha",
+    hint:       "Envios ao Meta que falharam após todas as tentativas. Verifique o Pixel ID e Access Token em Configurações. Você pode reenviar manualmente pelo detalhe da lead.",
     Icon:       AlertCircle,
     iconBg:     "var(--danger-soft)",
     iconColor:  "var(--danger)",
@@ -74,7 +79,10 @@ export function MetricsCards() {
               {data?.[card.key] ?? "—"}
             </p>
           </div>
-          <p className="mt-3 text-sm font-medium text-[var(--text-muted)]">{card.label}</p>
+          <div className="mt-3 flex items-center gap-1.5">
+            <p className="text-sm font-medium text-[var(--text-muted)]">{card.label}</p>
+            <HintTooltip text={card.hint} />
+          </div>
         </div>
       ))}
     </div>

@@ -1,15 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
 
 export interface AnalyticsSummary {
-  totalLeads:     number;
-  totalSales:     number;
-  totalRevenue:   number;
-  avgTicket:      number;
-  conversionRate: number;
-  leadsToday:     number;
-  revenueToday:   number;
-  leadsTrend:     number;
-  revenueTrend:   number;
+  totalLeads:      number;
+  totalSales:      number;
+  totalRevenue:    number;
+  avgTicket:       number;
+  conversionRate:  number;
+  leadsToday:      number;
+  revenueToday:    number;
+  leadsTrend:      number;
+  revenueTrend:    number;
+  conversionTrend: number;
+  avgTicketTrend:  number;
 }
 
 export interface DayPoint     { date: string; leads: number; sales: number; revenue: number }
@@ -20,15 +22,15 @@ export interface BarItem      { label: string; leads: number; sales: number; rev
 export interface CohortData {
   total:       number;
   sold:        number;
-  registered:  number;
+  inStage:     number;   // was: registered
   newStatus:   number;
   lost:        number;
   avgConvDays: number | null;
 }
 
 export interface PipelineData {
-  currentNew:        number;
-  currentRegistered: number;
+  currentNew:     number;
+  currentInStage: number;  // was: currentRegistered
 }
 
 export interface LtvData {
@@ -71,12 +73,13 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
   const prevStartDate = new Date(from.getTime() - days * 86_400_000);
   const todayStart    = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-  const [leads, sales, prevLeadsCount, prevSalesAgg, lifecycleRows, customerSalesRows, pipelineNew, pipelineRegistered] = await Promise.all([
+  const [leads, sales, prevLeadsCount, prevSalesAgg, lifecycleRows, customerSalesRows, pipelineNew, pipelineInStage, prevSalesCount] = await Promise.all([
     prisma.lead.findMany({
       where:  { clientId, capturedAt: { gte: startDate, lte: endDate } },
       select: {
         id: true, status: true, capturedAt: true,
         utmSource: true, utmCampaign: true, consultant: true,
+        pipelineStageId: true,
         customer: { select: { state: true } },
         sales: { select: { soldAt: true }, orderBy: { soldAt: "asc" as const }, take: 1 },
       },
@@ -108,8 +111,9 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
       where: { clientId },
       _sum:  { value: true },
     }),
-    prisma.lead.count({ where: { clientId, status: "NEW" } }),
-    prisma.lead.count({ where: { clientId, status: "REGISTERED" } }),
+    prisma.lead.count({ where: { clientId, status: "NEW", pipelineStageId: null } }),
+    prisma.lead.count({ where: { clientId, OR: [{ status: "REGISTERED" }, { status: "NEW", pipelineStageId: { not: null } }] } }),
+    prisma.sale.count({ where: { clientId, soldAt: { gte: prevStartDate, lt: startDate } } }),
   ]);
 
   const totalRevenue = sales.reduce((s, x) => s + Number(x.value), 0);
@@ -139,14 +143,19 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
   }
 
   // ── Funnel ──────────────────────────────────────────────────────────────────
-  const sc = { NEW: 0, REGISTERED: 0, SOLD: 0, LOST: 0 };
-  leads.forEach(l => { if (l.status in sc) sc[l.status as keyof typeof sc]++; });
+  const sc = { NEW: 0, IN_STAGE: 0, SOLD: 0, LOST: 0 };
+  leads.forEach(l => {
+    if      (l.status === "SOLD")                                    sc.SOLD++;
+    else if (l.status === "LOST")                                    sc.LOST++;
+    else if (l.pipelineStageId || l.status === "REGISTERED")        sc.IN_STAGE++;
+    else                                                             sc.NEW++;
+  });
   const maxSC = Math.max(...Object.values(sc), 1);
   const funnel: FunnelStep[] = [
-    { label: "Novas",       status: "NEW",        count: sc.NEW,        pct: pct(sc.NEW,        maxSC) },
-    { label: "Cadastradas", status: "REGISTERED", count: sc.REGISTERED, pct: pct(sc.REGISTERED, maxSC) },
-    { label: "Vendidas",    status: "SOLD",        count: sc.SOLD,       pct: pct(sc.SOLD,       maxSC) },
-    { label: "Perdidas",    status: "LOST",        count: sc.LOST,       pct: pct(sc.LOST,       maxSC) },
+    { label: "Novas",    status: "NEW",      count: sc.NEW,      pct: pct(sc.NEW,      maxSC) },
+    { label: "Em etapa", status: "IN_STAGE", count: sc.IN_STAGE, pct: pct(sc.IN_STAGE, maxSC) },
+    { label: "Vendidas", status: "SOLD",     count: sc.SOLD,     pct: pct(sc.SOLD,     maxSC) },
+    { label: "Perdidas", status: "LOST",     count: sc.LOST,     pct: pct(sc.LOST,     maxSC) },
   ];
 
   // ── By Weekday ──────────────────────────────────────────────────────────────
@@ -208,8 +217,13 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
       conversionRate: pct(soldLeads, leads.length),
       leadsToday:     leads.filter(l => new Date(l.capturedAt) >= todayStart).length,
       revenueToday:   sales.filter(s => new Date(s.soldAt) >= todayStart).reduce((a, x) => a + Number(x.value), 0),
-      leadsTrend:     trend(leads.length, prevLeadsCount),
-      revenueTrend:   trend(totalRevenue, prevRevenue),
+      leadsTrend:      trend(leads.length, prevLeadsCount),
+      revenueTrend:    trend(totalRevenue, prevRevenue),
+      conversionTrend: trend(pct(soldLeads, leads.length), pct(prevSalesCount, prevLeadsCount)),
+      avgTicketTrend:  trend(
+        sales.length > 0 ? totalRevenue / sales.length : 0,
+        prevSalesCount > 0 ? Number(prevSalesAgg._sum.value ?? 0) / prevSalesCount : 0,
+      ),
     },
     byDay,
     funnel,
@@ -220,13 +234,13 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     byConsultant:  group(l => l.consultant ?? "",  s => s.lead?.consultant ?? ""),
     ltv: { repeatRate, repeatRevenue, newRevenue, avgLtv, lifecycle: lc },
     cohort: {
-      total:      leads.length,
-      sold:       cohortSold.length,
-      registered: leads.filter(l => l.status === "REGISTERED").length,
-      newStatus:  leads.filter(l => l.status === "NEW").length,
-      lost:       leads.filter(l => l.status === "LOST").length,
+      total:     leads.length,
+      sold:      cohortSold.length,
+      inStage:   leads.filter(l => l.pipelineStageId || l.status === "REGISTERED").length,
+      newStatus: leads.filter(l => l.status === "NEW" && !l.pipelineStageId).length,
+      lost:      leads.filter(l => l.status === "LOST").length,
       avgConvDays,
     },
-    pipeline: { currentNew: pipelineNew, currentRegistered: pipelineRegistered },
+    pipeline: { currentNew: pipelineNew, currentInStage: pipelineInStage },
   };
 }

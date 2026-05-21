@@ -112,6 +112,7 @@ export async function saveLtvEmailConfigAction(formData: FormData) {
   });
 
   revalidatePath("/settings");
+  revalidatePath("/ltv");
 }
 
 export async function saveEmailTemplateAction(formData: FormData) {
@@ -135,6 +136,7 @@ export async function saveEmailTemplateAction(formData: FormData) {
   }
 
   revalidatePath("/settings");
+  revalidatePath("/ltv");
 }
 
 export async function deleteEmailTemplateAction(id: string) {
@@ -144,6 +146,7 @@ export async function deleteEmailTemplateAction(id: string) {
   await prisma.emailTemplate.deleteMany({ where: { id, clientId } });
 
   revalidatePath("/settings");
+  revalidatePath("/ltv");
 }
 
 export async function disconnectGoogleAdsAction() {

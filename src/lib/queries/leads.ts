@@ -7,8 +7,9 @@ export async function fetchLeadsForClient(clientId: string) {
     prisma.lead.findMany({
       where:   { clientId },
       include: {
-        customer: { select: { name: true, phone: true, email: true, document: true, state: true, city: true } },
-        sales:    { select: { soldAt: true, value: true }, orderBy: { soldAt: "desc" } },
+        customer:      { select: { name: true, phone: true, email: true, document: true, state: true, city: true } },
+        sales:         { select: { soldAt: true, value: true }, orderBy: { soldAt: "desc" } },
+        pipelineStage: { select: { id: true, name: true, color: true } },
       },
       orderBy: { capturedAt: "desc" },
     })

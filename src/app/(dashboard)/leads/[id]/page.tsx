@@ -10,7 +10,7 @@ import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { RegisterSaleModal } from "@/components/leads/register-sale-modal";
 import { RegisterLtvSaleModal } from "@/components/leads/register-ltv-sale-modal";
 import { MarkLostButton } from "@/components/leads/mark-lost-button";
-import { MarkRegisteredButton } from "@/components/leads/mark-registered-button";
+import { PipelineStageSelector } from "@/components/leads/pipeline-stage-selector";
 import { WhatsAppButton } from "@/components/leads/whatsapp-button";
 import { EditCustomerModal } from "@/components/leads/edit-customer-modal";
 import { EditLeadModal } from "@/components/leads/edit-lead-modal";
@@ -18,7 +18,7 @@ import { EditSaleModal } from "@/components/leads/edit-sale-modal";
 import { DeleteLeadButton } from "@/components/leads/delete-lead-button";
 import { DeleteSaleButton } from "@/components/leads/delete-sale-button";
 import { ResendEventButton } from "@/components/leads/resend-event-button";
-import { GuideCard } from "@/components/ui/guide-card";
+import { HintTooltip } from "@/components/ui/hint-tooltip";
 
 const trackingStatusLabel: Record<string, string> = {
   PENDING: "Pendente",
@@ -38,11 +38,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const session = await getSession();
 
-  const [lead, clientSettings] = await Promise.all([
+  const [lead, clientSettings, pipelineStages] = await Promise.all([
     fetchLeadDetail(id, session.clientId!),
     prisma.clientSettings.findUnique({
       where:  { clientId: session.clientId! },
       select: { whatsappTemplate: true },
+    }),
+    prisma.pipelineStage.findMany({
+      where:   { clientId: session.clientId! },
+      orderBy: { position: "asc" },
+      select:  { id: true, name: true, color: true },
     }),
   ]);
 
@@ -69,7 +74,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           <div>
             <h1 className="text-xl font-semibold text-[var(--text)]">{customer.name}</h1>
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
-              <LeadStatusBadge status={lead.status} />
+              <LeadStatusBadge status={lead.status} pipelineStage={lead.pipelineStage} />
               <span>•</span>
               <span>Capturada em {new Date(lead.capturedAt).toLocaleDateString("pt-BR")}</span>
             </p>
@@ -79,16 +84,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         <div className="flex flex-wrap items-center gap-3">
           <DeleteLeadButton leadId={lead.id} hasSale={lead.sales.length > 0} />
 
-          {lead.status === "NEW" && (
+          {(lead.status === "NEW" || lead.status === "REGISTERED") && (
             <>
               <MarkLostButton leadId={lead.id} />
-              <MarkRegisteredButton leadId={lead.id} />
-            </>
-          )}
-
-          {lead.status === "REGISTERED" && (
-            <>
-              <MarkLostButton leadId={lead.id} />
+              {pipelineStages.length > 0 && (
+                <PipelineStageSelector
+                  leadId={lead.id}
+                  currentStageId={lead.pipelineStageId ?? null}
+                  stages={pipelineStages}
+                />
+              )}
               <RegisterSaleModal
                 leadId={lead.id}
                 customerName={customer.name}
@@ -296,7 +301,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       )}
 
       <div className="card p-5">
-        <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Eventos de tracking</h2>
+        <div className="flex items-center gap-1.5 mb-4">
+          <h2 className="text-sm font-semibold text-[var(--text)]">Eventos de tracking</h2>
+          <HintTooltip text="Histórico de tentativas de envio ao Meta Conversions API. Enviado = chegou ao Meta; Pendente = aguardando; Falhou = erro no envio; Ignorado = lead importada (não envia). Use o botão de reenvio para tentar novamente em caso de falha." />
+        </div>
         {lead.trackingEvents.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">Nenhum evento registrado.</p>
         ) : (
@@ -319,18 +327,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         )}
       </div>
 
-      <GuideCard
-        title="Como interpretar esta lead"
-        description="A tela de detalhe precisa ensinar o operador a decidir a próxima ação sem depender de treinamento externo."
-        items={[
-          "Se a lead ainda estiver como nova, valide primeiro contato e origem antes de registrar venda ou marcar como perdida.",
-          "Se houver falha de tracking, a venda continua válida, mas o evento precisa ser acompanhado no fluxo operacional.",
-          "Outras entradas do mesmo cliente final ajudam a identificar recompra, duplicidade operacional ou mudança de origem ao longo do tempo.",
-        ]}
-        tone="info"
-      />
-
-      {lead.statusHistory.length > 1 && (
+{lead.statusHistory.length > 1 && (
         <div className="card p-5">
           <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Histórico de status</h2>
           <div className="space-y-2">
@@ -355,7 +352,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             {otherLeads.map((l) => (
               <div key={l.id} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-3">
-                  <LeadStatusBadge status={l.status} />
+                  <LeadStatusBadge status={l.status} pipelineStage={null} />
                   <span className="text-[var(--text-muted)]">
                     {new Date(l.capturedAt).toLocaleDateString("pt-BR")}
                   </span>

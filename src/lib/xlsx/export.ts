@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db/prisma";
 
-function statusLabel(status: string) {
+function statusLabel(status: string, pipelineStageName?: string | null) {
+  if (pipelineStageName) return pipelineStageName.toUpperCase();
   if (status === "NEW")        return "NOVA";
   if (status === "REGISTERED") return "CADASTRADA";
   if (status === "SOLD")       return "VENDA";
@@ -19,6 +20,7 @@ export async function generateLeadsXlsx(clientId: string): Promise<Buffer> {
         select: { status: true },
         take: 1,
       },
+      pipelineStage: { select: { name: true } },
     },
     orderBy: { capturedAt: "desc" },
   });
@@ -38,7 +40,7 @@ export async function generateLeadsXlsx(clientId: string): Promise<Buffer> {
     "Cidade":                lead.customer.city ?? "",
     "Estado":                lead.customer.state ?? "",
     "Consultor":             lead.consultant ?? "",
-    "Status":                statusLabel(lead.status),
+    "Status":                statusLabel(lead.status, lead.pipelineStage?.name),
     "Valor da Venda (R$)":   lead.sales[0] ? Number(lead.sales[0].value) : "",
     "Data da Venda":         lead.sales[0] ? lead.sales[0].soldAt.toLocaleDateString("pt-BR") : "",
     "Data de Captura":       lead.capturedAt.toLocaleDateString("pt-BR"),

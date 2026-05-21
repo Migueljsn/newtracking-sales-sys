@@ -8,6 +8,12 @@ import { createSale } from "@/lib/domain/sale/create";
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 import { prisma } from "@/lib/db/prisma";
 import { invalidate, cacheKeys } from "@/lib/cache/invalidate";
+import { inngest } from "@/lib/inngest/client";
+import { leadChangedEvent } from "@/lib/inngest/events";
+
+function fireLeadChanged(leadId: string, clientId: string) {
+  after(() => inngest.send(leadChangedEvent.create({ leadId, clientId })));
+}
 
 function normalizeDigits(value: string | null) {
   return value?.replace(/\D/g, "") || "";
@@ -89,7 +95,10 @@ export async function createLeadAction(
     }
   }
 
-  if (!duplicate) after(() => processPendingEvents());
+  if (!duplicate) {
+    after(() => processPendingEvents());
+    fireLeadChanged(lead.id, clientId);
+  }
 
   await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId));
   if (saleCreated) await invalidate(cacheKeys.sales(clientId));
@@ -118,29 +127,30 @@ export async function bulkMarkAsLostAction(leadIds: string[]): Promise<{ updated
     data: eligible.map(l => ({ leadId: l.id, from: l.status, to: "LOST" as const })),
   });
 
+  eligible.forEach((l) => fireLeadChanged(l.id, clientId));
+
   await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId));
   revalidatePath("/leads");
   return { updated: eligible.length };
 }
 
-export async function bulkMarkAsRegisteredAction(leadIds: string[]): Promise<{ updated: number }> {
+export async function bulkMoveToStageAction(leadIds: string[], stageId: string | null): Promise<{ updated: number }> {
   const session  = await getSession();
   const clientId = session.clientId!;
   if (leadIds.length === 0) return { updated: 0 };
 
   const eligible = await prisma.lead.findMany({
-    where:  { id: { in: leadIds }, clientId, status: "NEW" },
-    select: { id: true, status: true },
+    where:  { id: { in: leadIds }, clientId, status: { in: ["NEW", "REGISTERED"] } },
+    select: { id: true },
   });
   if (eligible.length === 0) return { updated: 0 };
 
   await prisma.lead.updateMany({
     where: { id: { in: eligible.map(l => l.id) } },
-    data:  { status: "REGISTERED" },
+    data:  { pipelineStageId: stageId },
   });
-  await prisma.leadStatusHistory.createMany({
-    data: eligible.map(l => ({ leadId: l.id, from: l.status, to: "REGISTERED" as const })),
-  });
+
+  eligible.forEach((l) => fireLeadChanged(l.id, clientId));
 
   await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId));
   revalidatePath("/leads");
@@ -159,6 +169,8 @@ export async function bulkAssignConsultantAction(
     where: { id: { in: leadIds }, clientId },
     data:  { consultant: consultant || null },
   });
+
+  leadIds.forEach((id) => fireLeadChanged(id, clientId));
 
   await invalidate(cacheKeys.leads(clientId));
   revalidatePath("/leads");

@@ -1,0 +1,19 @@
+import { eventType, staticSchema } from "inngest";
+
+export const enrollAllEvent = eventType("journey/enroll-all", {
+  schema: staticSchema<{ journeyId: string; clientId: string }>(),
+});
+
+export const stepEvent = eventType("journey/step", {
+  schema: staticSchema<{
+    enrollmentId: string;
+    journeyId:    string;
+    leadId:       string;
+    nodeId:       string;
+    clientId:     string;
+  }>(),
+});
+
+export const leadChangedEvent = eventType("lead/changed", {
+  schema: staticSchema<{ leadId: string; clientId: string }>(),
+});

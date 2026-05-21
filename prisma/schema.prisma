@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +35,9 @@ model Client {
   emailTemplates    EmailTemplate[]
   ltvEmailConfig    LtvEmailConfig?
   ltvEmailLogs      LtvEmailLog[]
+  pipelineStages    PipelineStage[]
+  audiences         Audience[]
+  journeys          Journey[]
 }
 
 model AuthorizedDomain {
@@ -168,11 +172,15 @@ model Lead {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  client         Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  customer       Customer    @relation(fields: [customerId], references: [id])
-  sales          Sale[]
-  statusHistory  LeadStatusHistory[]
-  trackingEvents TrackingEvent[]
+  pipelineStageId String?
+  pipelineStage   PipelineStage? @relation(fields: [pipelineStageId], references: [id])
+
+  client              Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  customer            Customer            @relation(fields: [customerId], references: [id])
+  sales               Sale[]
+  statusHistory       LeadStatusHistory[]
+  trackingEvents      TrackingEvent[]
+  journeyEnrollments  JourneyEnrollment[]
 
   @@index([clientId])
   @@index([customerId])
@@ -181,7 +189,7 @@ model Lead {
 
 enum LeadStatus {
   NEW        // recém capturada, aguardando primeiro contato
-  REGISTERED // cadastrada no sistema da distribuidora, ainda não comprou
+  REGISTERED // @deprecated — use pipeline stages instead; kept for backward compat
   SOLD       // venda registrada
   LOST       // descartada em qualquer etapa do funil
 }
@@ -193,15 +201,104 @@ enum LeadSource {
 }
 
 model LeadStatusHistory {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   leadId    String
-  from      LeadStatus?
-  to        LeadStatus
-  createdAt DateTime   @default(now())
+  from      String?
+  to        String
+  createdAt DateTime @default(now())
 
-  lead      Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId])
+}
+
+model PipelineStage {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  color     String   @default("#6366f1")
+  position  Int      @default(0)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  leads     Lead[]
+
+  @@index([clientId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIENCE — segmentação dinâmica de leads
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Audience {
+  id          String    @id @default(cuid())
+  clientId    String
+  name        String
+  description String?
+  rules       Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  journeys    Journey[]
+
+  @@index([clientId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOURNEY — automações visuais de leads
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Journey {
+  id          String        @id @default(cuid())
+  clientId    String
+  name        String
+  description String?
+  status      JourneyStatus @default(DRAFT)
+  audienceId  String?
+  nodes       Json          @default("[]")
+  edges       Json          @default("[]")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  audience    Audience?           @relation(fields: [audienceId], references: [id])
+  enrollments JourneyEnrollment[]
+
+  @@index([clientId])
+}
+
+model JourneyEnrollment {
+  id          String           @id @default(cuid())
+  journeyId   String
+  leadId      String
+  currentNode String
+  status      EnrollmentStatus @default(ACTIVE)
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  journey     Journey @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  lead        Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([journeyId, leadId])
+  @@index([journeyId])
+  @@index([leadId])
+}
+
+enum JourneyStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  EXITED
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import type { TrackingEventStatus } from "@prisma/client";
+import { HintTooltip } from "@/components/ui/hint-tooltip";
 
 interface Sale {
   id: string;
@@ -67,17 +68,26 @@ export function SalesTable() {
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <div className="card p-5">
-          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Receita total</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Receita total</p>
+            <HintTooltip text="Soma de todos os valores de vendas registradas no sistema. Acumulado desde o início, sem filtro de período." />
+          </div>
           <p className="text-2xl font-bold text-[var(--success)]">
             {totalRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
           </p>
         </div>
         <div className="card p-5">
-          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Total de vendas</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Total de vendas</p>
+            <HintTooltip text="Número total de transações registradas. Um mesmo cliente pode ter múltiplas vendas, cada uma contabilizada separadamente." />
+          </div>
           <p className="text-2xl font-bold text-[var(--text)]">{sales.length}</p>
         </div>
         <div className="card p-5">
-          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Recompras</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Recompras</p>
+            <HintTooltip text="Vendas realizadas por clientes que já compraram antes. Alta proporção indica boa retenção. O percentual é calculado sobre o total de vendas." />
+          </div>
           <p className="text-2xl font-bold text-[var(--text)]">
             {repeatCount}
             <span className="text-sm font-normal text-[var(--text-muted)] ml-1">
@@ -112,12 +122,24 @@ export function SalesTable() {
             <table className="w-full text-sm">
               <thead className="bg-[var(--surface-muted)]">
                 <tr className="border-b border-[var(--border)]">
-                  {["Cliente", "Valor", "Campanha", "Recompra", "Tracking", "Data"].map((h) => (
+                  {([
+                    { label: "Cliente" },
+                    { label: "Valor" },
+                    { label: "Campanha", hint: "UTM Campaign da lead, ou UTM Source se campanha estiver vazia. Identifica de qual mídia ou anúncio veio este cliente." },
+                    { label: "Recompra", hint: "Indica se este cliente já havia comprado antes desta venda. Calculado automaticamente no momento do registro." },
+                    { label: "Tracking", hint: "Status do envio ao Meta Conversions API: Enviado (chegou ao Meta), Pendente (aguardando processamento), Falhou (erro no envio) ou Ignorado (lead importada)." },
+                    { label: "Data" },
+                  ] as { label: string; hint?: string }[]).map((h) => (
                     <th
-                      key={h}
+                      key={h.label}
                       className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]"
                     >
-                      {h}
+                      {h.hint ? (
+                        <span className="inline-flex items-center gap-1">
+                          {h.label}
+                          <HintTooltip text={h.hint} />
+                        </span>
+                      ) : h.label}
                     </th>
                   ))}
                   <th />

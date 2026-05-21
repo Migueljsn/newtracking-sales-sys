@@ -85,14 +85,10 @@ export async function processXlsxImport(
 
       result.created++;
 
-      if (rawStatus === "CADASTRADA" || rawStatus === "VENDA") {
-        await prisma.lead.update({
-          where: { id: lead.id },
-          data:  {
-            status:        "REGISTERED",
-            statusHistory: { create: { from: "NEW", to: "REGISTERED" } },
-          },
-        });
+      if (rawStatus === "VENDA") {
+        // For "VENDA" status: lead stays NEW and will get a sale created below
+        // For "CADASTRADA": imported leads start as NEW, no pipeline stage
+        // (legacy CADASTRADA import is silently treated as NEW)
       }
 
       if (rawStatus === "VENDA" && value) {

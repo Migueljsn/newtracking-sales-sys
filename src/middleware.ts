@@ -31,6 +31,7 @@ export async function middleware(request: NextRequest) {
   // Rotas públicas — deixa passar
   if (
     pathname.startsWith("/api/public") ||
+    pathname.startsWith("/api/inngest") ||
     pathname.startsWith("/login")
   ) {
     return supabaseResponse;

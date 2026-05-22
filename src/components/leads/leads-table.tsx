@@ -229,6 +229,25 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   // Inline pipeline update
   const [updatingStage, setUpdatingStage] = useState<Set<string>>(new Set());
 
+  // Inline consultant update
+  const [updatingConsultant, setUpdatingConsultant] = useState<Set<string>>(new Set());
+
+  async function handleInlineConsultantChange(lead: Lead, consultant: string) {
+    setUpdatingConsultant(prev => new Set(prev).add(lead.id));
+    try {
+      await bulkAssignConsultantAction([lead.id], consultant || null);
+      refetch();
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Erro ao atualizar consultor");
+    } finally {
+      setUpdatingConsultant(prev => {
+        const next = new Set(prev);
+        next.delete(lead.id);
+        return next;
+      });
+    }
+  }
+
   // Sorting
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
@@ -803,7 +822,28 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                       {visibleCols.has("state") && (
                         <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>
                       )}
-                      {visibleCols.has("consultant") && (
+                      {visibleCols.has("consultant") && consultants.length > 0 && (
+                        <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                          <div className="relative">
+                            <select
+                              value={lead.consultant ?? ""}
+                              disabled={updatingConsultant.has(lead.id)}
+                              onChange={(e) => handleInlineConsultantChange(lead, e.target.value)}
+                              className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
+                            >
+                              <option value="">— Sem consultor</option>
+                              {consultants.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                            {updatingConsultant.has(lead.id)
+                              ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
+                              : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                            }
+                          </div>
+                        </td>
+                      )}
+                      {visibleCols.has("consultant") && consultants.length === 0 && (
                         <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.consultant || "—"}</td>
                       )}
                       {visibleCols.has("source") && (

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
+import { QueryProvider } from "@/providers/query-provider";
 
 export default function ConsultantLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return <QueryProvider>{children}</QueryProvider>;
 }

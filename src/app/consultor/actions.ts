@@ -33,8 +33,9 @@ export async function consultantRegisterSaleAction(
     clientId,
     leadId,
     value,
-    soldAt: soldAt ? new Date(soldAt) : undefined,
-    items:  items && items.length > 0 ? items : undefined,
+    soldAt:    soldAt ? new Date(soldAt) : undefined,
+    items:     items && items.length > 0 ? items : undefined,
+    changedBy: session.name,
   });
 
   fireLeadChanged(leadId, clientId);
@@ -57,7 +58,12 @@ export async function consultantMoveToStageAction(leadId: string, stageId: strin
 
   await prisma.lead.update({
     where: { id: leadId },
-    data:  { pipelineStageId: stageId },
+    data:  {
+      pipelineStageId: stageId,
+      statusHistory:   stageId
+        ? { create: { to: stageId, changedBy: session.name } }
+        : undefined,
+    },
   });
 
   fireLeadChanged(leadId, clientId);

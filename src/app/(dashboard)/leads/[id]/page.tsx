@@ -329,14 +329,21 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
 {lead.statusHistory.length > 1 && (
         <div className="card p-5">
-          <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Histórico de status</h2>
+          <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Histórico de alterações</h2>
           <div className="space-y-2">
             {lead.statusHistory.map((h) => (
-              <div key={h.id} className="flex items-center justify-between text-sm">
-                <span className="text-[var(--text-muted)]">
-                  {h.from ? `${h.from} → ` : ""}<span className="text-[var(--text)] font-medium">{h.to}</span>
-                </span>
-                <span className="text-[var(--text-muted)]">{new Date(h.createdAt).toLocaleDateString("pt-BR")}</span>
+              <div key={h.id} className="flex items-start justify-between gap-4 text-sm">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[var(--text-muted)]">
+                    {h.from ? `${h.from} → ` : ""}<span className="text-[var(--text)] font-medium">{h.to}</span>
+                  </span>
+                  {h.changedBy && (
+                    <span className="rounded-full bg-[var(--surface-muted)] border border-[var(--border)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                      {h.changedBy}
+                    </span>
+                  )}
+                </div>
+                <span className="shrink-0 text-[var(--text-muted)]">{new Date(h.createdAt).toLocaleDateString("pt-BR")}</span>
               </div>
             ))}
           </div>

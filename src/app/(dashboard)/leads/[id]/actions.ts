@@ -50,7 +50,8 @@ export async function registerSaleAction(formData: FormData) {
     value,
     soldAt,
     notes,
-    items: items.length > 0 ? items : undefined,
+    items:     items.length > 0 ? items : undefined,
+    changedBy: "Admin",
   });
 
   after(() => processPendingEvents());
@@ -85,7 +86,7 @@ export async function moveToStageAction(leadId: string, stageId: string | null) 
     data:  {
       pipelineStageId: stageId,
       statusHistory:   stageName
-        ? { create: { from: lead.pipelineStageId ? undefined : lead.status, to: stageName } }
+        ? { create: { from: lead.pipelineStageId ? undefined : lead.status, to: stageName, changedBy: "Admin" } }
         : undefined,
     },
   });
@@ -112,7 +113,7 @@ export async function markAsLostAction(leadId: string) {
     where: { id: leadId },
     data: {
       status: "LOST",
-      statusHistory: { create: { from: lead.status, to: "LOST" } },
+      statusHistory: { create: { from: lead.status, to: "LOST", changedBy: "Admin" } },
     },
   });
 
@@ -154,7 +155,7 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
   if (sourceLead.status === "LOST") {
     await prisma.lead.update({
       where: { id: sourceLeadId },
-      data:  { status: "NEW", pipelineStageId: null, statusHistory: { create: { from: "LOST", to: "NEW" } } },
+      data:  { status: "NEW", pipelineStageId: null, statusHistory: { create: { from: "LOST", to: "NEW", changedBy: "Admin" } } },
     });
   }
 
@@ -162,11 +163,12 @@ export async function createLtvSaleAction(formData: FormData): Promise<string> {
 
   await createSale({
     clientId,
-    leadId: sourceLeadId,
+    leadId:    sourceLeadId,
     value,
     soldAt,
     notes,
-    items: items.length > 0 ? items : undefined,
+    items:     items.length > 0 ? items : undefined,
+    changedBy: "Admin",
   });
 
   after(() => processPendingEvents());
@@ -398,7 +400,7 @@ export async function deleteSaleAction(saleId: string) {
       data:  {
         status:          "NEW",
         pipelineStageId: null,
-        statusHistory:   { create: { from: "SOLD", to: "NEW" } },
+        statusHistory:   { create: { from: "SOLD", to: "NEW", changedBy: "Admin" } },
       },
     });
   }

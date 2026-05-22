@@ -85,7 +85,7 @@ export async function createLead(input: CreateLeadInput) {
       gclid:         input.gclid,
       eventSourceUrl: input.eventSourceUrl,
       capturedAt,
-      statusHistory: { create: { to: "NEW" } },
+      statusHistory: { create: { to: "NEW", changedBy: "Sistema" } },
     },
   });
 

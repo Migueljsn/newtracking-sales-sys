@@ -121,8 +121,9 @@ export async function quickRegisterSaleAction(
     clientId,
     leadId,
     value,
-    soldAt: soldAt ? new Date(soldAt) : undefined,
-    items:  items && items.length > 0 ? items : undefined,
+    soldAt:    soldAt ? new Date(soldAt) : undefined,
+    items:     items && items.length > 0 ? items : undefined,
+    changedBy: "Admin",
   });
 
   fireLeadChanged(leadId, clientId);
@@ -151,7 +152,7 @@ export async function bulkMarkAsLostAction(leadIds: string[]): Promise<{ updated
     data:  { status: "LOST" },
   });
   await prisma.leadStatusHistory.createMany({
-    data: eligible.map(l => ({ leadId: l.id, from: l.status, to: "LOST" as const })),
+    data: eligible.map(l => ({ leadId: l.id, from: l.status, to: "LOST" as const, changedBy: "Admin" })),
   });
 
   eligible.forEach((l) => fireLeadChanged(l.id, clientId));

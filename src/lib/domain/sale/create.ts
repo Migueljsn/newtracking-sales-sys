@@ -12,12 +12,13 @@ interface SaleItem {
 }
 
 interface CreateSaleInput {
-  clientId: string;
-  leadId: string;
-  value: number;
-  soldAt?: Date;
-  notes?: string;
-  items?: SaleItem[];
+  clientId:  string;
+  leadId:    string;
+  value:     number;
+  soldAt?:   Date;
+  notes?:    string;
+  items?:    SaleItem[];
+  changedBy?: string;
 }
 
 export async function createSale(input: CreateSaleInput) {
@@ -60,7 +61,7 @@ export async function createSale(input: CreateSaleInput) {
       where: { id: input.leadId },
       data: {
         status: "SOLD",
-        statusHistory: { create: { from: lead.status, to: "SOLD" } },
+        statusHistory: { create: { from: lead.status, to: "SOLD", changedBy: input.changedBy ?? "Sistema" } },
       },
     });
   }

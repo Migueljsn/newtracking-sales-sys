@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
           where: { id: masterLead.id },
           data: {
             status:        "SOLD",
-            statusHistory: { create: { from: masterLead.status, to: "SOLD" } },
+            statusHistory: { create: { from: masterLead.status, to: "SOLD", changedBy: "Admin" } },
           },
         });
       }

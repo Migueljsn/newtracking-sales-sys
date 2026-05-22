@@ -99,7 +99,7 @@ export async function processXlsxImport(
           where: { id: lead.id },
           data:  {
             status:        "LOST",
-            statusHistory: { create: { from: "NEW", to: "LOST" } },
+            statusHistory: { create: { from: "NEW", to: "LOST", changedBy: "Importação" } },
           },
         });
         result.lost++;

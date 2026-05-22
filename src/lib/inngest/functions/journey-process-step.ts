@@ -226,13 +226,13 @@ export const journeyProcessStep = inngest.createFunction(
           if (d.action === "lost") {
             return prisma.lead.update({
               where: { id: leadId },
-              data:  { status: "LOST", pipelineStageId: null },
+              data:  { status: "LOST", pipelineStageId: null, statusHistory: { create: { from: leadRow.status, to: "LOST", changedBy: "Jornada" } } },
             });
           }
           if (d.stageId) {
             return prisma.lead.update({
               where: { id: leadId },
-              data:  { pipelineStageId: d.stageId },
+              data:  { pipelineStageId: d.stageId, statusHistory: { create: { to: d.stageId, changedBy: "Jornada" } } },
             });
           }
           return Promise.resolve();

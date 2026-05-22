@@ -1,7 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 
 const COOKIE_NAME = "consultant_token";
 const secret = () => {
@@ -53,18 +52,4 @@ export async function clearConsultantCookie() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-// ─── Password hashing (scrypt) ────────────────────────────────────────────────
-
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const derived = scryptSync(password, salt, 64);
-  const stored_buf = Buffer.from(hash, "hex");
-  return derived.length === stored_buf.length && timingSafeEqual(derived, stored_buf);
-}
+export { hashPassword, verifyPassword } from "./password";

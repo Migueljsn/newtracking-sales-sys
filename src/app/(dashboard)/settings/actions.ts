@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { hashPassword } from "@/lib/auth/password";
 
 export async function saveSettingsAction(formData: FormData) {
   const session  = await getSession();
@@ -189,7 +190,6 @@ export async function createConsultantAction(formData: FormData) {
   if (!name || !email || !password) throw new Error("Todos os campos são obrigatórios");
   if (password.length < 6) throw new Error("Senha deve ter pelo menos 6 caracteres");
 
-  const { hashPassword } = await import("@/lib/auth/consultant-session");
 
   try {
     await prisma.consultantUser.create({
@@ -231,7 +231,6 @@ export async function resetConsultantPasswordAction(id: string, formData: FormDa
   const password = (formData.get("password") as string);
   if (!password || password.length < 6) throw new Error("Senha deve ter pelo menos 6 caracteres");
 
-  const { hashPassword } = await import("@/lib/auth/consultant-session");
 
   await prisma.consultantUser.update({
     where: { id, clientId },

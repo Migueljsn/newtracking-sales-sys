@@ -175,3 +175,68 @@ export async function saveWhatsappTemplateAction(formData: FormData) {
 
   revalidatePath("/settings");
 }
+
+// ─── Consultant Users (Acessos) ───────────────────────────────────────────────
+
+export async function createConsultantAction(formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const name     = (formData.get("name")     as string).trim();
+  const email    = (formData.get("email")    as string).trim().toLowerCase();
+  const password = (formData.get("password") as string);
+
+  if (!name || !email || !password) throw new Error("Todos os campos são obrigatórios");
+  if (password.length < 6) throw new Error("Senha deve ter pelo menos 6 caracteres");
+
+  const { hashPassword } = await import("@/lib/auth/consultant-session");
+
+  try {
+    await prisma.consultantUser.create({
+      data: { clientId, name, email, passwordHash: hashPassword(password) },
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === "P2002") throw new Error("Já existe um consultor com este e-mail.");
+    throw err;
+  }
+
+  revalidatePath("/settings?tab=acessos");
+}
+
+export async function toggleConsultantAction(id: string, active: boolean) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.consultantUser.update({
+    where: { id, clientId },
+    data:  { active },
+  });
+
+  revalidatePath("/settings?tab=acessos");
+}
+
+export async function deleteConsultantAction(id: string) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.consultantUser.delete({ where: { id, clientId } });
+
+  revalidatePath("/settings?tab=acessos");
+}
+
+export async function resetConsultantPasswordAction(id: string, formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const password = (formData.get("password") as string);
+  if (!password || password.length < 6) throw new Error("Senha deve ter pelo menos 6 caracteres");
+
+  const { hashPassword } = await import("@/lib/auth/consultant-session");
+
+  await prisma.consultantUser.update({
+    where: { id, clientId },
+    data:  { passwordHash: hashPassword(password) },
+  });
+
+  revalidatePath("/settings?tab=acessos");
+}

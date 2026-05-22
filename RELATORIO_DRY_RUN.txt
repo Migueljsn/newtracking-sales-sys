@@ -1,0 +1,142 @@
+
+> portal-crm@1.0.0 import-leads
+> tsx scripts/import-leads.ts --client-id=cmoagred30000mi0m6w9zi81k
+
+◇ injected env (14) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+Planilha: IMPORTACAO_MESCLADA.xlsx — 118 linhas
+Modo: DRY-RUN — nada será gravado no banco
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+STATUS              CNPJ             NOME                                    VALOR         DATA         DETALHE
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[CRIADO]            58826560000180   NOVA FARMA EBENEZER LTDA                R$ 742,94     2026-03-31   lead + venda serão criados
+[VENDA_ADICIONADA]  45443186000191   ANA CLAUDIA S DE C SILVA                R$ 1276,71    2026-04-30   lead existente (ydyud2)
+[CRIADO]            63997543000145   POLLYFARMA DROGARIA LTDA                R$ 943,44     2026-04-01   lead + venda serão criados
+[CRIADO]            30309815000118   THE FARMA LTDA                          R$ 268,50     2026-04-01   lead + venda serão criados
+[CRIADO]            21812388000103   K R M SILVA                             R$ 998,41     2026-04-01   lead + venda serão criados
+[CRIADO]            52077209000157   L MESQUITA LTDA                         R$ 502,13     2026-04-01   lead + venda serão criados
+[DUPLICATA_PULADA]  07212898000100   ANTONIO HILDEBRANDO DE SOUSA            R$ 2188,94    2026-04-29   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  26197328000133   JOSEFA LEAL RAMOS                       R$ 565,55     2026-04-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  33571911000128   M. P. A. BRANDAO                        R$ 818,33     2026-04-01   venda com mesmo valor já existe
+[CRIADO]            33379274000192   ELIANO DOS SANTOS VALADARES 0058166238  R$ 543,62     2026-04-28   lead + venda serão criados
+[CRIADO]            30973395000170   L R C TAVARES                           R$ 1126,16    2026-02-28   lead + venda serão criados
+[VENDA_ADICIONADA]  65228699000197   RODRIGO ROCHA DO NASCIMENTO             R$ 804,34     2026-04-27   lead existente (o5gexw)
+[VENDA_ADICIONADA]  62335099000130   M M RODRIGUES POSTO DE MEDICAMENTOS     R$ 8575,77    2026-04-01   lead existente (w0envn)
+[CRIADO]            09563330000160   DROGARIA M DE SOUSA LTDA                R$ 764,35     2026-04-01   lead + venda serão criados
+[CRIADO]            24541259000108   ANATALIA LEITE DE SOUSA CARVALHO        R$ 775,41     2026-04-01   lead + venda serão criados
+[VENDA_ADICIONADA]  65228699000197   RODRIGO ROCHA DO NASCIMENTO             R$ 690,04     2026-03-27   lead existente (o5gexw)
+[CRIADO]            30309815000118   THE FARMA LTDA                          R$ 258,13     2026-03-01   lead + venda serão criados
+[CRIADO]            47183871000151   INOVE EMBALAGEM LTDA                    R$ 664,11     2026-03-01   lead + venda serão criados
+[CRIADO]            59314932000151   DAVID PEREIRA DE SOUSA                  R$ 794,47     2026-02-27   lead + venda serão criados
+[CRIADO]            42420473000198   AQUILA GONCALVES ARAUJO                 R$ 345,38     2026-02-01   lead + venda serão criados
+[CRIADO]            30973395000170   L R C TAVARES                           R$ 2225,10    2026-04-26   lead + venda serão criados
+[CRIADO]            60425466000160   SYRAH COMERCIO LTDA                     R$ 1219,56    2026-04-01   lead + venda serão criados
+[CRIADO]            38245920000142   PARGAS & FRAZAO LTDA                    R$ 1422,00    2026-03-26   lead + venda serão criados
+[VENDA_ADICIONADA]  07212898000100   ANTONIO HILDEBRANDO DE SOUSA            R$ 3239,47    2026-03-01   lead existente (h4p9t7)
+[CRIADO]            24541259000108   ANATALIA LEITE DE SOUSA CARVALHO        R$ 1427,14    2026-03-01   lead + venda serão criados
+[CRIADO]            54427001000146   SOUSA LOPES LTDA                        R$ 297,48     2026-02-26   lead + venda serão criados
+[CRIADO]            38245920000142   PARGAS & FRAZAO LTDA                    R$ 1140,00    2026-04-25   lead + venda serão criados
+[CRIADO]            59314932000151   DAVID PEREIRA DE SOUSA                  R$ 377,88     2026-03-25   lead + venda serão criados
+[CRIADO]            00006338693330   ENOFRE DE ALCANTARA SIMEAO FILHO        R$ 494,65     2026-03-01   lead + venda serão criados
+[CRIADO]            52077209000157   L MESQUITA LTDA                         R$ 504,81     2026-03-01   lead + venda serão criados
+[CRIADO]            33379274000192   ELIANO DOS SANTOS VALADARES 0058166238  R$ 258,60     2026-04-24   lead + venda serão criados
+[CRIADO]            61579374000106   JOSE LUIS LISBOA MEIRELES               R$ 1301,00    2026-03-24   lead + venda serão criados
+[CRIADO]            63997543000145   POLLYFARMA DROGARIA LTDA                R$ 668,94     2026-03-01   lead + venda serão criados
+[VENDA_ADICIONADA]  60983257000132   ADRIAO NETO FERREIRA DE SOUSA           R$ 250,05     2026-04-23   lead existente (317uat)
+[VENDA_ADICIONADA]  35759605000145   MUNDO DAS FARMACIAS LTDA                R$ 7463,90    2026-04-01   lead existente (efpoth)
+[CRIADO]            61062194000144   RAIMUNDA FERREIRA LIMA DA SILVA         R$ 504,63     2026-04-01   lead + venda serão criados
+[VENDA_ADICIONADA]  47537993000107   DROGARIA + ECONOMICA LTDA               R$ 547,05     2026-04-22   lead existente (bgcfba)
+[VENDA_ADICIONADA]  35759605000145   MUNDO DAS FARMACIAS LTDA                R$ 7512,81    2026-04-01   lead existente (efpoth)
+[CRIADO]            13008173000106   A FERREIRA DA SILVA                     R$ 1439,80    2026-04-01   lead + venda serão criados
+[CRIADO]            61062194000144   RAIMUNDA FERREIRA LIMA DA SILVA         R$ 532,03     2026-04-01   lead + venda serão criados
+[CRIADO]            57376540000191   FRANCISCO NASCIMENTO DO VALE            R$ 599,55     2026-04-01   lead + venda serão criados
+[CRIADO]            00005698453357   JOSE CARLOS S. SOUSA                    R$ 493,54     2026-04-21   lead + venda serão criados
+[CRIADO]            56781683000116   J D ARC DE CARVALHO ARAUJO              R$ 991,53     2026-04-01   lead + venda serão criados
+[CRIADO]            33379274000192   ELIANO DOS SANTOS VALADARES 0058166238  R$ 705,64     2026-04-20   lead + venda serão criados
+[CRIADO]            58826560000180   NOVA FARMA EBENEZER LTDA                R$ 539,05     2026-04-01   lead + venda serão criados
+[CRIADO]            46909672000115   J GOMES SANTOS                          R$ 995,75     2026-03-20   lead + venda serão criados
+[CRIADO]            49809041000112   RENEE N. L. JACOBINA                    R$ 559,94     2026-03-01   lead + venda serão criados
+[VENDA_ADICIONADA]  29377477000172   J A DA SILVA                            R$ 2502,39    2026-04-18   lead existente (b2w0qc)
+[CRIADO]            00005698453357   JOSE CARLOS S. SOUSA                    R$ 296,19     2026-03-18   lead + venda serão criados
+[CRIADO]            59314932000151   DAVID PEREIRA DE SOUSA                  R$ 594,20     2026-04-17   lead + venda serão criados
+[VENDA_ADICIONADA]  65228699000197   RODRIGO ROCHA DO NASCIMENTO             R$ 404,30     2026-04-01   lead existente (o5gexw)
+[CRIADO]            58036076000157   EMANUELA C. P. CARVALHO                 R$ 760,34     2026-04-01   lead + venda serão criados
+[VENDA_ADICIONADA]  37241564000126   HENRIFARMA FARMACIA LTDA                R$ 1025,14    2026-05-16   lead existente (7ir0ow)
+[CRIADO]            55082156000150   A DA S RODRIGUES FILHO COMERCIO         R$ 596,93     2026-04-16   lead + venda serão criados
+[VENDA_ADICIONADA]  11950196000100   DROGARIA BEM ESTAR COMERCIAL LTDA       R$ 503,95     2026-04-01   lead existente (o5uy3d)
+[CRIADO]            12068449000170   ALE FARMA POPULAR LTDA                  R$ 801,27     2026-04-01   lead + venda serão criados
+[CRIADO]            38245920000142   PARGAS & FRAZAO LTDA                    R$ 1060,44    2026-03-16   lead + venda serão criados
+[CRIADO]            13738920000153   GISLANE PEREIRA DA SILVA                R$ 295,76     2026-03-01   lead + venda serão criados
+[DUPLICATA_PULADA]  60983257000132   ADRIAO NETO FERREIRA DE SOUSA           R$ 260,05     2026-05-15   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  45443186000191   ANA CLAUDIA S DE C SILVA                R$ 1956,00    2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  65228699000197   RODRIGO ROCHA DO NASCIMENTO             R$ 767,65     2026-05-01   venda com mesmo valor já existe
+[CRIADO]            43272469000192   M F C CORREA TROMPS                     R$ 799,36     2026-04-15   lead + venda serão criados
+[CRIADO]            00096030968300   MARLENE DE SOUSA                        R$ 449,91     2026-04-01   lead + venda serão criados
+[CRIADO]            19289338000133   COMPRARE SUPRIMENTOS LTDA.              R$ 253,61     2026-04-01   lead + venda serão criados
+[DUPLICATA_PULADA]  65228699000197   RODRIGO ROCHA DO NASCIMENTO             R$ 767,65     2026-05-14   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  13237340000182   F DAS C ROCHA                           R$ 763,26     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  23977160000190   U S SILVA                               R$ 704,16     2026-05-01   venda com mesmo valor já existe
+[VENDA_ADICIONADA]  60983257000132   ADRIAO NETO FERREIRA DE SOUSA           R$ 257,33     2026-04-14   lead existente (317uat)
+[VENDA_ADICIONADA]  65228699000197   RODRIGO ROCHA DO NASCIMENTO             R$ 531,50     2026-04-01   lead existente (o5gexw)
+[CRIADO]            40441993000151   DAIANE KUBIAK                           R$ 838,21     2026-04-01   lead + venda serão criados
+[VENDA_ADICIONADA]  56342688000142   ANALICE CARDOSO DE BRITO                R$ 594,16     2026-04-01   lead existente (eim97a)
+[CRIADO]            23370890000129   SABRINA SOARES DA SILVA                 R$ 670,55     2026-04-01   lead + venda serão criados
+[CRIADO]            24541259000108   ANATALIA LEITE DE SOUSA CARVALHO        R$ 608,82     2026-04-01   lead + venda serão criados
+[DUPLICATA_PULADA]  41910778000115   V A DIAS BEZERRA PRODUTOS FARMACEUTICO  R$ 4793,42    2026-05-13   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  13202008000182   ESSENCIAL FARMA LTDA                    R$ 849,15     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  54439430000133   XAVIER COMERCIO DE MED. LTDA            R$ 506,96     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  66436865000103   B L FARMA LTDA                          R$ 375,56     2026-05-01   venda com mesmo valor já existe
+[CRIADO]            63997543000145   POLLYFARMA DROGARIA LTDA                R$ 625,59     2026-04-13   lead + venda serão criados
+[CRIADO]            63568341000188   FARMACIAS RUANNA LTDA                   R$ 531,94     2026-04-01   lead + venda serão criados
+[CRIADO]            63997543000145   POLLYFARMA DROGARIA LTDA                R$ 996,87     2026-03-13   lead + venda serão criados
+[DUPLICATA_PULADA]  63695911000109   AMA FARMA LTDA                          R$ 697,08     2026-05-12   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  56342688000142   ANALICE CARDOSO DE BRITO                R$ 463,93     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  32507523000115   DISTRIBUIDORA DE GENEROS ALIMENTICIOS   R$ 502,08     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  11950196000100   DROGARIA BEM ESTAR COMERCIAL LTDA       R$ 617,28     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  38047459000113   MATEUS NUNES DIAS                       R$ 7999,12    2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  58658903000144   OF ATACADAO LTDA                        R$ 807,52     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  64475446000155   ANTONIA MARIA P C ROCHA                 R$ 494,96     2026-05-11   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  07824842000107   ANA CLAUDIA TAVARES LOPES               R$ 1752,11    2026-05-01   venda com mesmo valor já existe
+[CRIADO]            63997543000145   POLLYFARMA DROGARIA LTDA                R$ 626,34     2026-05-01   lead + venda serão criados
+[DUPLICATA_PULADA]  64752346000129   G B DE S LIMA                           R$ 1917,27    2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  30153608000117   JONAS DE SOUSA ROSA 07681592377         R$ 778,82     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  42252903000100   MESSIAS CARMO COSTA                     R$ 276,60     2026-05-01   venda com mesmo valor já existe
+[CRIADO]            46370009000195   R L P SILVA DROGABEM                    R$ 260,64     2026-04-11   lead + venda serão criados
+[CRIADO]            24775437000165   F J L SANTOS                            R$ 397,44     2026-04-10   lead + venda serão criados
+[CRIADO]            59314932000151   DAVID PEREIRA DE SOUSA                  R$ 397,28     2026-04-09   lead + venda serão criados
+[CRIADO]            42420473000198   AQUILA GONCALVES ARAUJO                 R$ 336,20     2026-04-01   lead + venda serão criados
+[CRIADO]            28033906000121   JAIRO R C DA SILVA LTDA                 R$ 273,28     2026-04-01   lead + venda serão criados
+[VENDA_ADICIONADA]  41910778000115   V A DIAS BEZERRA PRODUTOS FARMACEUTICO  R$ 1534,42    2026-02-09   lead existente (xvfuwq)
+[DUPLICATA_PULADA]  61130417000163   JOSE ADREAN M. LEAL                     R$ 831,76     2026-05-08   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  47537993000107   DROGARIA + ECONOMICA LTDA               R$ 1899,70    2026-05-07   venda com mesmo valor já existe
+[CRIADO]            49809041000112   RENEE N. L. JACOBINA                    R$ 620,90     2026-05-01   lead + venda serão criados
+[VENDA_ADICIONADA]  41910778000115   V A DIAS BEZERRA PRODUTOS FARMACEUTICO  R$ 1210,06    2026-04-07   lead existente (xvfuwq)
+[DUPLICATA_PULADA]  59667925000133   MULTI FARMA MEDICAMENTOS LTDA           R$ 501,44     2026-05-06   venda com mesmo valor já existe
+[CRIADO]            49809041000112   RENEE N. L. JACOBINA                    R$ 378,49     2026-04-06   lead + venda serão criados
+[CRIADO]            21812388000103   K R M SILVA                             R$ 747,89     2026-03-06   lead + venda serão criados
+[DUPLICATA_PULADA]  41910778000115   V A DIAS BEZERRA PRODUTOS FARMACEUTICO  R$ 965,22     2026-05-05   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  60324483000101   MARIO ANDERSON TEIXEIRA GODINHO         R$ 798,36     2026-05-01   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  20547855000225   M & VERAS MATERIAIS DE CONSTRUCOES LTD  R$ 325,47     2026-05-04   venda com mesmo valor já existe
+[VENDA_ADICIONADA]  63695911000109   AMA FARMA LTDA                          R$ 3398,10    2026-05-01   lead existente (d7xjj1)
+[DUPLICATA_PULADA]  16585865000105   R F MARTINS LTDA                        R$ 993,93     2026-05-01   venda com mesmo valor já existe
+[VENDA_ADICIONADA]  41910778000115   V A DIAS BEZERRA PRODUTOS FARMACEUTICO  R$ 536,35     2026-03-04   lead existente (xvfuwq)
+[CRIADO]            27397540000107   L PROTAZIO DOS SANTOS COMERCIO          R$ 721,36     2026-03-01   lead + venda serão criados
+[DUPLICATA_PULADA]  60983257000132   ADRIAO NETO FERREIRA DE SOUSA           R$ 263,99     2026-05-03   venda com mesmo valor já existe
+[DUPLICATA_PULADA]  66040067000168   MORFEU EMPREENDIM. LTDA                 R$ 784,38     2026-05-02   venda com mesmo valor já existe
+[CRIADO]            30309815000118   THE FARMA LTDA                          R$ 552,03     2026-04-02   lead + venda serão criados
+[CRIADO]            33379274000192   ELIANO DOS SANTOS VALADARES 0058166238  R$ 325,00     2026-03-02   lead + venda serão criados
+[CRIADO]            38245920000142   PARGAS & FRAZAO LTDA                    R$ 461,22     2026-04-01   lead + venda serão criados
+[VENDA_ADICIONADA]  07212898000100   ANTONIO HILDEBRANDO DE SOUSA            R$ 2655,94    2026-02-01   lead existente (h4p9t7)
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Total de linhas:                  118
+[CRIADO]           leads + vendas novas:       64
+[VENDA_ADICIONADA] vendas em leads existentes: 21
+[DUPLICATA_PULADA] vendas com valor duplicado: 33
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+DRY-RUN concluído — nada foi gravado.
+Para importar de verdade:
+  npm run import-leads -- --import
+

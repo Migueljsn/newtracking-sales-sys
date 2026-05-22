@@ -7,10 +7,12 @@ import { AuthorizedDomains } from "@/components/settings/authorized-domains";
 import { WhatsappTemplateForm } from "@/components/settings/whatsapp-template-form";
 import { GuideCard } from "@/components/ui/guide-card";
 import { PipelineStages } from "@/components/settings/pipeline-stages";
+import { ConsultantAccess } from "@/components/settings/consultant-access";
 
 const TABS = [
   { key: "geral",    label: "Geral"     },
   { key: "pipeline", label: "Pipeline"  },
+  { key: "acessos",  label: "Acessos"   },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -36,11 +38,12 @@ export default async function SettingsPage({
     ? "error"
     : null;
 
-  const [client, settings, authorizedDomains, pipelineStages] = await Promise.all([
+  const [client, settings, authorizedDomains, pipelineStages, consultantUsers] = await Promise.all([
     prisma.client.findUniqueOrThrow({ where: { id: clientId } }),
     prisma.clientSettings.findUnique({ where: { clientId } }),
     prisma.authorizedDomain.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
     prisma.pipelineStage.findMany({ where: { clientId }, orderBy: { position: "asc" } }),
+    prisma.consultantUser.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
   ]);
 
   return (
@@ -105,6 +108,12 @@ export default async function SettingsPage({
       {activeTab === "pipeline" && (
         <div className="card p-5">
           <PipelineStages stages={pipelineStages} />
+        </div>
+      )}
+
+      {activeTab === "acessos" && (
+        <div className="card p-5">
+          <ConsultantAccess consultants={consultantUsers} />
         </div>
       )}
     </div>

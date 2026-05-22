@@ -1,0 +1,230 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
+import { UserPlus, Trash2, KeyRound, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import {
+  createConsultantAction,
+  toggleConsultantAction,
+  deleteConsultantAction,
+  resetConsultantPasswordAction,
+} from "@/app/(dashboard)/settings/actions";
+
+interface Consultant {
+  id:        string;
+  name:      string;
+  email:     string;
+  active:    boolean;
+  createdAt: Date;
+}
+
+export function ConsultantAccess({ consultants }: { consultants: Consultant[] }) {
+  const [list,      setList]      = useState<Consultant[]>(consultants);
+  const [showForm,  setShowForm]  = useState(false);
+  const [loading,   setLoading]   = useState<string | null>(null);
+  const [resetId,   setResetId]   = useState<string | null>(null);
+  const [newPass,   setNewPass]   = useState("");
+
+  // Create
+  async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading("create");
+    const fd = new FormData(e.currentTarget);
+    try {
+      await createConsultantAction(fd);
+      toast.success("Consultor criado com sucesso!");
+      setShowForm(false);
+      (e.target as HTMLFormElement).reset();
+      // reload list from server — simple approach: force page reload
+      window.location.reload();
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Erro ao criar consultor");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  // Toggle
+  async function handleToggle(c: Consultant) {
+    setLoading(c.id + "-toggle");
+    try {
+      await toggleConsultantAction(c.id, !c.active);
+      setList(prev => prev.map(x => x.id === c.id ? { ...x, active: !x.active } : x));
+      toast.success(c.active ? "Acesso desativado" : "Acesso ativado");
+    } catch {
+      toast.error("Erro ao atualizar acesso");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  // Delete
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Excluir o consultor "${name}"? Esta ação não pode ser desfeita.`)) return;
+    setLoading(id + "-delete");
+    try {
+      await deleteConsultantAction(id);
+      setList(prev => prev.filter(x => x.id !== id));
+      toast.success("Consultor excluído");
+    } catch {
+      toast.error("Erro ao excluir consultor");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  // Reset password
+  async function handleResetPassword(id: string) {
+    if (!newPass || newPass.length < 6) { toast.error("Senha deve ter pelo menos 6 caracteres"); return; }
+    setLoading(id + "-reset");
+    const fd = new FormData();
+    fd.set("password", newPass);
+    try {
+      await resetConsultantPasswordAction(id, fd);
+      toast.success("Senha redefinida com sucesso!");
+      setResetId(null);
+      setNewPass("");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Erro ao redefinir senha");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text)]">Acessos de Consultores</h2>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">Consultores têm acesso restrito à lista de leads operacional.</p>
+        </div>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] transition-colors"
+        >
+          <UserPlus size={15} /> Novo consultor
+        </button>
+      </div>
+
+      {/* Create form */}
+      {showForm && (
+        <form onSubmit={handleCreate} className="rounded-2xl border border-[var(--accent)] bg-[var(--accent-soft)] p-5 space-y-4">
+          <p className="text-sm font-semibold text-[var(--accent)]">Novo consultor</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Nome *</label>
+              <input name="name" required className="input w-full" placeholder="Ex: João Silva" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">E-mail *</label>
+              <input name="email" type="email" required className="input w-full" placeholder="joao@empresa.com" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Senha *</label>
+              <input name="password" type="password" required minLength={6} className="input w-full" placeholder="Mínimo 6 caracteres" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)]">
+              Cancelar
+            </button>
+            <button type="submit" disabled={loading === "create"} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              {loading === "create" ? <Loader2 size={14} className="animate-spin" /> : null}
+              Criar consultor
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* List */}
+      {list.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[var(--border)] p-10 text-center">
+          <p className="text-sm text-[var(--text-muted)]">Nenhum consultor cadastrado ainda.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)]">
+          {list.map((c) => (
+            <div key={c.id} className="flex items-center gap-4 px-5 py-4">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-[var(--text)] truncate">{c.name}</p>
+                <p className="text-xs text-[var(--text-muted)] truncate">{c.email}</p>
+              </div>
+
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                c.active
+                  ? "bg-[var(--success-soft)] text-[var(--success)]"
+                  : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
+              }`}>
+                {c.active ? "Ativo" : "Inativo"}
+              </span>
+
+              {/* Reset password inline */}
+              {resetId === c.id ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={newPass}
+                    onChange={e => setNewPass(e.target.value)}
+                    placeholder="Nova senha"
+                    minLength={6}
+                    className="input h-8 w-36 text-xs"
+                  />
+                  <button
+                    onClick={() => handleResetPassword(c.id)}
+                    disabled={loading === c.id + "-reset"}
+                    className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {loading === c.id + "-reset" ? <Loader2 size={12} className="animate-spin" /> : "Salvar"}
+                  </button>
+                  <button onClick={() => { setResetId(null); setNewPass(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]">
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setResetId(c.id); setNewPass(""); }}
+                  title="Redefinir senha"
+                  className="shrink-0 flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                >
+                  <KeyRound size={13} /> Senha
+                </button>
+              )}
+
+              <button
+                onClick={() => handleToggle(c)}
+                disabled={loading === c.id + "-toggle"}
+                title={c.active ? "Desativar acesso" : "Ativar acesso"}
+                className="shrink-0 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+              >
+                {loading === c.id + "-toggle"
+                  ? <Loader2 size={18} className="animate-spin" />
+                  : c.active
+                  ? <ToggleRight size={22} className="text-[var(--success)]" />
+                  : <ToggleLeft  size={22} />
+                }
+              </button>
+
+              <button
+                onClick={() => handleDelete(c.id, c.name)}
+                disabled={loading === c.id + "-delete"}
+                title="Excluir consultor"
+                className="shrink-0 text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors disabled:opacity-50"
+              >
+                {loading === c.id + "-delete"
+                  ? <Loader2 size={15} className="animate-spin" />
+                  : <Trash2 size={15} />
+                }
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
+        <p className="text-xs text-[var(--text-muted)]">
+          O link de acesso do consultor é: <code className="font-mono text-[var(--accent)]">/consultor/login</code>
+        </p>
+      </div>
+    </div>
+  );
+}

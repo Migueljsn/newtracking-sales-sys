@@ -2,14 +2,15 @@
 
 import { useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { createClientAction } from "@/app/admin/actions";
 
 export function CreateClientModal() {
-  const [open, setOpen]       = useState(false);
-  const [pending, startTransition] = useTransition();
-  const formRef               = useRef<HTMLFormElement>(null);
+  const [open,     setOpen]         = useState(false);
+  const [pending,  startTransition] = useTransition();
+  const [showPass, setShowPass]     = useState(false);
+  const formRef                     = useRef<HTMLFormElement>(null);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -76,7 +77,12 @@ export function CreateClientModal() {
                 <label className="mb-1.5 block text-xs font-semibold text-[var(--text-muted)]">
                   Senha inicial
                 </label>
-                <input name="password" type="password" required minLength={6} className="input w-full" placeholder="Mínimo 6 caracteres" />
+                <div className="relative">
+                  <input name="password" type={showPass ? "text" : "password"} required minLength={6} className="input w-full pr-10" placeholder="Mínimo 6 caracteres" />
+                  <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                    {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-1">

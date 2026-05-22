@@ -4,11 +4,13 @@ import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const router = useRouter();
 
   const supabase = createBrowserClient(
@@ -52,14 +54,23 @@ export function LoginForm() {
       </div>
       <div>
         <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Senha</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="input w-full"
-          placeholder="Sua senha"
-        />
+        <div className="relative">
+          <input
+            type={showPass ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="input w-full pr-10"
+            placeholder="Sua senha"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPass(v => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+          >
+            {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
       </div>
       <button
         type="submit"

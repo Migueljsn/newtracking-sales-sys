@@ -16,6 +16,7 @@ export default function ConsultantLoginPage() {
     try {
       await consultantLoginAction(fd);
     } catch (err: unknown) {
+      if ((err as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw err;
       toast.error((err as Error).message || "Erro ao fazer login");
       setLoading(false);
     }

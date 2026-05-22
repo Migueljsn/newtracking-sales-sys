@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, Search, Users,
   Download, SlidersHorizontal, X, Check, Loader2,
   CheckSquare, UserCheck, ChevronDown, Trash2, AlertTriangle,
+  DollarSign, Plus, Minus, ArrowUp, ArrowDown, ChevronsUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
@@ -16,7 +17,9 @@ import {
   bulkMoveToStageAction,
   bulkAssignConsultantAction,
   bulkDeleteLeadsAction,
+  quickRegisterSaleAction,
 } from "@/app/(dashboard)/leads/actions";
+import { moveToStageAction } from "@/app/(dashboard)/leads/[id]/actions";
 import type { LeadStatus, LeadSource } from "@prisma/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,22 +45,28 @@ interface Lead {
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
-type ColumnKey = "phone" | "emailDoc" | "status" | "state" | "consultant" | "source" | "capturedAt" | "inactivity" | "totalSales" | "lastSale";
+type ColumnKey = "phone" | "email" | "document" | "status" | "pipeline" | "state" | "consultant" | "source" | "capturedAt" | "inactivity" | "totalSales" | "lastSale";
+
+type SortKey = "name" | ColumnKey;
+type SortDir = "asc" | "desc";
+interface SortConfig { key: SortKey; dir: SortDir }
 
 const COLUMNS: { key: ColumnKey; label: string; defaultOn: boolean }[] = [
-  { key: "phone",      label: "Telefone",       defaultOn: true  },
-  { key: "emailDoc",   label: "Email / CPF",    defaultOn: true  },
-  { key: "status",     label: "Status",         defaultOn: true  },
-  { key: "state",      label: "Estado",         defaultOn: false },
-  { key: "consultant", label: "Consultor",      defaultOn: false },
-  { key: "source",     label: "Origem",         defaultOn: true  },
-  { key: "capturedAt", label: "Capturada em",   defaultOn: true  },
-  { key: "inactivity", label: "Inativo",        defaultOn: false },
-  { key: "totalSales", label: "Total compras",  defaultOn: true  },
-  { key: "lastSale",   label: "Última compra",  defaultOn: true  },
+  { key: "phone",      label: "Telefone",        defaultOn: true  },
+  { key: "email",      label: "Email",            defaultOn: true  },
+  { key: "document",   label: "Documento",        defaultOn: false },
+  { key: "status",     label: "Status",           defaultOn: true  },
+  { key: "pipeline",   label: "Etapa Pipeline",   defaultOn: true  },
+  { key: "state",      label: "Estado",           defaultOn: false },
+  { key: "consultant", label: "Consultor",        defaultOn: false },
+  { key: "source",     label: "Origem",           defaultOn: true  },
+  { key: "capturedAt", label: "Capturada em",     defaultOn: true  },
+  { key: "inactivity", label: "Inativo",          defaultOn: false },
+  { key: "totalSales", label: "Total compras",    defaultOn: true  },
+  { key: "lastSale",   label: "Última compra",    defaultOn: true  },
 ];
 
-const COLUMNS_KEY  = "leads-columns-v2";
+const COLUMNS_KEY   = "leads-columns-v3";
 const PAGE_SIZE_KEY = "leads-page-size-v1";
 const PAGE_SIZES    = [25, 50, 100];
 
@@ -95,7 +104,6 @@ const statusTabs: { value: "ALL" | "NEW" | "SOLD" | "LOST"; label: string }[] = 
 ];
 
 const INACTIVITY_PRESETS = [7, 15, 30, 45];
-
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 function daysAgo(dateStr: string): number {
@@ -133,8 +141,10 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
 
 function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
   const headers = ["Nome", "Telefone"];
-  if (visibleCols.has("emailDoc"))   headers.push("Email", "CPF/CNPJ");
+  if (visibleCols.has("email"))      headers.push("Email");
+  if (visibleCols.has("document"))   headers.push("Documento");
   if (visibleCols.has("status"))     headers.push("Status");
+  if (visibleCols.has("pipeline"))   headers.push("Etapa Pipeline");
   if (visibleCols.has("state"))      headers.push("Estado");
   if (visibleCols.has("consultant")) headers.push("Consultor");
   if (visibleCols.has("source"))     headers.push("Origem");
@@ -145,8 +155,10 @@ function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
 
   const rows = leads.map((l) => {
     const cols = [l.customer.name, l.customer.phone];
-    if (visibleCols.has("emailDoc"))   { cols.push(l.customer.email ?? "", l.customer.document ?? ""); }
-    if (visibleCols.has("status"))     cols.push(l.pipelineStage?.name || l.status);
+    if (visibleCols.has("email"))      cols.push(l.customer.email ?? "");
+    if (visibleCols.has("document"))   cols.push(l.customer.document ?? "");
+    if (visibleCols.has("status"))     cols.push(l.status);
+    if (visibleCols.has("pipeline"))   cols.push(l.pipelineStage?.name ?? "");
     if (visibleCols.has("state"))      cols.push(l.customer.state ?? "");
     if (visibleCols.has("consultant")) cols.push(l.consultant ?? "");
     if (visibleCols.has("source"))     cols.push(sourceLabel[l.source]);
@@ -167,6 +179,10 @@ function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
   URL.revokeObjectURL(url);
 }
 
+// ─── Sale item type ───────────────────────────────────────────────────────────
+
+interface SaleItem { name: string; quantity: number; price: number }
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface LeadsTableProps {
@@ -176,7 +192,7 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }: LeadsTableProps) {
-  const { data: leads = [], isFetching } = useQuery<Lead[]>({
+  const { data: leads = [], isFetching, refetch } = useQuery<Lead[]>({
     queryKey:        ["leads"],
     queryFn:         () => fetch("/api/leads").then((r) => r.json()),
     refetchInterval: 30_000,
@@ -209,6 +225,85 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   const [bulkConsultant, setBulkConsultant] = useState("");
   const [bulkStageId,    setBulkStageId]    = useState<string>("");
   const [bulkLoading,    setBulkLoading]    = useState(false);
+
+  // Inline pipeline update
+  const [updatingStage, setUpdatingStage] = useState<Set<string>>(new Set());
+
+  // Sorting
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+
+  function handleSort(key: SortKey) {
+    setSortConfig(prev => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+    resetPage();
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (!sortConfig || sortConfig.key !== col)
+      return <ChevronsUpDown size={10} className="ml-1 shrink-0 opacity-30" />;
+    return sortConfig.dir === "asc"
+      ? <ArrowUp   size={10} className="ml-1 shrink-0 text-[var(--accent)]" />
+      : <ArrowDown size={10} className="ml-1 shrink-0 text-[var(--accent)]" />;
+  }
+
+  // Sale modal
+  const [saleModal,     setSaleModal]     = useState<Lead | null>(null);
+  const [saleModalStep, setSaleModalStep] = useState<"confirm" | "form">("confirm");
+  const [saleValue,     setSaleValue]     = useState("");
+  const [saleDate,      setSaleDate]      = useState("");
+  const [saleItems,     setSaleItems]     = useState<SaleItem[]>([]);
+  const [saleLoading,   setSaleLoading]   = useState(false);
+
+  function openSaleModal(lead: Lead) {
+    setSaleModal(lead);
+    setSaleModalStep("confirm");
+    setSaleValue("");
+    setSaleDate(new Date().toISOString().slice(0, 10));
+    setSaleItems([]);
+  }
+
+  function closeSaleModal() {
+    setSaleModal(null);
+    setSaleModalStep("confirm");
+  }
+
+  async function handleRegisterSale() {
+    if (!saleModal || !saleValue) return;
+    const value = parseFloat(saleValue.replace(",", "."));
+    if (isNaN(value) || value <= 0) { toast.error("Valor inválido"); return; }
+    setSaleLoading(true);
+    try {
+      await quickRegisterSaleAction(
+        saleModal.id,
+        value,
+        saleDate || undefined,
+        saleItems.filter(i => i.name.trim()),
+      );
+      toast.success("Venda registrada com sucesso!");
+      closeSaleModal();
+      exitSelecting();
+      refetch();
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Erro ao registrar venda");
+    } finally {
+      setSaleLoading(false);
+    }
+  }
+
+  function addSaleItem() {
+    setSaleItems(prev => [...prev, { name: "", quantity: 1, price: 0 }]);
+  }
+
+  function removeSaleItem(i: number) {
+    setSaleItems(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  function updateSaleItem(i: number, field: keyof SaleItem, value: string | number) {
+    setSaleItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+  }
 
   function exitSelecting() {
     setIsSelecting(false);
@@ -269,8 +364,22 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
     });
   }
 
-  // Counts (always based on full list, not filtered)
-  // REGISTERED leads show under "Novas" — they are legacy
+  async function handleInlineStageChange(lead: Lead, stageId: string) {
+    setUpdatingStage(prev => new Set(prev).add(lead.id));
+    try {
+      await moveToStageAction(lead.id, stageId || null);
+      refetch();
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Erro ao atualizar etapa");
+    } finally {
+      setUpdatingStage(prev => {
+        const next = new Set(prev);
+        next.delete(lead.id);
+        return next;
+      });
+    }
+  }
+
   const counts: Record<"ALL" | "NEW" | "SOLD" | "LOST", number> = {
     ALL:  leads.length,
     NEW:  leads.filter((l) => l.status === "NEW" || l.status === "REGISTERED").length,
@@ -278,10 +387,8 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
     LOST: leads.filter((l) => l.status === "LOST").length,
   };
 
-  // Audience filter IDs (set for O(1) lookup)
   const audienceIds = audienceFilter ? new Set(audienceFilter.ids) : null;
 
-  // Filtered list
   const filtered = leads.filter((lead) => {
     if (audienceIds && !audienceIds.has(lead.id)) return false;
 
@@ -305,12 +412,46 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
     return matchSearch && matchStatus && matchState && matchConsultant && matchStage && matchInactivity;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  function getSortValue(lead: Lead, key: SortKey): string | number {
+    switch (key) {
+      case "name":       return lead.customer.name.toLowerCase();
+      case "phone":      return lead.customer.phone;
+      case "email":      return lead.customer.email?.toLowerCase() ?? "";
+      case "document":   return lead.customer.document ?? "";
+      case "status":     return lead.status;
+      case "pipeline":   return lead.pipelineStage?.name?.toLowerCase() ?? "";
+      case "state":      return lead.customer.state?.toLowerCase() ?? "";
+      case "consultant": return lead.consultant?.toLowerCase() ?? "";
+      case "source":     return lead.source;
+      case "capturedAt": return new Date(lead.capturedAt).getTime();
+      case "inactivity": return getInactivityDays(lead);
+      case "totalSales": return getTotalSalesValue(lead);
+      case "lastSale":   return lead.sales[0] ? Number(lead.sales[0].value) : -1;
+    }
+  }
+
+  const sorted = sortConfig
+    ? [...filtered].sort((a, b) => {
+        const av = getSortValue(a, sortConfig.key);
+        const bv = getSortValue(b, sortConfig.key);
+        const cmp = typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av).localeCompare(String(bv), "pt-BR");
+        return sortConfig.dir === "asc" ? cmp : -cmp;
+      })
+    : filtered;
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage   = Math.min(page, totalPages - 1);
-  const paginated  = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
+  const paginated  = sorted.slice(safePage * pageSize, (safePage + 1) * pageSize);
   const pageNums   = getPageNumbers(safePage, totalPages);
 
   const hasActiveFilters = search !== "" || statusFilter !== "ALL" || stateFilter !== "ALL" || consultantFilter !== "ALL" || stageFilter !== "ALL" || inactivityFilter !== null;
+
+  // Lead selecionada para venda (apenas quando exatamente 1)
+  const singleSelectedLead = selectedIds.size === 1
+    ? leads.find(l => l.id === [...selectedIds][0]) ?? null
+    : null;
 
   function clearFilters() {
     setSearch("");
@@ -339,14 +480,14 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
         </div>
       )}
 
-      {/* Row 1: search + state + consultant + inactivity */}
+      {/* Row 1: search + state + consultant + stage + inactivity */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); resetPage(); }}
-            placeholder="Buscar por nome, telefone ou CPF/CNPJ..."
+            placeholder="Buscar por nome, telefone ou documento..."
             className="input w-full"
             style={{ paddingLeft: "3rem" }}
           />
@@ -547,17 +688,95 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                       </button>
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
-                  {visibleCols.has("phone")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Telefone</th>}
-                  {visibleCols.has("emailDoc")   && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Email / CPF</th>}
-                  {visibleCols.has("status")     && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Status</th>}
-                  {visibleCols.has("state")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Estado</th>}
-                  {visibleCols.has("consultant") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Consultor</th>}
-                  {visibleCols.has("source")     && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Origem</th>}
-                  {visibleCols.has("capturedAt") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Capturada em</th>}
-                  {visibleCols.has("inactivity") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Dias inativo</th>}
-                  {visibleCols.has("totalSales") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Vol. Compras</th>}
-                  {visibleCols.has("lastSale")   && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Última Compra</th>}
+                  <th className="px-4 py-3 text-left">
+                    <button onClick={() => handleSort("name")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                      Nome <SortIcon col="name" />
+                    </button>
+                  </th>
+                  {visibleCols.has("phone") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("phone")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Telefone <SortIcon col="phone" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("email") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("email")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Email <SortIcon col="email" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("document") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("document")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Documento <SortIcon col="document" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("status") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("status")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Status <SortIcon col="status" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("pipeline") && (pipelineStages ?? []).length > 0 && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("pipeline")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Etapa <SortIcon col="pipeline" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("state") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("state")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Estado <SortIcon col="state" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("consultant") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("consultant")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Consultor <SortIcon col="consultant" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("source") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("source")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Origem <SortIcon col="source" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("capturedAt") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("capturedAt")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Capturada em <SortIcon col="capturedAt" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("inactivity") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("inactivity")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Dias inativo <SortIcon col="inactivity" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("totalSales") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("totalSales")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Vol. Compras <SortIcon col="totalSales" />
+                      </button>
+                    </th>
+                  )}
+                  {visibleCols.has("lastSale") && (
+                    <th className="px-4 py-3 text-left">
+                      <button onClick={() => handleSort("lastSale")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                        Última Compra <SortIcon col="lastSale" />
+                      </button>
+                    </th>
+                  )}
                   <th />
                 </tr>
               </thead>
@@ -565,6 +784,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 {paginated.map((lead) => {
                   const inactiveDays = getInactivityDays(lead);
                   const isSelected   = selectedIds.has(lead.id);
+                  const canEditStage = lead.status === "NEW" || lead.status === "REGISTERED";
                   return (
                     <tr
                       key={lead.id}
@@ -603,17 +823,47 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                       {visibleCols.has("phone") && (
                         <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.phone}</td>
                       )}
-                      {visibleCols.has("emailDoc") && (
+                      {visibleCols.has("email") && (
                         <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                          <div className="max-w-[220px]">
-                            <p className="truncate" title={lead.customer.email || lead.customer.document || "—"}>
-                              {lead.customer.email || lead.customer.document || "—"}
-                            </p>
-                          </div>
+                          <span className="truncate block max-w-[180px]" title={lead.customer.email ?? "—"}>
+                            {lead.customer.email || "—"}
+                          </span>
+                        </td>
+                      )}
+                      {visibleCols.has("document") && (
+                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
+                          {lead.customer.document || "—"}
                         </td>
                       )}
                       {visibleCols.has("status") && (
-                        <td className="px-4 py-3.5"><LeadStatusBadge status={lead.status} pipelineStage={lead.pipelineStage} /></td>
+                        <td className="px-4 py-3.5">
+                          <LeadStatusBadge status={lead.status} pipelineStage={null} />
+                        </td>
+                      )}
+                      {visibleCols.has("pipeline") && (pipelineStages ?? []).length > 0 && (
+                        <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                          {canEditStage ? (
+                            <div className="relative">
+                              <select
+                                value={lead.pipelineStage?.id ?? ""}
+                                disabled={updatingStage.has(lead.id)}
+                                onChange={(e) => handleInlineStageChange(lead, e.target.value)}
+                                className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
+                              >
+                                <option value="">— Sem etapa</option>
+                                {(pipelineStages ?? []).map(s => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                              </select>
+                              {updatingStage.has(lead.id)
+                                ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
+                                : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                              }
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[var(--text-muted)]">—</span>
+                          )}
+                        </td>
                       )}
                       {visibleCols.has("state") && (
                         <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>
@@ -632,11 +882,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                       {visibleCols.has("inactivity") && (
                         <td className="px-4 py-3.5">
                           <span className={`font-semibold tabular-nums ${
-                            inactiveDays >= 30
-                              ? "text-[var(--danger)]"
-                              : inactiveDays >= 15
-                              ? "text-[var(--warning)]"
-                              : "text-[var(--text-muted)]"
+                            inactiveDays >= 30 ? "text-[var(--danger)]" : inactiveDays >= 15 ? "text-[var(--warning)]" : "text-[var(--text-muted)]"
                           }`}>
                             {inactiveDays}d
                           </span>
@@ -684,11 +930,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <p className="text-xs text-[var(--text-muted)]">
-            {filtered.length === 0
+            {sorted.length === 0
               ? "0 leads"
-              : `${safePage * pageSize + 1}–${Math.min((safePage + 1) * pageSize, filtered.length)} de ${filtered.length} leads`}
+              : `${safePage * pageSize + 1}–${Math.min((safePage + 1) * pageSize, sorted.length)} de ${sorted.length} leads`}
           </p>
-
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-[var(--text-muted)]">Por página:</span>
             <div className="flex items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-0.5">
@@ -718,12 +963,9 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
             >
               <ChevronLeft size={15} />
             </button>
-
             {pageNums.map((n, i) =>
               n === "..." ? (
-                <span key={`ellipsis-${i}`} className="flex h-8 w-8 items-center justify-center text-xs text-[var(--text-muted)]">
-                  …
-                </span>
+                <span key={`ellipsis-${i}`} className="flex h-8 w-8 items-center justify-center text-xs text-[var(--text-muted)]">…</span>
               ) : (
                 <button
                   key={n}
@@ -738,7 +980,6 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 </button>
               )
             )}
-
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={safePage === totalPages - 1}
@@ -749,6 +990,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
           </div>
         )}
       </div>
+
       {/* ── Bulk action bar ── */}
       {isSelecting && selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 z-30 w-[calc(100vw-2rem)] max-w-2xl -translate-x-1/2">
@@ -761,6 +1003,15 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 </span>
                 <div className="mx-1 h-5 w-px bg-[var(--border)]" />
                 <div className="flex flex-1 flex-wrap items-center gap-2">
+                  {/* Registrar venda — só aparece com 1 lead selecionada */}
+                  {singleSelectedLead && (
+                    <button
+                      onClick={() => openSaleModal(singleSelectedLead)}
+                      className="flex items-center gap-1.5 rounded-xl border border-[var(--success)] bg-[var(--success-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--success)] transition-colors hover:bg-[var(--success)] hover:text-white"
+                    >
+                      <DollarSign size={13} /> Registrar Venda
+                    </button>
+                  )}
                   <button
                     onClick={() => setBulkStep("confirm-lost")}
                     className="rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)] hover:text-white"
@@ -782,10 +1033,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     <UserCheck size={13} /> Consultor
                   </button>
                   <button
-                    onClick={() => {
-                      const list = filtered.filter(l => selectedIds.has(l.id));
-                      exportCSV(list, visibleCols);
-                    }}
+                    onClick={() => exportCSV(filtered.filter(l => selectedIds.has(l.id)), visibleCols)}
                     className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
                   >
                     <Download size={13} /> Exportar
@@ -800,7 +1048,6 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 <button
                   onClick={exitSelecting}
                   className="shrink-0 rounded-xl p-1.5 text-[var(--text-muted)] transition-colors hover:text-[var(--danger)]"
-                  title="Cancelar seleção"
                 >
                   <X size={16} />
                 </button>
@@ -820,7 +1067,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     try {
                       const { updated } = await bulkMarkAsLostAction([...selectedIds]);
                       toast.success(`${updated} ${updated === 1 ? "lead marcada" : "leads marcadas"} como perdida.`);
-                      exitSelecting();
+                      exitSelecting(); refetch();
                     } catch { toast.error("Erro ao atualizar leads."); }
                     finally { setBulkLoading(false); }
                   }}
@@ -828,9 +1075,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 >
                   {bulkLoading ? "..." : "Confirmar"}
                 </button>
-                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
-                  Voltar
-                </button>
+                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
             )}
 
@@ -838,11 +1083,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
               <>
                 <span className="shrink-0 text-sm font-semibold text-[var(--text)]">Etapa:</span>
                 <div className="relative flex-1">
-                  <select
-                    value={bulkStageId}
-                    onChange={e => setBulkStageId(e.target.value)}
-                    className="input w-full pr-8 text-sm"
-                  >
+                  <select value={bulkStageId} onChange={e => setBulkStageId(e.target.value)} className="input w-full pr-8 text-sm">
                     <option value="">— Remover etapa</option>
                     {(pipelineStages ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -855,7 +1096,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     try {
                       const { updated } = await bulkMoveToStageAction([...selectedIds], bulkStageId || null);
                       toast.success(`Etapa atualizada em ${updated} ${updated === 1 ? "lead" : "leads"}.`);
-                      exitSelecting();
+                      exitSelecting(); refetch();
                     } catch { toast.error("Erro ao atualizar etapa."); }
                     finally { setBulkLoading(false); }
                   }}
@@ -863,9 +1104,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 >
                   {bulkLoading ? "..." : "Aplicar"}
                 </button>
-                <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
-                  Voltar
-                </button>
+                <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
             )}
 
@@ -876,24 +1115,15 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                   Excluir <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? "lead" : "leads"}?
                   <span className="ml-1 text-xs text-[var(--text-muted)]">Inclui todas as vendas associadas.</span>
                 </span>
-                <button
-                  onClick={() => setBulkStep("confirm-delete-2")}
-                  className="rounded-xl border border-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)] hover:text-white"
-                >
-                  Continuar
-                </button>
-                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
-                  Voltar
-                </button>
+                <button onClick={() => setBulkStep("confirm-delete-2")} className="rounded-xl border border-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)] hover:text-white">Continuar</button>
+                <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
             )}
 
             {bulkStep === "confirm-delete-2" && (
               <>
                 <AlertTriangle size={16} className="shrink-0 text-[var(--danger)]" />
-                <span className="flex-1 text-sm font-semibold text-[var(--danger)]">
-                  Esta ação não pode ser desfeita. Confirma a exclusão permanente?
-                </span>
+                <span className="flex-1 text-sm font-semibold text-[var(--danger)]">Esta ação não pode ser desfeita. Confirma a exclusão permanente?</span>
                 <button
                   disabled={bulkLoading}
                   onClick={async () => {
@@ -901,7 +1131,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     try {
                       const { deleted } = await bulkDeleteLeadsAction([...selectedIds]);
                       toast.success(`${deleted} ${deleted === 1 ? "lead excluída" : "leads excluídas"} permanentemente.`);
-                      exitSelecting();
+                      exitSelecting(); refetch();
                     } catch { toast.error("Erro ao excluir leads."); }
                     finally { setBulkLoading(false); }
                   }}
@@ -909,9 +1139,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 >
                   {bulkLoading ? "..." : "Excluir definitivamente"}
                 </button>
-                <button onClick={() => setBulkStep("confirm-delete-1")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
-                  Voltar
-                </button>
+                <button onClick={() => setBulkStep("confirm-delete-1")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
             )}
 
@@ -919,11 +1147,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
               <>
                 <span className="shrink-0 text-sm font-semibold text-[var(--text)]">Consultor:</span>
                 <div className="relative flex-1">
-                  <select
-                    value={bulkConsultant}
-                    onChange={e => setBulkConsultant(e.target.value)}
-                    className="input w-full pr-8 text-sm"
-                  >
+                  <select value={bulkConsultant} onChange={e => setBulkConsultant(e.target.value)} className="input w-full pr-8 text-sm">
                     <option value="">— Remover consultor</option>
                     {consultants.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -936,7 +1160,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     try {
                       const { updated } = await bulkAssignConsultantAction([...selectedIds], bulkConsultant || null);
                       toast.success(`Consultor atualizado em ${updated} ${updated === 1 ? "lead" : "leads"}.`);
-                      exitSelecting();
+                      exitSelecting(); refetch();
                     } catch { toast.error("Erro ao atualizar consultor."); }
                     finally { setBulkLoading(false); }
                   }}
@@ -944,12 +1168,156 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 >
                   {bulkLoading ? "..." : "Aplicar"}
                 </button>
-                <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
-                  Voltar
-                </button>
+                <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
             )}
+          </div>
+        </div>
+      )}
 
+      {/* ── Modal de registro de venda ── */}
+      {saleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+
+            {saleModalStep === "confirm" ? (
+              <div className="p-6">
+                <h2 className="text-base font-semibold text-[var(--text)] mb-1">Confirmar lead</h2>
+                <p className="text-xs text-[var(--text-muted)] mb-4">Verifique os dados antes de registrar a venda.</p>
+                <div className="rounded-xl bg-[var(--surface-muted)] p-4 space-y-3 mb-6">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Nome</p>
+                    <p className="font-semibold text-[var(--text)]">{saleModal.customer.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Documento (CPF/CNPJ)</p>
+                    <p className="font-semibold text-[var(--text)]">{saleModal.customer.document || <span className="text-[var(--text-muted)] font-normal">Não informado</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Telefone</p>
+                    <p className="font-semibold text-[var(--text)]">{saleModal.customer.phone}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={closeSaleModal}
+                    className="flex-1 h-10 rounded-xl border border-[var(--border)] text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => setSaleModalStep("form")}
+                    className="flex-1 h-10 rounded-xl bg-[var(--accent)] text-sm font-semibold text-white hover:bg-[var(--accent-strong)] transition-colors"
+                  >
+                    Sim, é esta lead
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-[var(--text)]">Registrar venda</h2>
+                    <p className="text-xs text-[var(--text-muted)]">{saleModal.customer.name}</p>
+                  </div>
+                  <button onClick={closeSaleModal} className="text-[var(--text-muted)] hover:text-[var(--text)]">
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Valor */}
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Valor (R$) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={saleValue}
+                      onChange={e => setSaleValue(e.target.value)}
+                      placeholder="0,00"
+                      className="input w-full"
+                    />
+                  </div>
+
+                  {/* Data */}
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Data da venda</label>
+                    <input
+                      type="date"
+                      value={saleDate}
+                      onChange={e => setSaleDate(e.target.value)}
+                      className="input w-full"
+                    />
+                  </div>
+
+                  {/* Itens (opcional) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-[var(--text-muted)]">Itens (opcional)</label>
+                      <button
+                        type="button"
+                        onClick={addSaleItem}
+                        className="flex items-center gap-1 text-xs text-[var(--accent)] hover:text-[var(--accent-strong)]"
+                      >
+                        <Plus size={12} /> Adicionar
+                      </button>
+                    </div>
+                    {saleItems.length > 0 && (
+                      <div className="space-y-2">
+                        {saleItems.map((item, i) => (
+                          <div key={i} className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              placeholder="Nome do item"
+                              value={item.name}
+                              onChange={e => updateSaleItem(i, "name", e.target.value)}
+                              className="input flex-1 text-xs h-8"
+                            />
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={e => updateSaleItem(i, "quantity", parseInt(e.target.value) || 1)}
+                              className="input w-14 text-xs h-8 text-center"
+                              title="Qtd"
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.price || ""}
+                              onChange={e => updateSaleItem(i, "price", parseFloat(e.target.value) || 0)}
+                              className="input w-24 text-xs h-8"
+                              placeholder="Preço"
+                            />
+                            <button onClick={() => removeSaleItem(i)} className="text-[var(--text-muted)] hover:text-[var(--danger)]">
+                              <Minus size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-6">
+                  <button
+                    onClick={() => setSaleModalStep("confirm")}
+                    className="flex-1 h-10 rounded-xl border border-[var(--border)] text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={handleRegisterSale}
+                    disabled={saleLoading || !saleValue}
+                    className="flex-1 h-10 rounded-xl bg-[var(--success)] text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  >
+                    {saleLoading ? <Loader2 size={15} className="mx-auto animate-spin" /> : "Registrar venda"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

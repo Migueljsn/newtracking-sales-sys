@@ -106,6 +106,33 @@ export async function createLeadAction(
   return { duplicate, saleCreated };
 }
 
+// ─── Registro rápido de venda (a partir da lista) ────────────────────────────
+
+export async function quickRegisterSaleAction(
+  leadId: string,
+  value: number,
+  soldAt?: string,
+  items?: { name: string; quantity: number; price: number }[]
+) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await createSale({
+    clientId,
+    leadId,
+    value,
+    soldAt: soldAt ? new Date(soldAt) : undefined,
+    items:  items && items.length > 0 ? items : undefined,
+  });
+
+  fireLeadChanged(leadId, clientId);
+  after(() => processPendingEvents());
+
+  await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId), cacheKeys.sales(clientId));
+  revalidatePath("/leads");
+  revalidatePath("/sales");
+}
+
 // ─── Ações em massa ───────────────────────────────────────────────────────────
 
 export async function bulkMarkAsLostAction(leadIds: string[]): Promise<{ updated: number }> {

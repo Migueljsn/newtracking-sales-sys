@@ -60,3 +60,67 @@ export async function deletePipelineStageAction(id: string) {
   revalidatePath("/settings");
   revalidatePath("/leads");
 }
+
+export async function reorderPipelineStagesAction(orderedIds: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      prisma.pipelineStage.updateMany({
+        where: { id, clientId },
+        data:  { position: index },
+      })
+    )
+  );
+
+  revalidatePath("/settings");
+  revalidatePath("/leads");
+}
+
+// ─── Requirements ───────────────────────────────────────────────────────────
+
+export async function addRequirementAction(stageId: string, text: string) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  // Verify stage belongs to client
+  const stage = await prisma.pipelineStage.findFirst({ where: { id: stageId, clientId } });
+  if (!stage) throw new Error("Etapa não encontrada");
+
+  const max = await prisma.pipelineStageRequirement.aggregate({
+    where: { stageId },
+    _max:  { position: true },
+  });
+
+  await prisma.pipelineStageRequirement.create({
+    data: { stageId, text: text.trim(), position: (max._max.position ?? 0) + 1 },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function updateRequirementAction(id: string, text: string) {
+  await prisma.pipelineStageRequirement.update({
+    where: { id },
+    data:  { text: text.trim() },
+  });
+  revalidatePath("/settings");
+}
+
+export async function deleteRequirementAction(id: string) {
+  await prisma.pipelineStageRequirement.delete({ where: { id } });
+  revalidatePath("/settings");
+}
+
+export async function reorderRequirementsAction(stageId: string, orderedIds: string[]) {
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      prisma.pipelineStageRequirement.update({
+        where: { id },
+        data:  { position: index },
+      })
+    )
+  );
+  revalidatePath("/settings");
+}

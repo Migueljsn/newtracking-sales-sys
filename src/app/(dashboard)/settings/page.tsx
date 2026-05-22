@@ -42,7 +42,11 @@ export default async function SettingsPage({
     prisma.client.findUniqueOrThrow({ where: { id: clientId } }),
     prisma.clientSettings.findUnique({ where: { clientId } }),
     prisma.authorizedDomain.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
-    prisma.pipelineStage.findMany({ where: { clientId }, orderBy: { position: "asc" } }),
+    prisma.pipelineStage.findMany({
+      where:   { clientId },
+      orderBy: { position: "asc" },
+      include: { requirements: { orderBy: { position: "asc" } } },
+    }),
     prisma.consultantUser.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
   ]);
 

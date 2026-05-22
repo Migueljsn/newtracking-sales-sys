@@ -72,6 +72,59 @@ export async function consultantMoveToStageAction(leadId: string, stageId: strin
   revalidatePath("/consultor");
 }
 
+export async function getStageRequirementsAction(stageId: string) {
+  await getConsultantSession(); // auth check only
+  return prisma.pipelineStageRequirement.findMany({
+    where:   { stageId },
+    orderBy: { position: "asc" },
+    select:  { id: true, text: true },
+  });
+}
+
+export async function consultantMoveToStageWithChecklistAction(
+  leadId: string,
+  stageId: string | null,
+  checkedRequirementIds: string[]
+) {
+  const session  = await getConsultantSession();
+  const clientId = session.clientId;
+
+  const lead = await prisma.lead.findUniqueOrThrow({
+    where:  { id: leadId, clientId },
+    select: { status: true, pipelineStageId: true },
+  });
+
+  if (lead.status === "SOLD" || lead.status === "LOST") return;
+
+  // Upsert checklist entries for all requirements of the target stage
+  if (stageId && checkedRequirementIds.length > 0) {
+    await Promise.all(
+      checkedRequirementIds.map((requirementId) =>
+        prisma.leadChecklist.upsert({
+          where:  { leadId_requirementId: { leadId, requirementId } },
+          create: { leadId, requirementId, checked: true, checkedAt: new Date(), checkedBy: session.name },
+          update: { checked: true, checkedAt: new Date(), checkedBy: session.name },
+        })
+      )
+    );
+  }
+
+  await prisma.lead.update({
+    where: { id: leadId },
+    data:  {
+      pipelineStageId: stageId,
+      statusHistory:   stageId
+        ? { create: { to: stageId, changedBy: session.name } }
+        : undefined,
+    },
+  });
+
+  fireLeadChanged(leadId, clientId);
+
+  await invalidate(cacheKeys.leads(clientId));
+  revalidatePath("/consultor");
+}
+
 export async function consultantAssignConsultantAction(leadId: string, consultant: string | null) {
   const session  = await getConsultantSession();
   const clientId = session.clientId;

@@ -1,19 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, ChevronLeft, ChevronRight, Loader2,
   ChevronDown, DollarSign, X, Plus, Minus, Users,
-  ArrowDown, ArrowUp, ChevronsUpDown,
+  ArrowDown, ArrowUp, ChevronsUpDown, CheckSquare, Square, ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { WhatsAppButton } from "@/components/leads/whatsapp-button";
 import {
   consultantRegisterSaleAction,
-  consultantMoveToStageAction,
+  consultantMoveToStageWithChecklistAction,
   consultantAssignConsultantAction,
+  getStageRequirementsAction,
 } from "@/app/consultor/actions";
 import type { LeadStatus, LeadSource } from "@prisma/client";
 
@@ -38,16 +39,13 @@ interface Lead {
   };
 }
 
-interface SaleItem { name: string; quantity: number; price: number }
+interface Requirement { id: string; text: string }
+interface SaleItem    { name: string; quantity: number; price: number }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const PAGE_SIZES = [25, 50, 100];
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
-
-function daysAgo(dateStr: string) {
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
-}
 
 function getTotalSalesValue(lead: Lead) {
   return lead.sales.reduce((sum, s) => sum + Number(s.value), 0);
@@ -102,6 +100,11 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   const [updatingStage,      setUpdatingStage]      = useState<Set<string>>(new Set());
   const [updatingConsultant, setUpdatingConsultant] = useState<Set<string>>(new Set());
 
+  // Checklist modal
+  const [checklistModal,   setChecklistModal]   = useState<{ lead: Lead; stageId: string; stageName: string; reqs: Requirement[] } | null>(null);
+  const [checkedReqs,      setCheckedReqs]      = useState<Set<string>>(new Set());
+  const [checklistLoading, setChecklistLoading] = useState(false);
+
   // Sale modal
   const [saleModal,     setSaleModal]     = useState<Lead | null>(null);
   const [saleModalStep, setSaleModalStep] = useState<"confirm" | "form">("confirm");
@@ -130,15 +133,74 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   }
 
   async function handleInlineStageChange(lead: Lead, stageId: string) {
+    if (!stageId) {
+      // Clearing stage — no checklist needed
+      setUpdatingStage(prev => new Set(prev).add(lead.id));
+      try {
+        await consultantMoveToStageWithChecklistAction(lead.id, null, []);
+        refetch();
+      } catch (e: unknown) {
+        toast.error((e as Error).message || "Erro ao atualizar etapa");
+      } finally {
+        setUpdatingStage(prev => { const n = new Set(prev); n.delete(lead.id); return n; });
+      }
+      return;
+    }
+
     setUpdatingStage(prev => new Set(prev).add(lead.id));
     try {
-      await consultantMoveToStageAction(lead.id, stageId || null);
+      const reqs = await getStageRequirementsAction(stageId);
+      setUpdatingStage(prev => { const n = new Set(prev); n.delete(lead.id); return n; });
+
+      const stageName = pipelineStages.find(s => s.id === stageId)?.name ?? stageId;
+
+      if (reqs.length === 0) {
+        // No requirements — apply directly
+        setUpdatingStage(prev => new Set(prev).add(lead.id));
+        try {
+          await consultantMoveToStageWithChecklistAction(lead.id, stageId, []);
+          refetch();
+        } catch (e: unknown) {
+          toast.error((e as Error).message || "Erro ao atualizar etapa");
+        } finally {
+          setUpdatingStage(prev => { const n = new Set(prev); n.delete(lead.id); return n; });
+        }
+      } else {
+        // Has requirements — open checklist modal
+        setCheckedReqs(new Set());
+        setChecklistModal({ lead, stageId, stageName, reqs });
+      }
+    } catch (e: unknown) {
+      setUpdatingStage(prev => { const n = new Set(prev); n.delete(lead.id); return n; });
+      toast.error((e as Error).message || "Erro ao carregar requisitos");
+    }
+  }
+
+  async function handleChecklistConfirm() {
+    if (!checklistModal) return;
+    setChecklistLoading(true);
+    try {
+      await consultantMoveToStageWithChecklistAction(
+        checklistModal.lead.id,
+        checklistModal.stageId,
+        Array.from(checkedReqs),
+      );
+      toast.success(`Etapa atualizada para "${checklistModal.stageName}"`);
+      setChecklistModal(null);
       refetch();
     } catch (e: unknown) {
-      toast.error((e as Error).message || "Erro ao atualizar etapa");
+      toast.error((e as Error).message || "Erro ao confirmar etapa");
     } finally {
-      setUpdatingStage(prev => { const n = new Set(prev); n.delete(lead.id); return n; });
+      setChecklistLoading(false);
     }
+  }
+
+  function toggleReq(id: string) {
+    setCheckedReqs(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   }
 
   async function handleInlineConsultantChange(lead: Lead, consultant: string) {
@@ -508,7 +570,106 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
         )}
       </div>
 
-      {/* Sale modal */}
+      {/* ── Checklist modal ──────────────────────────────────────────────────────── */}
+      {checklistModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                    <ListChecks size={16} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-[var(--text)]">Requisitos da etapa</h2>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {checklistModal.stageName} · {checklistModal.lead.customer.name}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setChecklistModal(null)} className="text-[var(--text-muted)] hover:text-[var(--text)]">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <p className="text-xs text-[var(--text-muted)] mt-3 mb-4">
+                Confirme os itens abaixo antes de avançar a lead para esta etapa. Itens não marcados serão registrados como não concluídos.
+              </p>
+
+              {/* Checklist items */}
+              <div className="space-y-2 mb-6">
+                {checklistModal.reqs.map((req, idx) => {
+                  const checked = checkedReqs.has(req.id);
+                  return (
+                    <button
+                      key={req.id}
+                      type="button"
+                      onClick={() => toggleReq(req.id)}
+                      className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                        checked
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                          : "border-[var(--border)] bg-[var(--surface-muted)] hover:border-[var(--accent)]"
+                      }`}
+                    >
+                      <div className={`mt-0.5 shrink-0 ${checked ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}>
+                        {checked ? <CheckSquare size={16} /> : <Square size={16} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm ${checked ? "text-[var(--accent)] font-medium" : "text-[var(--text)]"}`}>
+                          {idx + 1}. {req.text}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Progress */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {checkedReqs.size} de {checklistModal.reqs.length} confirmados
+                  </span>
+                  {checkedReqs.size === checklistModal.reqs.length && (
+                    <span className="text-xs font-semibold text-[var(--success)]">Tudo confirmado!</span>
+                  )}
+                </div>
+                <div className="h-1.5 rounded-full bg-[var(--border)]">
+                  <div
+                    className="h-1.5 rounded-full bg-[var(--accent)] transition-all"
+                    style={{ width: `${(checkedReqs.size / checklistModal.reqs.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setChecklistModal(null)}
+                  className="flex-1 h-10 rounded-xl border border-[var(--border)] text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleChecklistConfirm}
+                  disabled={checklistLoading}
+                  className="flex-1 h-10 rounded-xl bg-[var(--accent)] text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {checklistLoading
+                    ? <Loader2 size={15} className="animate-spin" />
+                    : checkedReqs.size < checklistModal.reqs.length
+                    ? "Confirmar mesmo assim"
+                    : "Confirmar e avançar"
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sale modal ───────────────────────────────────────────────────────────── */}
       {saleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">

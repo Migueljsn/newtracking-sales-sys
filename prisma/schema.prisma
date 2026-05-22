@@ -202,6 +202,7 @@ model Lead {
   statusHistory       LeadStatusHistory[]
   trackingEvents      TrackingEvent[]
   journeyEnrollments  JourneyEnrollment[]
+  checklists          LeadChecklist[]
 
   @@index([clientId])
   @@index([customerId])
@@ -244,10 +245,39 @@ model PipelineStage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  leads     Lead[]
+  client       Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  leads        Lead[]
+  requirements PipelineStageRequirement[]
 
   @@index([clientId])
+}
+
+model PipelineStageRequirement {
+  id        String   @id @default(cuid())
+  stageId   String
+  text      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  stage  PipelineStage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  checks LeadChecklist[]
+
+  @@index([stageId])
+}
+
+model LeadChecklist {
+  id            String    @id @default(cuid())
+  leadId        String
+  requirementId String
+  checked       Boolean   @default(false)
+  checkedAt     DateTime?
+  checkedBy     String?
+
+  lead        Lead                     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  requirement PipelineStageRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, requirementId])
+  @@index([leadId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

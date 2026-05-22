@@ -310,8 +310,10 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                 <tr className="border-b border-[var(--border)]">
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Telefone</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Email</th>
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Documento</th>
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Status</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Estado</th>
                   {pipelineStages.length > 0 && (
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Etapa</th>
                   )}
@@ -321,6 +323,11 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                   <th className="px-4 py-3 text-left">
                     <button onClick={() => handleSort("capturedAt")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
                       Capturada em <SortIcon col="capturedAt" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left">
+                    <button onClick={() => handleSort("inactivity")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                      Dias inativo <SortIcon col="inactivity" />
                     </button>
                   </th>
                   <th className="px-4 py-3 text-left">
@@ -347,10 +354,16 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.phone}</td>
+                      <td className="px-4 py-3.5 text-[var(--text-muted)]">
+                        <span className="truncate block max-w-[180px]" title={lead.customer.email ?? "—"}>
+                          {lead.customer.email || "—"}
+                        </span>
+                      </td>
                       <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.document || "—"}</td>
                       <td className="px-4 py-3.5">
                         <LeadStatusBadge status={lead.status} pipelineStage={null} />
                       </td>
+                      <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>
 
                       {pipelineStages.length > 0 && (
                         <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
@@ -398,6 +411,16 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
 
                       <td className="px-4 py-3.5 text-[var(--text-muted)]">
                         {new Date(lead.capturedAt).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {(() => {
+                          const d = Math.floor((Date.now() - new Date(lead.updatedAt).getTime()) / 86_400_000);
+                          return (
+                            <span className={`font-semibold tabular-nums ${
+                              d >= 30 ? "text-[var(--danger)]" : d >= 15 ? "text-[var(--warning)]" : "text-[var(--text-muted)]"
+                            }`}>{d}d</span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3.5">
                         {lead.sales.length > 0

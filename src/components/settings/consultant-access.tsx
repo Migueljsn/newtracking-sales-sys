@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { UserPlus, Trash2, KeyRound, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import { UserPlus, Trash2, KeyRound, ToggleLeft, ToggleRight, Loader2, Eye, EyeOff } from "lucide-react";
 import {
   createConsultantAction,
   toggleConsultantAction,
@@ -19,11 +19,13 @@ interface Consultant {
 }
 
 export function ConsultantAccess({ consultants }: { consultants: Consultant[] }) {
-  const [list,      setList]      = useState<Consultant[]>(consultants);
-  const [showForm,  setShowForm]  = useState(false);
-  const [loading,   setLoading]   = useState<string | null>(null);
-  const [resetId,   setResetId]   = useState<string | null>(null);
-  const [newPass,   setNewPass]   = useState("");
+  const [list,          setList]          = useState<Consultant[]>(consultants);
+  const [showForm,      setShowForm]      = useState(false);
+  const [loading,       setLoading]       = useState<string | null>(null);
+  const [resetId,       setResetId]       = useState<string | null>(null);
+  const [newPass,       setNewPass]       = useState("");
+  const [showCreatePass, setShowCreatePass] = useState(false);
+  const [showResetPass,  setShowResetPass]  = useState(false);
 
   // Create
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -121,7 +123,12 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
             </div>
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Senha *</label>
-              <input name="password" type="password" required minLength={6} className="input w-full" placeholder="Mínimo 6 caracteres" />
+              <div className="relative">
+                <input name="password" type={showCreatePass ? "text" : "password"} required minLength={6} className="input w-full pr-10" placeholder="Mínimo 6 caracteres" />
+                <button type="button" onClick={() => setShowCreatePass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                  {showCreatePass ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex gap-2 justify-end">
@@ -161,14 +168,19 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
               {/* Reset password inline */}
               {resetId === c.id ? (
                 <div className="flex items-center gap-2">
-                  <input
-                    type="password"
-                    value={newPass}
-                    onChange={e => setNewPass(e.target.value)}
-                    placeholder="Nova senha"
-                    minLength={6}
-                    className="input h-8 w-36 text-xs"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showResetPass ? "text" : "password"}
+                      value={newPass}
+                      onChange={e => setNewPass(e.target.value)}
+                      placeholder="Nova senha"
+                      minLength={6}
+                      className="input h-8 w-36 text-xs pr-8"
+                    />
+                    <button type="button" onClick={() => setShowResetPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                      {showResetPass ? <EyeOff size={12} /> : <Eye size={12} />}
+                    </button>
+                  </div>
                   <button
                     onClick={() => handleResetPassword(c.id)}
                     disabled={loading === c.id + "-reset"}
@@ -176,7 +188,7 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
                   >
                     {loading === c.id + "-reset" ? <Loader2 size={12} className="animate-spin" /> : "Salvar"}
                   </button>
-                  <button onClick={() => { setResetId(null); setNewPass(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]">
+                  <button onClick={() => { setResetId(null); setNewPass(""); setShowResetPass(false); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]">
                     Cancelar
                   </button>
                 </div>

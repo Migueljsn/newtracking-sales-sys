@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { consultantLoginAction } from "./actions";
 
 export default function ConsultantLoginPage() {
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,14 +43,23 @@ export default function ConsultantLoginPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Senha</label>
-            <input
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="input w-full"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                name="password"
+                type={showPass ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                className="input w-full pr-10"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+              >
+                {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
           </div>
           <button
             type="submit"

@@ -47,7 +47,7 @@ interface Lead {
 
 type ColumnKey = "phone" | "email" | "document" | "status" | "pipeline" | "state" | "consultant" | "source" | "capturedAt" | "inactivity" | "totalSales" | "lastSale";
 
-type SortKey = "name" | ColumnKey;
+type SortKey = "capturedAt" | "inactivity" | "totalSales" | "lastSale";
 type SortDir = "asc" | "desc";
 interface SortConfig { key: SortKey; dir: SortDir }
 
@@ -412,17 +412,8 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
     return matchSearch && matchStatus && matchState && matchConsultant && matchStage && matchInactivity;
   });
 
-  function getSortValue(lead: Lead, key: SortKey): string | number {
+  function getSortValue(lead: Lead, key: SortKey): number {
     switch (key) {
-      case "name":       return lead.customer.name.toLowerCase();
-      case "phone":      return lead.customer.phone;
-      case "email":      return lead.customer.email?.toLowerCase() ?? "";
-      case "document":   return lead.customer.document ?? "";
-      case "status":     return lead.status;
-      case "pipeline":   return lead.pipelineStage?.name?.toLowerCase() ?? "";
-      case "state":      return lead.customer.state?.toLowerCase() ?? "";
-      case "consultant": return lead.consultant?.toLowerCase() ?? "";
-      case "source":     return lead.source;
       case "capturedAt": return new Date(lead.capturedAt).getTime();
       case "inactivity": return getInactivityDays(lead);
       case "totalSales": return getTotalSalesValue(lead);
@@ -432,11 +423,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
 
   const sorted = sortConfig
     ? [...filtered].sort((a, b) => {
-        const av = getSortValue(a, sortConfig.key);
-        const bv = getSortValue(b, sortConfig.key);
-        const cmp = typeof av === "number" && typeof bv === "number"
-          ? av - bv
-          : String(av).localeCompare(String(bv), "pt-BR");
+        const cmp = getSortValue(a, sortConfig.key) - getSortValue(b, sortConfig.key);
         return sortConfig.dir === "asc" ? cmp : -cmp;
       })
     : filtered;
@@ -688,67 +675,15 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                       </button>
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left">
-                    <button onClick={() => handleSort("name")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                      Nome <SortIcon col="name" />
-                    </button>
-                  </th>
-                  {visibleCols.has("phone") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("phone")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Telefone <SortIcon col="phone" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("email") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("email")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Email <SortIcon col="email" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("document") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("document")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Documento <SortIcon col="document" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("status") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("status")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Status <SortIcon col="status" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("pipeline") && (pipelineStages ?? []).length > 0 && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("pipeline")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Etapa <SortIcon col="pipeline" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("state") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("state")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Estado <SortIcon col="state" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("consultant") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("consultant")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Consultor <SortIcon col="consultant" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("source") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("source")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Origem <SortIcon col="source" />
-                      </button>
-                    </th>
-                  )}
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
+                  {visibleCols.has("phone")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Telefone</th>}
+                  {visibleCols.has("email")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Email</th>}
+                  {visibleCols.has("document")   && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Documento</th>}
+                  {visibleCols.has("status")     && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Status</th>}
+                  {visibleCols.has("pipeline") && (pipelineStages ?? []).length > 0 && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Etapa</th>}
+                  {visibleCols.has("state")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Estado</th>}
+                  {visibleCols.has("consultant") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Consultor</th>}
+                  {visibleCols.has("source")     && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Origem</th>}
                   {visibleCols.has("capturedAt") && (
                     <th className="px-4 py-3 text-left">
                       <button onClick={() => handleSort("capturedAt")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">

@@ -117,8 +117,14 @@ function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
 }
 
+function getMostRecentSaleDate(sales: { soldAt: string }[]): string | undefined {
+  if (sales.length === 0) return undefined;
+  return sales.reduce((max, s) => (s.soldAt > max ? s.soldAt : max), sales[0].soldAt);
+}
+
 function getInactivityDays(lead: Lead): number {
-  if (lead.status === "SOLD" && lead.sales[0]?.soldAt) return daysAgo(lead.sales[0].soldAt);
+  const lastSale = getMostRecentSaleDate(lead.sales);
+  if (lead.status === "SOLD" && lastSale) return daysAgo(lastSale);
   if ((lead.status === "NEW" || lead.status === "REGISTERED") && lead.pipelineStage) return daysAgo(lead.updatedAt);
   return daysAgo(lead.capturedAt);
 }

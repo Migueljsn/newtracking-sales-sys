@@ -47,6 +47,17 @@ interface SaleItem    { name: string; quantity: number; price: number }
 const PAGE_SIZES = [25, 50, 100];
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
+function getMostRecentSaleDate(sales: { soldAt: string }[]): string | undefined {
+  if (sales.length === 0) return undefined;
+  return sales.reduce((max, s) => (s.soldAt > max ? s.soldAt : max), sales[0].soldAt);
+}
+
+function getInactivityDays(lead: Lead): number {
+  const lastSale = getMostRecentSaleDate(lead.sales);
+  if (lead.status === "SOLD" && lastSale) return Math.floor((Date.now() - new Date(lastSale).getTime()) / 86_400_000);
+  return Math.floor((Date.now() - new Date(lead.updatedAt).getTime()) / 86_400_000);
+}
+
 function getTotalSalesValue(lead: Lead) {
   return lead.sales.reduce((sum, s) => sum + Number(s.value), 0);
 }
@@ -267,7 +278,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   function getSortValue(lead: Lead, key: SortKey): number {
     switch (key) {
       case "capturedAt": return new Date(lead.capturedAt).getTime();
-      case "inactivity": return Math.floor((Date.now() - new Date(lead.updatedAt).getTime()) / 86_400_000);
+      case "inactivity": return getInactivityDays(lead);
       case "totalSales": return getTotalSalesValue(lead);
       case "lastSale":   return lead.sales[0] ? Number(lead.sales[0].value) : -1;
     }
@@ -476,7 +487,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                       </td>
                       <td className="px-4 py-3.5">
                         {(() => {
-                          const d = Math.floor((Date.now() - new Date(lead.updatedAt).getTime()) / 86_400_000);
+                          const d = getInactivityDays(lead);
                           return (
                             <span className={`font-semibold tabular-nums ${
                               d >= 30 ? "text-[var(--danger)]" : d >= 15 ? "text-[var(--warning)]" : "text-[var(--text-muted)]"

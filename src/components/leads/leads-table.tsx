@@ -12,6 +12,9 @@ import {
 import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
+import { AdvancedFiltersPanel } from "./advanced-filters-panel";
+import { evaluateGroup } from "@/lib/audiences/evaluate";
+import type { RuleGroup } from "@/lib/audiences/types";
 import {
   bulkMarkAsLostAction,
   bulkMoveToStageAction,
@@ -25,9 +28,13 @@ import type { LeadStatus, LeadSource } from "@prisma/client";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Lead {
-  id:         string;
-  status:     LeadStatus;
-  source:     LeadSource;
+  id:              string;
+  status:          LeadStatus;
+  source:          LeadSource;
+  pipelineStageId: string | null;
+  utmSource:       string | null;
+  utmMedium:       string | null;
+  utmCampaign:     string | null;
   capturedAt: string;
   updatedAt:  string;
   consultant: string | null;
@@ -249,7 +256,8 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   }
 
   // Sorting
-  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [sortConfig,     setSortConfig]     = useState<SortConfig | null>(null);
+  const [advancedRules,  setAdvancedRules]  = useState<RuleGroup | null>(null);
 
   function handleSort(key: SortKey) {
     setSortConfig(prev => {
@@ -411,6 +419,21 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   const filtered = leads.filter((lead) => {
     if (audienceIds && !audienceIds.has(lead.id)) return false;
 
+    if (advancedRules) {
+      const matches = evaluateGroup({
+        status:          lead.status,
+        pipelineStageId: lead.pipelineStageId,
+        capturedAt:      new Date(lead.capturedAt),
+        utmSource:       lead.utmSource,
+        utmMedium:       lead.utmMedium,
+        utmCampaign:     lead.utmCampaign,
+        consultant:      lead.consultant,
+        customer:        lead.customer,
+        sales:           lead.sales.map((s) => ({ value: s.value, soldAt: new Date(s.soldAt) })),
+      }, advancedRules);
+      if (!matches) return false;
+    }
+
     const q = search.toLowerCase();
     const matchSearch =
       !q ||
@@ -550,6 +573,15 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
           })}
         </div>
       </div>
+
+      {/* Advanced filters */}
+      <AdvancedFiltersPanel
+        pipelineStages={pipelineStages ?? []}
+        matchCount={filtered.length}
+        totalCount={leads.length}
+        activeRules={advancedRules}
+        onChange={(rules) => { setAdvancedRules(rules); resetPage(); }}
+      />
 
       {/* Row 2: status tabs + column editor + export + select + clear */}
       <div className="flex flex-wrap items-center gap-2">

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, CheckSquare, Square, ListChecks } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { fetchLeadDetail } from "@/lib/queries/lead-detail";
@@ -52,6 +52,30 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   if (!lead) notFound();
+
+  // Fetch checklist data and current stage requirements in parallel (bypasses cache — always fresh)
+  const [checklists, stageRequirements] = await Promise.all([
+    prisma.leadChecklist.findMany({
+      where:   { leadId: id },
+      include: {
+        requirement: {
+          select: {
+            id:    true,
+            text:  true,
+            stage: { select: { id: true, name: true, color: true } },
+          },
+        },
+      },
+      orderBy: { checkedAt: "desc" },
+    }),
+    lead?.pipelineStageId
+      ? prisma.pipelineStageRequirement.findMany({
+          where:   { stageId: lead.pipelineStageId },
+          orderBy: { position: "asc" },
+          select:  { id: true, text: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const { customer } = lead;
   const hasUtms        = lead.utmSource || lead.utmMedium || lead.utmCampaign || lead.fbc || lead.fbp;
@@ -344,6 +368,118 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   )}
                 </div>
                 <span className="shrink-0 text-[var(--text-muted)]">{new Date(h.createdAt).toLocaleDateString("pt-BR")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Checklist da etapa atual */}
+      {lead.pipelineStage && stageRequirements.length > 0 && (() => {
+        const checkedMap = new Map(checklists.map((c) => [c.requirementId, c]));
+        return (
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <ListChecks size={15} className="text-[var(--accent)]" />
+              <h2 className="text-sm font-semibold text-[var(--text)]">
+                Checklist da etapa atual
+              </h2>
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{ backgroundColor: `${lead.pipelineStage.color}22`, color: lead.pipelineStage.color }}
+              >
+                {lead.pipelineStage.name}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {stageRequirements.map((req, idx) => {
+                const entry = checkedMap.get(req.id);
+                return (
+                  <div
+                    key={req.id}
+                    className={`flex items-start gap-3 rounded-xl border p-3 ${
+                      entry?.checked
+                        ? "border-[var(--success)] bg-[var(--success-soft)]"
+                        : "border-[var(--border)] bg-[var(--surface-muted)]"
+                    }`}
+                  >
+                    <div className={`mt-0.5 shrink-0 ${entry?.checked ? "text-[var(--success)]" : "text-[var(--text-muted)]"}`}>
+                      {entry?.checked ? <CheckSquare size={15} /> : <Square size={15} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${entry?.checked ? "text-[var(--text)] font-medium" : "text-[var(--text-muted)]"}`}>
+                        {idx + 1}. {req.text}
+                      </p>
+                      {entry?.checked && (
+                        <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                          {entry.checkedBy && <span className="font-medium">{entry.checkedBy}</span>}
+                          {entry.checkedAt && (
+                            <span> · {new Date(entry.checkedAt).toLocaleDateString("pt-BR")}</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {checklists.filter(c => c.requirement.stage.id !== lead.pipelineStage!.id).length > 0 && (
+              <details className="mt-4">
+                <summary className="cursor-pointer text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors select-none">
+                  Itens confirmados em etapas anteriores ({checklists.filter(c => c.requirement.stage.id !== lead.pipelineStage!.id).length})
+                </summary>
+                <div className="mt-2 space-y-1.5">
+                  {checklists
+                    .filter(c => c.requirement.stage.id !== lead.pipelineStage!.id)
+                    .map((c) => (
+                      <div key={c.id} className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
+                        <CheckSquare size={13} className="mt-0.5 shrink-0 text-[var(--text-muted)]" />
+                        <div className="min-w-0">
+                          <p className="text-xs text-[var(--text)]">{c.requirement.text}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                            <span
+                              className="font-medium rounded-full px-1.5 py-0.5 mr-1"
+                              style={{ backgroundColor: `${c.requirement.stage.color}22`, color: c.requirement.stage.color }}
+                            >
+                              {c.requirement.stage.name}
+                            </span>
+                            {c.checkedBy && <span>{c.checkedBy}</span>}
+                            {c.checkedAt && <span> · {new Date(c.checkedAt).toLocaleDateString("pt-BR")}</span>}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </details>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Histórico de itens confirmados (sem etapa atual) */}
+      {(!lead.pipelineStage || stageRequirements.length === 0) && checklists.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ListChecks size={15} className="text-[var(--accent)]" />
+            <h2 className="text-sm font-semibold text-[var(--text)]">Checklist confirmado</h2>
+          </div>
+          <div className="space-y-1.5">
+            {checklists.map((c) => (
+              <div key={c.id} className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
+                <CheckSquare size={13} className="mt-0.5 shrink-0 text-[var(--success)]" />
+                <div className="min-w-0">
+                  <p className="text-xs text-[var(--text)]">{c.requirement.text}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                    <span
+                      className="font-medium rounded-full px-1.5 py-0.5 mr-1"
+                      style={{ backgroundColor: `${c.requirement.stage.color}22`, color: c.requirement.stage.color }}
+                    >
+                      {c.requirement.stage.name}
+                    </span>
+                    {c.checkedBy && <span>{c.checkedBy}</span>}
+                    {c.checkedAt && <span> · {new Date(c.checkedAt).toLocaleDateString("pt-BR")}</span>}
+                  </p>
+                </div>
               </div>
             ))}
           </div>

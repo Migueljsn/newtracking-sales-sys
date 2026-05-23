@@ -4,6 +4,8 @@ import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { fetchLeadsForClient } from "@/lib/queries/leads";
+import Link from "next/link";
+import { Upload } from "lucide-react";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { CreateLeadModal } from "@/components/leads/create-lead-modal";
 import { RuleGroup } from "@/lib/audiences/types";
@@ -88,7 +90,15 @@ export default async function LeadsPage({
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text)]">Leads</h1>
         </div>
-        <CreateLeadModal />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/import"
+            className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border-strong)] transition-colors"
+          >
+            <Upload size={13} /> Importar
+          </Link>
+          <CreateLeadModal />
+        </div>
       </div>
 
       <HydrationBoundary state={dehydrate(queryClient)}>

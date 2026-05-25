@@ -18,6 +18,27 @@ export async function createJourneyAction(name: string) {
   redirect(`/journeys/${journey.id}`);
 }
 
+export async function createJourneyFromTemplateAction(templateId: string) {
+  const { JOURNEY_TEMPLATES } = await import("@/lib/journeys/templates");
+  const template = JOURNEY_TEMPLATES.find(t => t.id === templateId);
+  if (!template) throw new Error("Template not found");
+
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const journey = await prisma.journey.create({
+    data: {
+      clientId,
+      name:        template.name,
+      description: template.description,
+      nodes:       template.nodes as object[],
+      edges:       template.edges as object[],
+    },
+  });
+
+  redirect(`/journeys/${journey.id}`);
+}
+
 export async function updateJourneyAction(
   id: string,
   data: { name?: string; description?: string; nodes?: object[]; edges?: object[] }

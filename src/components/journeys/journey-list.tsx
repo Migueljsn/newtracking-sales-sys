@@ -15,6 +15,7 @@ import {
   bulkDuplicateJourneysAction,
 } from "@/app/(dashboard)/journeys/actions";
 import { JourneyMetricsDrawer } from "@/components/journeys/journey-metrics-drawer";
+import { JourneyTemplateGallery } from "@/components/journeys/journey-template-gallery";
 
 type Journey = {
   id:                string
@@ -56,6 +57,9 @@ export function JourneyList({ journeys }: JourneyListProps) {
   // Metrics drawer
   const [metricsOpen,    setMetricsOpen]    = useState(false);
   const [metricsJourney, setMetricsJourney] = useState<{ id: string; name: string } | null>(null);
+
+  // Template gallery
+  const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
 
   // Individual confirmations
   const [confirmDelete,  setConfirmDelete]  = useState<string | null>(null);
@@ -182,6 +186,12 @@ export function JourneyList({ journeys }: JourneyListProps) {
         />
       )}
 
+      {/* Template gallery */}
+      <JourneyTemplateGallery
+        open={templateGalleryOpen}
+        onClose={() => setTemplateGalleryOpen(false)}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -204,14 +214,23 @@ export function JourneyList({ journeys }: JourneyListProps) {
               : `${journeys.length} jornada${journeys.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 h-9 rounded-xl bg-[var(--accent)] px-4 text-sm font-medium text-white hover:bg-[var(--accent-strong)] transition-colors"
-        >
-          <Plus size={15} />
-          Nova jornada
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTemplateGalleryOpen(true)}
+            className="flex items-center gap-2 h-9 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-strong)] transition-colors"
+          >
+            Usar template
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 h-9 rounded-xl bg-[var(--accent)] px-4 text-sm font-medium text-white hover:bg-[var(--accent-strong)] transition-colors"
+          >
+            <Plus size={15} />
+            Nova jornada
+          </button>
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -307,14 +326,23 @@ export function JourneyList({ journeys }: JourneyListProps) {
               Crie automações visuais para engajar leads com e-mails, WhatsApp e mudanças de status.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 h-9 rounded-xl bg-[var(--accent)] px-4 text-sm font-medium text-white hover:bg-[var(--accent-strong)] transition-colors"
-          >
-            <Plus size={15} />
-            Criar primeira jornada
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTemplateGalleryOpen(true)}
+              className="flex items-center gap-2 h-9 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-strong)] transition-colors"
+            >
+              Usar template
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 h-9 rounded-xl bg-[var(--accent)] px-4 text-sm font-medium text-white hover:bg-[var(--accent-strong)] transition-colors"
+            >
+              <Plus size={15} />
+              Criar do zero
+            </button>
+          </div>
         </div>
       )}
 

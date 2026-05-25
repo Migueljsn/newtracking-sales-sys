@@ -94,7 +94,7 @@ interface Props {
 export function ConsultantLeadsTable({ consultantName, pipelineStages, consultants, whatsappTemplate }: Props) {
   const { data: leads = [], isFetching, refetch } = useQuery<Lead[]>({
     queryKey:        ["consultant-leads"],
-    queryFn:         () => fetch("/api/leads").then(r => r.json()),
+    queryFn:         () => fetch("/api/consultor/leads").then(r => r.json()),
     refetchInterval: 30_000,
   });
 
@@ -441,20 +441,26 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                       {pipelineStages.length > 0 && (
                         <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                           {canEditStage ? (
-                            <div className="relative">
-                              <select
-                                value={lead.pipelineStage?.id ?? ""}
-                                disabled={updatingStage.has(lead.id)}
-                                onChange={e => handleInlineStageChange(lead, e.target.value)}
-                                className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
-                              >
-                                <option value="">— Sem etapa</option>
-                                {pipelineStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                              </select>
-                              {updatingStage.has(lead.id)
-                                ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
-                                : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                              }
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full transition-colors"
+                                style={{ backgroundColor: lead.pipelineStage?.color ?? "var(--border)" }}
+                              />
+                              <div className="relative">
+                                <select
+                                  value={lead.pipelineStage?.id ?? ""}
+                                  disabled={updatingStage.has(lead.id)}
+                                  onChange={e => handleInlineStageChange(lead, e.target.value)}
+                                  className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
+                                >
+                                  <option value="">— Sem etapa</option>
+                                  {pipelineStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                                {updatingStage.has(lead.id)
+                                  ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
+                                  : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                }
+                              </div>
                             </div>
                           ) : (
                             <span className="text-xs text-[var(--text-muted)]">—</span>

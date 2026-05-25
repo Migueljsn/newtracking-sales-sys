@@ -187,6 +187,11 @@ model Lead {
   gclid          String?     // Google Click ID (não hashear)
   eventSourceUrl String?     // URL da landing page no momento da captura
 
+  // IDs do Meta Ads (via parâmetros customizados na URL)
+  metaCampaignId String?
+  metaAdsetId    String?
+  metaAdId       String?
+
   consultant     String?     // nome do consultor/vendedor responsável
   notes          String?
   capturedAt     DateTime    @default(now()) // pode ser sobrescrito em importações

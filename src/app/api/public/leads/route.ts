@@ -59,6 +59,9 @@ export async function POST(req: NextRequest) {
       gclid:          body.gclid,
       eventId:        body.event_id,
       eventSourceUrl: body.event_source_url,
+      metaCampaignId: body.campaign_id,
+      metaAdsetId:    body.adset_id,
+      metaAdId:       body.ad_id,
     });
 
     after(() => processPendingEvents());

@@ -32,6 +32,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/inngest") ||
+    pathname.startsWith("/api/consultor") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/consultor")
   ) {

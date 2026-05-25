@@ -78,7 +78,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   const { customer } = lead;
-  const hasUtms        = lead.utmSource || lead.utmMedium || lead.utmCampaign || lead.fbc || lead.fbp;
+  const hasUtms        = lead.utmSource || lead.utmMedium || lead.utmCampaign || lead.fbc || lead.fbp || lead.metaCampaignId || lead.metaAdsetId || lead.metaAdId;
   const fbclid         = lead.fbc ? lead.fbc.split(".").slice(3).join(".") : null;
   const otherLeads     = customer.leads.filter((l) => l.id !== lead.id);
   const totalSalesValue = lead.sales.reduce((sum, s) => sum + Number(s.value), 0);
@@ -224,6 +224,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 { label: "UTM Term",     value: lead.utmTerm },
                 { label: "fbclid",       value: fbclid },
                 { label: "fbp",          value: lead.fbp },
+                { label: "Campaign ID",  value: lead.metaCampaignId },
+                { label: "Ad Set ID",    value: lead.metaAdsetId },
+                { label: "Ad ID",        value: lead.metaAdId },
               ].map(({ label, value }) => value ? (
                 <div key={label} className="flex justify-between text-sm">
                   <dt className="text-[var(--text-muted)]">{label}</dt>

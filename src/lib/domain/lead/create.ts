@@ -27,6 +27,9 @@ interface CreateLeadInput {
   eventSourceUrl?: string;
   eventId?: string;
   capturedAt?: Date;
+  metaCampaignId?: string;
+  metaAdsetId?: string;
+  metaAdId?: string;
 }
 
 export async function createLead(input: CreateLeadInput) {
@@ -80,10 +83,13 @@ export async function createLead(input: CreateLeadInput) {
       utmCampaign:   input.utmCampaign,
       utmContent:    input.utmContent,
       utmTerm:       input.utmTerm,
-      fbc:           input.fbc,
-      fbp:           input.fbp,
-      gclid:         input.gclid,
+      fbc:            input.fbc,
+      fbp:            input.fbp,
+      gclid:          input.gclid,
       eventSourceUrl: input.eventSourceUrl,
+      metaCampaignId: input.metaCampaignId,
+      metaAdsetId:    input.metaAdsetId,
+      metaAdId:       input.metaAdId,
       capturedAt,
       statusHistory: { create: { to: "NEW", changedBy: "Sistema" } },
     },

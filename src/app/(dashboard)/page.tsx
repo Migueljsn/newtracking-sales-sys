@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { fetchAnalytics } from "@/lib/queries/analytics";
 import { AnalyticsOverview } from "@/components/dashboard/analytics-overview";
 import { DashboardAlerts } from "@/components/dashboard/dashboard-alerts";
+import { JourneysBlock } from "@/components/dashboard/journeys-block";
 
 export default async function DashboardPage() {
   const session  = await getSession();
@@ -27,6 +28,8 @@ export default async function DashboardPage() {
       </div>
 
       <DashboardAlerts />
+
+      <JourneysBlock />
 
       <HydrationBoundary state={dehydrate(queryClient)}>
         <AnalyticsOverview />

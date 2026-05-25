@@ -10,6 +10,9 @@ import {
 import { toast } from "sonner";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { WhatsAppButton } from "@/components/leads/whatsapp-button";
+import { AdvancedFiltersPanel } from "@/components/leads/advanced-filters-panel";
+import { evaluateGroup } from "@/lib/audiences/evaluate";
+import type { RuleGroup } from "@/lib/audiences/types";
 import {
   consultantRegisterSaleAction,
   consultantMoveToStageWithChecklistAction,
@@ -21,14 +24,18 @@ import type { LeadStatus, LeadSource } from "@prisma/client";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Lead {
-  id:         string;
-  status:     LeadStatus;
-  source:     LeadSource;
-  capturedAt: string;
-  updatedAt:  string;
-  consultant: string | null;
-  sales:      { soldAt: string; value: number }[];
-  pipelineStage: { id: string; name: string; color: string } | null;
+  id:              string;
+  status:          LeadStatus;
+  source:          LeadSource;
+  capturedAt:      string;
+  updatedAt:       string;
+  consultant:      string | null;
+  pipelineStageId: string | null;
+  utmSource:       string | null;
+  utmMedium:       string | null;
+  utmCampaign:     string | null;
+  sales:           { soldAt: string; value: number }[];
+  pipelineStage:   { id: string; name: string; color: string } | null;
   customer: {
     name:     string;
     phone:    string;
@@ -106,6 +113,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   const [page,             setPage]              = useState(0);
   const [pageSize,         setPageSize]          = useState(50);
   const [sortConfig,       setSortConfig]        = useState<SortConfig | null>(null);
+  const [advancedRules,    setAdvancedRules]     = useState<RuleGroup | null>(null);
 
   // Inline updates
   const [updatingStage,      setUpdatingStage]      = useState<Set<string>>(new Set());
@@ -256,6 +264,21 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
 
   // Filter
   const filtered = leads.filter(lead => {
+    if (advancedRules) {
+      const matches = evaluateGroup({
+        status:          lead.status,
+        pipelineStageId: lead.pipelineStageId,
+        capturedAt:      new Date(lead.capturedAt),
+        utmSource:       lead.utmSource,
+        utmMedium:       lead.utmMedium,
+        utmCampaign:     lead.utmCampaign,
+        consultant:      lead.consultant,
+        customer:        lead.customer,
+        sales:           lead.sales.map(s => ({ value: s.value, soldAt: new Date(s.soldAt) })),
+      }, advancedRules);
+      if (!matches) return false;
+    }
+
     const q = search.toLowerCase();
     const matchSearch = !q ||
       lead.customer.name.toLowerCase().includes(q) ||
@@ -360,6 +383,15 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
           );
         })}
       </div>
+
+      <AdvancedFiltersPanel
+        pipelineStages={pipelineStages}
+        matchCount={filtered.length}
+        totalCount={leads.length}
+        activeRules={advancedRules}
+        onChange={(rules) => { setAdvancedRules(rules); resetPage(); }}
+        hideSaveButton
+      />
 
       {isFetching && (
         <div className="flex items-center gap-2 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-2 text-xs font-medium text-[var(--accent)]">

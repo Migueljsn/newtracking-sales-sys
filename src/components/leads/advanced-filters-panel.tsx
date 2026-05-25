@@ -9,14 +9,15 @@ import { createAudienceAction } from "@/app/(dashboard)/ltv/audience-actions";
 import type { RuleGroup } from "@/lib/audiences/types";
 
 interface Props {
-  pipelineStages: { id: string; name: string }[];
-  matchCount:     number;
-  totalCount:     number;
-  activeRules:    RuleGroup | null;
-  onChange:       (rules: RuleGroup | null) => void;
+  pipelineStages:  { id: string; name: string }[];
+  matchCount:      number;
+  totalCount:      number;
+  activeRules:     RuleGroup | null;
+  onChange:        (rules: RuleGroup | null) => void;
+  hideSaveButton?: boolean;
 }
 
-export function AdvancedFiltersPanel({ pipelineStages, matchCount, totalCount, activeRules, onChange }: Props) {
+export function AdvancedFiltersPanel({ pipelineStages, matchCount, totalCount, activeRules, onChange, hideSaveButton = false }: Props) {
   const [open,      setOpen]      = useState(false);
   const [group,     setGroup]     = useState<RuleGroup>(() => activeRules ?? emptyGroup());
   const [saveName,  setSaveName]  = useState("");
@@ -154,7 +155,7 @@ export function AdvancedFiltersPanel({ pipelineStages, matchCount, totalCount, a
                     <X size={12} /> Limpar
                   </button>
                 )}
-                {hasRules && (
+                {hasRules && !hideSaveButton && (
                   <button
                     onClick={() => setShowSave(true)}
                     className="ml-auto flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"

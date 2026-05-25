@@ -44,6 +44,18 @@ function TrendBadge({ value }: { value: number }) {
   );
 }
 
+function RealtimeBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--success)] bg-[var(--success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+      <span className="relative flex h-1.5 w-1.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--success)] opacity-75" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+      </span>
+      Tempo real
+    </span>
+  );
+}
+
 const ACCENT        = "var(--accent)";
 const SUCCESS       = "var(--success)";
 const WARNING       = "var(--warning)";
@@ -472,9 +484,7 @@ function PipelineBlock({ pipeline }: { pipeline: PipelineData }) {
           <h2 className="text-sm font-semibold text-[var(--text)]">Pipeline atual</h2>
           <HintTooltip text="Snapshot do funil em tempo real, independente do período selecionado. Mostra leads que ainda podem virar venda: Novas (sem etapa) e Em etapa (em negociação)." />
         </div>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-          Todos os períodos
-        </span>
+        <RealtimeBadge />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
@@ -687,11 +697,14 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
 
         {/* ── Ciclo de vida dos clientes ── */}
         <div className="space-y-3">
-          <div className="flex items-center gap-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              Ciclo de vida — {fmt(totalCustomers)} clientes com compra
-            </p>
-            <HintTooltip text="Snapshot atual de todos os clientes que já compraram (independente do período selecionado). Primeira compra = 1 compra; Fiel = 2–3 compras; Campeão = 4+ compras; Em risco = última compra há +60 dias; Inativo = última compra há +120 dias." />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Ciclo de vida — {fmt(totalCustomers)} clientes com compra
+              </p>
+              <HintTooltip text="Snapshot atual de todos os clientes que já compraram (independente do período selecionado). Primeira compra = 1 compra; Fiel = 2–3 compras; Campeão = 4+ compras; Em risco = última compra há +60 dias; Inativo = última compra há +120 dias." />
+            </div>
+            <RealtimeBadge />
           </div>
           {totalCustomers === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">Nenhum cliente cadastrado.</p>

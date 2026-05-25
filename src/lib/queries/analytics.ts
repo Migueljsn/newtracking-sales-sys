@@ -103,7 +103,7 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     }),
     prisma.customer.groupBy({
       by:    ["lifecycle"],
-      where: { clientId },
+      where: { clientId, sales: { some: {} } },
       _count: { id: true },
     }),
     prisma.sale.groupBy({

@@ -19,6 +19,7 @@ import { DeleteLeadButton } from "@/components/leads/delete-lead-button";
 import { DeleteSaleButton } from "@/components/leads/delete-sale-button";
 import { ResendEventButton } from "@/components/leads/resend-event-button";
 import { HintTooltip } from "@/components/ui/hint-tooltip";
+import { LeadInteractions } from "@/components/leads/lead-interactions";
 
 const trackingStatusLabel: Record<string, string> = {
   PENDING: "Pendente",
@@ -354,29 +355,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         )}
       </div>
 
-{lead.statusHistory.length > 1 && (
-        <div className="card p-5">
-          <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Histórico de alterações</h2>
-          <div className="space-y-2">
-            {lead.statusHistory.map((h) => (
-              <div key={h.id} className="flex items-start justify-between gap-4 text-sm">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[var(--text-muted)]">
-                    {h.from ? `${h.from} → ` : ""}<span className="text-[var(--text)] font-medium">{h.to}</span>
-                  </span>
-                  {h.changedBy && (
-                    <span className="rounded-full bg-[var(--surface-muted)] border border-[var(--border)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-                      {h.changedBy}
-                    </span>
-                  )}
-                </div>
-                <span className="shrink-0 text-[var(--text-muted)]">{new Date(h.createdAt).toLocaleDateString("pt-BR")}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Checklist da etapa atual */}
       {lead.pipelineStage && stageRequirements.length > 0 && (() => {
         const checkedMap = new Map(checklists.map((c) => [c.requirementId, c]));
@@ -488,6 +466,26 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
       )}
+
+      {/* Histórico de comunicações */}
+      <LeadInteractions
+        leadId={lead.id}
+        interactions={lead.interactions.map(i => ({
+          ...i,
+          createdAt: i.createdAt.toISOString(),
+        }))}
+        statusHistory={lead.statusHistory.map(h => ({
+          ...h,
+          createdAt: h.createdAt.toISOString(),
+        }))}
+        sales={lead.sales.map(s => ({
+          id:     s.id,
+          value:  Number(s.value),
+          soldAt: s.soldAt.toISOString(),
+          notes:  s.notes ?? null,
+        }))}
+        capturedAt={lead.capturedAt.toISOString()}
+      />
 
       {otherLeads.length > 0 && (
         <div className="card p-5">

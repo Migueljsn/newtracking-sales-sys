@@ -39,6 +39,7 @@ model Client {
   pipelineStages    PipelineStage[]
   audiences         Audience[]
   journeys          Journey[]
+  leadInteractions  LeadInteraction[]
 }
 
 model AuthorizedDomain {
@@ -208,6 +209,8 @@ model Lead {
   trackingEvents      TrackingEvent[]
   journeyEnrollments  JourneyEnrollment[]
   checklists          LeadChecklist[]
+
+  interactions        LeadInteraction[]
 
   @@index([clientId])
   @@index([customerId])
@@ -530,4 +533,33 @@ model LtvEmailLog {
 enum EmailLogType {
   CUSTOMER  // enviado ao comprador
   TEAM      // digest enviado à equipe
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEAD INTERACTION — registro manual de contatos e atividades
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LeadInteraction {
+  id        String          @id @default(cuid())
+  leadId    String
+  clientId  String
+  type      InteractionType
+  content   String
+  createdBy String?
+  createdAt DateTime        @default(now())
+
+  lead      Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  client    Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([clientId])
+}
+
+enum InteractionType {
+  NOTE
+  CALL
+  WHATSAPP
+  MEETING
+  EMAIL
+  OTHER
 }

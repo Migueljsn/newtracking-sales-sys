@@ -20,6 +20,7 @@ export async function fetchLeadDetail(leadId: string, clientId: string) {
         trackingEvents: { orderBy: { createdAt: "asc" } },
         statusHistory:  { orderBy: { createdAt: "asc" } },
         pipelineStage:  { select: { id: true, name: true, color: true } },
+        interactions:   { orderBy: { createdAt: "desc" } },
       },
     })
   );

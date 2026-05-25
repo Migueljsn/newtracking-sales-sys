@@ -189,7 +189,7 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
   const cohortSold = leads.filter(l => l.status === "SOLD");
   const convTimes  = cohortSold
     .filter(l => l.sales[0])
-    .map(l => (new Date(l.sales[0].soldAt).getTime() - new Date(l.capturedAt).getTime()) / 86_400_000);
+    .map(l => Math.max(0, (new Date(l.sales[0].soldAt).getTime() - new Date(l.capturedAt).getTime()) / 86_400_000));
   const avgConvDays = convTimes.length > 0
     ? Math.round(convTimes.reduce((a, v) => a + v, 0) / convTimes.length)
     : null;

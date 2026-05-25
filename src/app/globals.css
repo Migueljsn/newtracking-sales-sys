@@ -439,6 +439,35 @@ button {
     page-break-inside: avoid;
   }
 
+  /* Força fundo branco e texto escuro em todos os cards */
+  .card, .stat-card {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  .stat-card::before {
+    display: none !important;
+  }
+
+  .card *, .stat-card * {
+    color: #102033 !important;
+    -webkit-text-fill-color: #102033 !important;
+  }
+
+  /* Exceções: elementos com cor semântica (success, danger, etc) */
+  .card [style*="color:"], .stat-card [style*="color:"],
+  .card [class*="text-[var(--success)"],
+  .card [class*="text-[var(--danger)"],
+  .card [class*="text-[var(--accent)"] {
+    -webkit-text-fill-color: unset !important;
+  }
+
+  /* Badges de trend */
+  .card span[class*="bg-"], .stat-card span[class*="bg-"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   /* ── Recharts ── */
   .recharts-text tspan,
   .recharts-cartesian-axis-tick-value tspan { fill: #64748b !important; }

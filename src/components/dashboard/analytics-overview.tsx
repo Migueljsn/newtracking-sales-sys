@@ -689,9 +689,9 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
         <div className="space-y-3">
           <div className="flex items-center gap-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              Ciclo de vida — {fmt(totalCustomers)} clientes
+              Ciclo de vida — {fmt(totalCustomers)} clientes cadastrados
             </p>
-            <HintTooltip text="Classificação de todos os clientes: Nova compra (1 compra), Fiel (2–3 compras), Campeão (4+ compras), Em risco (sem compra recente), Inativo (ausente por longo período)." />
+            <HintTooltip text="Snapshot de todos os clientes do sistema (independente do período selecionado). Nova compra = 1 compra; Fiel = 2–3 compras; Campeão = 4+ compras; Em risco = sem compra recente; Inativo = ausente por longo período." />
           </div>
           {totalCustomers === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">Nenhum cliente cadastrado.</p>

@@ -205,7 +205,17 @@ export function AnalyticsOverview() {
     : `${customFrom} até ${customTo}`;
 
   function handleExport() {
-    window.print();
+    const html = document.documentElement;
+    const wasDark = html.classList.contains("dark");
+    if (wasDark) html.classList.remove("dark");
+
+    const restore = () => {
+      if (wasDark) html.classList.add("dark");
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+
+    requestAnimationFrame(() => window.print());
   }
 
   const s = data?.summary;

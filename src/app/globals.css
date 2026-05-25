@@ -381,32 +381,12 @@ button {
 }
 
 /* ─── Print (analytics PDF) ─────────────────── */
+/* Nota: handleExport() remove a classe .dark do <html> antes de imprimir
+   e restaura depois via evento afterprint — então o @media print trabalha
+   sempre no tema claro, sem conflito com variáveis do dark mode. */
 
 @media print {
   @page { margin: 10mm; size: A4 landscape; }
-
-  /* ── Redefine CSS variables para tema claro ── */
-  :root, .dark {
-    --bg:            #f4f6fb;
-    --bg-elevated:   #edf2fa;
-    --surface:       #ffffff;
-    --surface-strong:#ffffff;
-    --surface-muted: #f1f5f9;
-    --border:        rgba(148,163,184,0.35);
-    --border-strong: rgba(148,163,184,0.55);
-    --text:          #102033;
-    --text-muted:    #5d6b82;
-    --accent:        #2563eb;
-    --accent-strong: #1d4ed8;
-    --accent-soft:   rgba(37,99,235,0.12);
-    --success:       #0f9f6e;
-    --success-soft:  rgba(15,159,110,0.14);
-    --warning:       #c27b12;
-    --warning-soft:  rgba(194,123,18,0.14);
-    --danger:        #d14343;
-    --danger-soft:   rgba(209,67,67,0.14);
-    color-scheme: light;
-  }
 
   /* ── Base ── */
   html, body {
@@ -429,9 +409,7 @@ button {
   .page-shell { max-width: none !important; padding: 0 !important; margin: 0 !important; }
 
   /* ── Cards e blocos ── */
-  .card, .stat-card,
-  #analytics-print-area [class*="rounded"],
-  #analytics-print-area [class*="border"] {
+  .card, .stat-card {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     box-shadow: none !important;
@@ -439,34 +417,7 @@ button {
     page-break-inside: avoid;
   }
 
-  /* Força fundo branco e texto escuro em todos os cards */
-  .card, .stat-card {
-    background: #ffffff !important;
-    border-color: #e2e8f0 !important;
-  }
-
-  .stat-card::before {
-    display: none !important;
-  }
-
-  .card *, .stat-card * {
-    color: #102033 !important;
-    -webkit-text-fill-color: #102033 !important;
-  }
-
-  /* Exceções: elementos com cor semântica (success, danger, etc) */
-  .card [style*="color:"], .stat-card [style*="color:"],
-  .card [class*="text-[var(--success)"],
-  .card [class*="text-[var(--danger)"],
-  .card [class*="text-[var(--accent)"] {
-    -webkit-text-fill-color: unset !important;
-  }
-
-  /* Badges de trend */
-  .card span[class*="bg-"], .stat-card span[class*="bg-"] {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  .stat-card::before { display: none !important; }
 
   /* ── Recharts ── */
   .recharts-text tspan,

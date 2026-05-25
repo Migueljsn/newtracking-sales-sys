@@ -145,6 +145,18 @@ export async function bulkDuplicateJourneysAction(ids: string[]) {
   revalidatePath("/journeys");
 }
 
+export async function updateSendWindowAction(id: string, sendWindow: object) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.journey.update({
+    where: { id, clientId },
+    data:  { sendWindow },
+  });
+
+  revalidatePath(`/journeys/${id}`);
+}
+
 export async function duplicateJourneyAction(id: string) {
   const session  = await getSession();
   const clientId = session.clientId!;

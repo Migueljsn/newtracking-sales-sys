@@ -21,6 +21,8 @@ import { nodeTypes } from "./nodes";
 import { NodeConfigPanel } from "./node-config-panel";
 import { NODE_DEFS, NodeType } from "@/lib/journeys/types";
 import { updateJourneyAction, publishJourneyAction, pauseJourneyAction } from "@/app/(dashboard)/journeys/actions";
+import { SendWindowConfig as SendWindowConfigPanel } from "@/components/journeys/send-window-config";
+import type { SendWindowConfig } from "@/lib/journeys/send-window";
 
 type PipelineStage  = { id: string; name: string }
 type EmailTemplate  = { id: string; name: string }
@@ -36,6 +38,7 @@ interface JourneyCanvasProps {
   emailTemplates: EmailTemplate[]
   audiences:      AudienceOption[]
   consultants:    string[]
+  sendWindow:     SendWindowConfig | null
 }
 
 const ICON_MAP: Record<NodeType, React.ReactNode> = {
@@ -59,6 +62,7 @@ export function JourneyCanvas({
   journeyId, journeyName, journeyStatus,
   initialNodes, initialEdges,
   pipelineStages, emailTemplates, audiences, consultants,
+  sendWindow,
 }: JourneyCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -296,6 +300,8 @@ export function JourneyCanvas({
               <RotateCw size={13} />
             </button>
           </div>
+
+          <SendWindowConfigPanel journeyId={journeyId} initialConfig={sendWindow} />
 
           <button
             type="button"

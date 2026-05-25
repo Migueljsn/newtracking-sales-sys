@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { JourneyCanvas } from "@/components/journeys/journey-canvas";
 import type { Node, Edge } from "@xyflow/react";
+import type { SendWindowConfig } from "@/lib/journeys/send-window";
 
 export default async function JourneyEditorPage({
   params,
@@ -40,6 +41,7 @@ export default async function JourneyEditorPage({
       emailTemplates={emailTemplates}
       audiences={audiences}
       consultants={settings?.consultants ?? []}
+      sendWindow={(journey.sendWindow as unknown as SendWindowConfig) ?? null}
     />
   );
 }

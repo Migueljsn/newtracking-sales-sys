@@ -321,6 +321,7 @@ model Journey {
   audienceId  String?
   nodes       Json          @default("[]")
   edges       Json          @default("[]")
+  sendWindow  Json?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 

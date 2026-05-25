@@ -3,6 +3,8 @@ import { inngest }        from "@/lib/inngest/client";
 import { stepEvent }      from "@/lib/inngest/events";
 import { prisma }         from "@/lib/db/prisma";
 import { evaluateGroup }  from "@/lib/audiences/evaluate";
+import { isInSendWindow, nextWindowStart } from "@/lib/journeys/send-window";
+import type { SendWindowConfig } from "@/lib/journeys/send-window";
 import type { RuleGroup } from "@/lib/audiences/types";
 import type { Node, Edge } from "@xyflow/react";
 import type {
@@ -174,7 +176,13 @@ export const journeyProcessStep = inngest.createFunction(
       }
 
       case "email": {
-        const d = node.data as unknown as EmailData;
+        const d          = node.data as unknown as EmailData;
+        const sendWindow = journey.sendWindow as SendWindowConfig | null;
+
+        if (sendWindow?.enabled && !isInSendWindow(sendWindow)) {
+          const resumeAt = nextWindowStart(sendWindow);
+          await step.sleepUntil("wait-for-send-window", resumeAt);
+        }
 
         if (d.templateId && lead.customer?.email) {
           await step.run("send-email", async () => {
@@ -209,7 +217,13 @@ export const journeyProcessStep = inngest.createFunction(
       }
 
       case "whatsapp": {
-        const d = node.data as unknown as WhatsAppData;
+        const d          = node.data as unknown as WhatsAppData;
+        const sendWindow = journey.sendWindow as SendWindowConfig | null;
+
+        if (sendWindow?.enabled && !isInSendWindow(sendWindow)) {
+          const resumeAt = nextWindowStart(sendWindow);
+          await step.sleepUntil("wait-for-send-window", resumeAt);
+        }
 
         if (d.message && lead.customer?.phone) {
           await step.run("send-whatsapp", async () => {

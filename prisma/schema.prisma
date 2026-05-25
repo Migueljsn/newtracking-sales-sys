@@ -40,6 +40,7 @@ model Client {
   audiences         Audience[]
   journeys          Journey[]
   leadInteractions  LeadInteraction[]
+  journeyNodeLogs   JourneyNodeLog[]
 }
 
 model AuthorizedDomain {
@@ -326,6 +327,7 @@ model Journey {
   client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   audience    Audience?           @relation(fields: [audienceId], references: [id])
   enrollments JourneyEnrollment[]
+  nodeLogs    JourneyNodeLog[]
 
   @@index([clientId])
 }
@@ -339,12 +341,34 @@ model JourneyEnrollment {
   startedAt   DateTime         @default(now())
   completedAt DateTime?
 
-  journey     Journey @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  lead        Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  journey     Journey          @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  lead        Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  nodeLogs    JourneyNodeLog[]
 
   @@unique([journeyId, leadId])
   @@index([journeyId])
   @@index([leadId])
+}
+
+model JourneyNodeLog {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  journeyId    String
+  leadId       String
+  clientId     String
+  nodeId       String
+  nodeType     String
+  executedAt   DateTime @default(now())
+  result       String?  // "advanced", "completed", "condition_true", "condition_false", "email_sent", "email_skipped", etc.
+
+  enrollment   JourneyEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  journey      Journey           @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@index([journeyId])
+  @@index([leadId])
+  @@index([clientId])
 }
 
 enum JourneyStatus {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Plus, Archive, Copy, Trash2, Zap, Users, GitBranch,
   Square, CheckSquare, CheckSquare as CheckSquareIcon,
+  BarChart2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -13,16 +14,20 @@ import {
   bulkDeleteJourneysAction, bulkArchiveJourneysAction,
   bulkDuplicateJourneysAction,
 } from "@/app/(dashboard)/journeys/actions";
+import { JourneyMetricsDrawer } from "@/components/journeys/journey-metrics-drawer";
 
 type Journey = {
-  id:           string
-  name:         string
-  description:  string | null
-  status:       string
-  audienceName: string | null
-  nodeCount:    number
-  enrollCount:  number
-  updatedAt:    Date
+  id:                string
+  name:              string
+  description:       string | null
+  status:            string
+  audienceName:      string | null
+  nodeCount:         number
+  enrollCount:       number
+  completedCount:    number
+  conversionRate:    number
+  attributedRevenue: number
+  updatedAt:         Date
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -47,6 +52,10 @@ export function JourneyList({ journeys }: JourneyListProps) {
   const [name,        setName]       = useState("");
   const [creating,    startCreate]   = useTransition();
   const [acting,      startAction]   = useTransition();
+
+  // Metrics drawer
+  const [metricsOpen,    setMetricsOpen]    = useState(false);
+  const [metricsJourney, setMetricsJourney] = useState<{ id: string; name: string } | null>(null);
 
   // Individual confirmations
   const [confirmDelete,  setConfirmDelete]  = useState<string | null>(null);
@@ -162,6 +171,16 @@ export function JourneyList({ journeys }: JourneyListProps) {
 
   return (
     <div className="space-y-4">
+
+      {/* Metrics drawer */}
+      {metricsJourney && (
+        <JourneyMetricsDrawer
+          journeyId={metricsJourney.id}
+          journeyName={metricsJourney.name}
+          open={metricsOpen}
+          onClose={() => setMetricsOpen(false)}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -350,12 +369,39 @@ export function JourneyList({ journeys }: JourneyListProps) {
                     <GitBranch size={11} />
                     {j.nodeCount} nó{j.nodeCount !== 1 ? "s" : ""}
                   </span>
-                  <span>{j.enrollCount} enrollado{j.enrollCount !== 1 ? "s" : ""}</span>
+                  <span>{j.enrollCount} inscrita{j.enrollCount !== 1 ? "s" : ""}</span>
+                  {j.enrollCount > 0 && (
+                    <>
+                      <span className="text-[var(--success)] font-semibold">
+                        {j.completedCount} concluídas
+                      </span>
+                      {j.conversionRate > 0 && (
+                        <span className="text-[var(--warning)] font-semibold">
+                          {j.conversionRate}% conversão
+                        </span>
+                      )}
+                      {j.attributedRevenue > 0 && (
+                        <span className="text-[#10b981] font-semibold">
+                          {j.attributedRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} atribuído
+                        </span>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
+                {j.enrollCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setMetricsJourney({ id: j.id, name: j.name }); setMetricsOpen(true); }}
+                    className="h-8 px-3 flex items-center gap-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent)] transition-colors"
+                    title="Ver métricas"
+                  >
+                    <BarChart2 size={14} />
+                  </button>
+                )}
                 <Link
                   href={`/journeys/${j.id}`}
                   className="h-8 px-3 flex items-center gap-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] transition-colors"

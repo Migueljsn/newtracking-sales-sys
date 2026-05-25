@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { JourneyList } from "@/components/journeys/journey-list";
 import { EmailTemplates } from "@/components/settings/email-templates";
 import { AudiencesTab } from "@/components/ltv/audiences-tab";
+import { fetchAllJourneysSummary } from "@/lib/queries/journey-metrics";
 import type { RuleGroup } from "@/lib/audiences/types";
 
 const TABS = [
@@ -29,28 +30,40 @@ export default async function JourneysPage({
   let rows: {
     id: string; name: string; description: string | null;
     status: string; audienceName: string | null;
-    nodeCount: number; enrollCount: number; updatedAt: Date;
+    nodeCount: number; enrollCount: number;
+    completedCount: number; conversionRate: number; attributedRevenue: number;
+    updatedAt: Date;
   }[] = [];
 
   if (activeTab === "jornadas") {
-    const journeys = await prisma.journey.findMany({
-      where:   { clientId, status: { not: "ARCHIVED" } },
-      orderBy: { updatedAt: "desc" },
-      include: {
-        audience:    { select: { name: true } },
-        enrollments: { select: { id: true } },
-      },
+    const [journeys, summaries] = await Promise.all([
+      prisma.journey.findMany({
+        where:   { clientId, status: { not: "ARCHIVED" } },
+        orderBy: { updatedAt: "desc" },
+        include: {
+          audience:    { select: { name: true } },
+          enrollments: { select: { id: true } },
+        },
+      }),
+      fetchAllJourneysSummary(clientId),
+    ]);
+    const summaryMap = new Map(summaries.map(s => [s.journeyId, s]));
+    rows = journeys.map((j) => {
+      const s = summaryMap.get(j.id);
+      return {
+        id:                j.id,
+        name:              j.name,
+        description:       j.description,
+        status:            j.status,
+        audienceName:      j.audience?.name ?? null,
+        nodeCount:         (j.nodes as unknown[]).length,
+        enrollCount:       j.enrollments.length,
+        completedCount:    s?.completed ?? 0,
+        conversionRate:    s?.conversionRate ?? 0,
+        attributedRevenue: s?.attributedRevenue ?? 0,
+        updatedAt:         j.updatedAt,
+      };
     });
-    rows = journeys.map((j) => ({
-      id:           j.id,
-      name:         j.name,
-      description:  j.description,
-      status:       j.status,
-      audienceName: j.audience?.name ?? null,
-      nodeCount:    (j.nodes as unknown[]).length,
-      enrollCount:  j.enrollments.length,
-      updatedAt:    j.updatedAt,
-    }));
   }
 
   // ── Templates ───────────────────────────────────────────────────────────────

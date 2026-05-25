@@ -145,6 +145,7 @@ export const journeyProcessStep = inngest.createFunction(
 
     // ── Executar nó ──────────────────────────────────────────────────────────────
     let nextNodeId: string | null = null;
+    let nodeResult = "advanced";
 
     switch (node.type) {
 
@@ -167,6 +168,7 @@ export const journeyProcessStep = inngest.createFunction(
           operator: "AND",
           rules:    [{ id: "r", field: d.field, operator: d.operator, value: d.value }],
         } as RuleGroup);
+        nodeResult = passed ? "condition_true" : "condition_false";
         nextNodeId = getNextNodeId(edges, nodeId, passed ? "true" : "false");
         break;
       }
@@ -197,6 +199,9 @@ export const journeyProcessStep = inngest.createFunction(
 
             return { messageId: data?.id };
           });
+          nodeResult = "email_sent";
+        } else {
+          nodeResult = "email_skipped";
         }
 
         nextNodeId = getNextNodeId(edges, nodeId);
@@ -213,6 +218,9 @@ export const journeyProcessStep = inngest.createFunction(
             const message = renderTemplate(d.message, vars);
             await sendWhatsApp(lead.customer.phone, message);
           });
+          nodeResult = "whatsapp_sent";
+        } else {
+          nodeResult = "whatsapp_skipped";
         }
 
         nextNodeId = getNextNodeId(edges, nodeId);
@@ -265,9 +273,21 @@ export const journeyProcessStep = inngest.createFunction(
             data:  { status: "COMPLETED", completedAt: new Date() },
           })
         );
+        await step.run("log-end-node", () =>
+          prisma.journeyNodeLog.create({
+            data: { enrollmentId, journeyId, leadId, clientId, nodeId, nodeType: node.type!, result: "completed" },
+          })
+        );
         return { result: "completed" };
       }
     }
+
+    // ── Gravar log do nó executado ───────────────────────────────────────────────
+    await step.run("log-node", () =>
+      prisma.journeyNodeLog.create({
+        data: { enrollmentId, journeyId, leadId, clientId, nodeId, nodeType: node.type!, result: nodeResult },
+      })
+    );
 
     // ── Avançar para o próximo nó ────────────────────────────────────────────────
     if (!nextNodeId) {

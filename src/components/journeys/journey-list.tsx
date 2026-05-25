@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Plus, Archive, Copy, Trash2, Zap, Users, GitBranch,
   Square, CheckSquare, CheckSquare as CheckSquareIcon,
-  BarChart2,
+  BarChart2, Play, Pause,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import {
   deleteJourneyAction, duplicateJourneyAction,
   bulkDeleteJourneysAction, bulkArchiveJourneysAction,
   bulkDuplicateJourneysAction,
+  publishJourneyAction, pauseJourneyAction,
 } from "@/app/(dashboard)/journeys/actions";
 import { JourneyMetricsDrawer } from "@/components/journeys/journey-metrics-drawer";
 import { JourneyTemplateGallery } from "@/components/journeys/journey-template-gallery";
@@ -132,6 +133,20 @@ export function JourneyList({ journeys }: JourneyListProps) {
   function handleDuplicate(id: string) {
     startAction(async () => {
       await duplicateJourneyAction(id);
+    });
+  }
+
+  function handleToggleStatus(id: string, status: string) {
+    startAction(async () => {
+      try {
+        if (status === "ACTIVE") {
+          await pauseJourneyAction(id);
+          toast.success("Jornada pausada");
+        } else {
+          await publishJourneyAction(id);
+          toast.success("Jornada ativada");
+        }
+      } catch { toast.error("Erro ao alterar status") }
     });
   }
 
@@ -430,6 +445,25 @@ export function JourneyList({ journeys }: JourneyListProps) {
                     <BarChart2 size={14} />
                   </button>
                 )}
+
+                {/* Activate / Pause toggle */}
+                {j.status !== "ARCHIVED" && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(j.id, j.status)}
+                    disabled={acting}
+                    className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                      j.status === "ACTIVE"
+                        ? "text-[#f59e0b] hover:bg-[#f59e0b]/10 border border-[#f59e0b]/30"
+                        : "text-[#10b981] hover:bg-[#10b981]/10 border border-[#10b981]/30"
+                    }`}
+                    title={j.status === "ACTIVE" ? "Pausar jornada" : "Ativar jornada"}
+                  >
+                    {j.status === "ACTIVE" ? <Pause size={13} /> : <Play size={13} />}
+                    {j.status === "ACTIVE" ? "Pausar" : "Ativar"}
+                  </button>
+                )}
+
                 <Link
                   href={`/journeys/${j.id}`}
                   className="h-8 px-3 flex items-center gap-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] transition-colors"

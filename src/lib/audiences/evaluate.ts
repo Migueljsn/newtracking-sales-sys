@@ -34,6 +34,7 @@ function evaluateRule(lead: LeadRow, rule: Rule): boolean {
 
     case "pipelineStageId":
       if (operator === "empty") return !lead.pipelineStageId
+      if (!value) return false
       return applyStringOp(lead.pipelineStageId ?? "", operator, value)
 
     case "daysSinceCapture": {

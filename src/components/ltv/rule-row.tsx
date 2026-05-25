@@ -24,7 +24,8 @@ export function RuleRow({ rule, pipelineStages, onChange, onRemove }: RuleRowPro
     const def = getFieldDef(field)
     const type = def?.type ?? "text"
     const op   = defaultOperator(type)
-    const val  = defaultValue(field)
+    let val = defaultValue(field)
+    if (type === "pipeline_stage") val = pipelineStages[0]?.id ?? ""
     onChange({ ...rule, field, operator: op, value: val })
   }
 

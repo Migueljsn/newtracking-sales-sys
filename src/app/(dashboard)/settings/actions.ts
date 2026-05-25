@@ -148,6 +148,65 @@ export async function deleteEmailTemplateAction(id: string) {
 
   revalidatePath("/settings");
   revalidatePath("/ltv");
+  revalidatePath("/journeys");
+}
+
+export async function duplicateEmailTemplateAction(id: string) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const original = await prisma.emailTemplate.findUnique({ where: { id } });
+  if (!original || original.isDefault) throw new Error("Não é possível duplicar template padrão");
+
+  await prisma.emailTemplate.create({
+    data: {
+      clientId,
+      name:    `${original.name}-cópia`,
+      subject: original.subject,
+      body:    original.body,
+      type:    original.type,
+    },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/ltv");
+  revalidatePath("/journeys");
+}
+
+export async function bulkDeleteEmailTemplatesAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.emailTemplate.deleteMany({
+    where: { id: { in: ids }, clientId, isDefault: false },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/ltv");
+  revalidatePath("/journeys");
+}
+
+export async function bulkDuplicateEmailTemplatesAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const originals = await prisma.emailTemplate.findMany({
+    where: { id: { in: ids }, isDefault: false },
+  });
+
+  await prisma.emailTemplate.createMany({
+    data: originals.map((t) => ({
+      clientId,
+      name:    `${t.name}-cópia`,
+      subject: t.subject,
+      body:    t.body,
+      type:    t.type,
+    })),
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/ltv");
+  revalidatePath("/journeys");
 }
 
 export async function disconnectGoogleAdsAction() {

@@ -87,7 +87,7 @@ export function SendWindowConfig({ journeyId, initialConfig }: Props) {
           <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={() => setOpen(false)} />
 
           {/* Modal */}
-          <div className="fixed inset-x-4 top-1/4 z-50 mx-auto max-w-sm rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-[var(--shadow-lg)] animate-scale-in">
+          <div className="fixed left-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-[var(--shadow-lg)] animate-scale-in flex flex-col max-h-[calc(100vh-4rem)]" style={{ top: "50%" }}>
             <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
               <div>
                 <h3 className="text-sm font-semibold text-[var(--text)]">Janela de envio</h3>
@@ -100,7 +100,7 @@ export function SendWindowConfig({ journeyId, initialConfig }: Props) {
               </button>
             </div>
 
-            <div className="p-5 space-y-5">
+            <div className="p-5 space-y-5 overflow-y-auto flex-1">
               {/* Enable toggle */}
               <div className="flex items-center justify-between">
                 <div>

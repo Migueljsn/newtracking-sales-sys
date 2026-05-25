@@ -448,10 +448,10 @@ export function AnalyticsOverview() {
           <BarListCard title="Por UTM Campaign" data={data?.byUtmCampaign ?? []} />
         </div>
 
-        {/* ── State + Consultant ── */}
+        {/* ── State + Consultant ranking ── */}
         <div className="grid gap-4 lg:grid-cols-2">
           <BarListCard title="Por Estado" data={data?.byState ?? []} />
-          <BarListCard title="Por Consultor" data={data?.byConsultant ?? []} />
+          <ConsultantRanking data={data?.byConsultant ?? []} />
         </div>
 
       </div>
@@ -781,6 +781,62 @@ function BarListCard({ title, data }: { title: string; data: BarItemFull[] }) {
           valueKey={metric}
           currency={metric === "revenue"}
         />
+      )}
+    </div>
+  );
+}
+
+// ─── Consultant ranking ───────────────────────────────────────────────────────
+
+const MEDAL_COLORS = ["#f59e0b", "#94a3b8", "#cd7f32"];
+
+function ConsultantRanking({ data }: { data: BarItemFull[] }) {
+  const ranked = [...data].filter(d => d.label).sort((a, b) => b.revenue - a.revenue);
+
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center gap-1.5">
+        <h2 className="text-sm font-semibold text-[var(--text)]">Ranking de consultores</h2>
+        <HintTooltip text="Desempenho por consultor no período selecionado, ordenado por receita gerada." />
+      </div>
+
+      {ranked.length === 0 ? (
+        <p className="text-sm text-[var(--text-muted)]">Sem dados de consultores no período.</p>
+      ) : (
+        <div className="space-y-3">
+          {ranked.map((c, i) => {
+            const maxRevenue = ranked[0].revenue;
+            const barPct     = maxRevenue > 0 ? Math.round((c.revenue / maxRevenue) * 100) : 0;
+            return (
+              <div key={c.label} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                      style={{ background: MEDAL_COLORS[i] ?? "var(--text-muted)" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="font-medium text-[var(--text)] truncate">{c.label}</span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 tabular-nums text-[var(--text-muted)]">
+                    <span>{c.sales} venda{c.sales !== 1 ? "s" : ""}</span>
+                    <span className="font-semibold text-[var(--success)]">{brl(c.revenue)}</span>
+                  </div>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width:      `${barPct}%`,
+                      background: MEDAL_COLORS[i] ?? "var(--accent)",
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

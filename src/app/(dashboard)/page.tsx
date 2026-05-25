@@ -4,6 +4,7 @@ import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query
 import { getSession } from "@/lib/auth/session";
 import { fetchAnalytics } from "@/lib/queries/analytics";
 import { AnalyticsOverview } from "@/components/dashboard/analytics-overview";
+import { DashboardAlerts } from "@/components/dashboard/dashboard-alerts";
 
 export default async function DashboardPage() {
   const session  = await getSession();
@@ -24,6 +25,8 @@ export default async function DashboardPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--text-muted)]">Visão geral</p>
         <h1 className="text-2xl font-semibold text-[var(--text)] sm:text-3xl">Dashboard</h1>
       </div>
+
+      <DashboardAlerts />
 
       <HydrationBoundary state={dehydrate(queryClient)}>
         <AnalyticsOverview />

@@ -470,21 +470,21 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       {/* Histórico de comunicações */}
       <LeadInteractions
         leadId={lead.id}
-        interactions={lead.interactions.map(i => ({
+        interactions={(lead.interactions ?? []).map(i => ({
           ...i,
-          createdAt: i.createdAt.toISOString(),
+          createdAt: new Date(i.createdAt).toISOString(),
         }))}
-        statusHistory={lead.statusHistory.map(h => ({
+        statusHistory={(lead.statusHistory ?? []).map(h => ({
           ...h,
-          createdAt: h.createdAt.toISOString(),
+          createdAt: new Date(h.createdAt).toISOString(),
         }))}
-        sales={lead.sales.map(s => ({
+        sales={(lead.sales ?? []).map(s => ({
           id:     s.id,
           value:  Number(s.value),
-          soldAt: s.soldAt.toISOString(),
+          soldAt: new Date(s.soldAt).toISOString(),
           notes:  s.notes ?? null,
         }))}
-        capturedAt={lead.capturedAt.toISOString()}
+        capturedAt={new Date(lead.capturedAt).toISOString()}
       />
 
       {otherLeads.length > 0 && (

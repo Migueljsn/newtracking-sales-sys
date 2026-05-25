@@ -554,10 +554,10 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                             template={whatsappTemplate}
                             variant="icon"
                           />
-                          {(lead.status === "NEW" || lead.status === "REGISTERED") && (
+                          {lead.status !== "LOST" && (
                             <button
                               onClick={() => openSaleModal(lead)}
-                              title="Registrar venda"
+                              title={lead.status === "SOLD" ? "Registrar recompra" : "Registrar venda"}
                               className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--success)] text-[var(--success)] hover:bg-[var(--success)] hover:text-white transition-colors"
                             >
                               <DollarSign size={13} />

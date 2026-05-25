@@ -129,7 +129,12 @@ export async function quickRegisterSaleAction(
   fireLeadChanged(leadId, clientId);
   after(() => processPendingEvents());
 
-  await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId), cacheKeys.sales(clientId));
+  await invalidate(
+    cacheKeys.leads(clientId),
+    cacheKeys.leadDetail(leadId),
+    cacheKeys.metrics(clientId),
+    cacheKeys.sales(clientId),
+  );
   revalidatePath("/leads");
   revalidatePath("/sales");
 }

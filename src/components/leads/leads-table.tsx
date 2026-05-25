@@ -931,6 +931,15 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                             template={whatsappTemplate}
                             variant="icon"
                           />
+                          {lead.status !== "LOST" && (
+                            <button
+                              onClick={e => { e.stopPropagation(); openSaleModal(lead); }}
+                              title={lead.status === "SOLD" ? "Registrar recompra" : "Registrar venda"}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--success)] text-[var(--success)] hover:bg-[var(--success)] hover:text-white transition-colors"
+                            >
+                              <DollarSign size={13} />
+                            </button>
+                          )}
                           <Link href={`/leads/${lead.id}`} className="link-accent inline-flex items-center gap-1 text-xs">
                             Ver <ChevronRight size={13} />
                           </Link>

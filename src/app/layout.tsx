@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${geist.className} antialiased`}>
         <ThemeProvider>
+          <NextTopLoader color="var(--accent)" showSpinner={false} height={3} />
           {children}
           <Toaster richColors position="top-right" />
         </ThemeProvider>

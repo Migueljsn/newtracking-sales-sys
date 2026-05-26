@@ -156,11 +156,13 @@ export function JourneyMetricsDrawer({ journeyId, journeyName, open, onClose }: 
                         const color = NODE_TYPE_COLOR[node.nodeType] ?? "var(--accent)";
                         const label = NODE_TYPE_LABEL[node.nodeType] ?? node.nodeType;
                         const pct   = Math.round((node.count / maxNodeCount) * 100);
-                        const emailSent    = node.results["email_sent"]    ?? 0;
-                        const emailSkipped = node.results["email_skipped"] ?? 0;
-                        const waSent       = node.results["whatsapp_sent"] ?? 0;
-                        const condTrue     = node.results["condition_true"]  ?? 0;
-                        const condFalse    = node.results["condition_false"] ?? 0;
+                        const emailSent    = node.results["email_sent"]             ?? 0;
+                        const emailSkipped = node.results["email_skipped"]          ?? 0;
+                        const emailOptOut  = node.results["email_skipped_optout"]   ?? 0;
+                        const waSent       = node.results["whatsapp_sent"]          ?? 0;
+                        const waSkipped    = node.results["whatsapp_skipped"]       ?? 0;
+                        const condTrue     = node.results["condition_true"]         ?? 0;
+                        const condFalse    = node.results["condition_false"]        ?? 0;
 
                         return (
                           <div key={node.nodeId} className="space-y-1">
@@ -179,14 +181,18 @@ export function JourneyMetricsDrawer({ journeyId, journeyName, open, onClose }: 
                               </div>
                               <span className="w-8 text-right text-xs font-semibold text-[var(--text)]">{node.count}</span>
                             </div>
-                            {(emailSent > 0 || emailSkipped > 0) && (
+                            {(emailSent > 0 || emailSkipped > 0 || emailOptOut > 0) && (
                               <p className="pl-1 text-[10px] text-[var(--text-muted)]">
                                 {emailSent} enviado{emailSent !== 1 ? "s" : ""}
-                                {emailSkipped > 0 && `, ${emailSkipped} sem email`}
+                                {emailSkipped > 0 && `, ${emailSkipped} sem e-mail`}
+                                {emailOptOut  > 0 && `, ${emailOptOut} descadastrado${emailOptOut !== 1 ? "s" : ""}`}
                               </p>
                             )}
-                            {waSent > 0 && (
-                              <p className="pl-1 text-[10px] text-[var(--text-muted)]">{waSent} WhatsApp enviado{waSent !== 1 ? "s" : ""}</p>
+                            {(waSent > 0 || waSkipped > 0) && (
+                              <p className="pl-1 text-[10px] text-[var(--text-muted)]">
+                                {waSent} WhatsApp enviado{waSent !== 1 ? "s" : ""}
+                                {waSkipped > 0 && `, ${waSkipped} sem número`}
+                              </p>
                             )}
                             {(condTrue > 0 || condFalse > 0) && (
                               <p className="pl-1 text-[10px] text-[var(--text-muted)]">

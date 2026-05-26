@@ -1,8 +1,8 @@
 import { inngest }           from "@/lib/inngest/client";
 import { leadChangedEvent, stepEvent } from "@/lib/inngest/events";
 import { prisma }            from "@/lib/db/prisma";
-import { evaluateGroup }     from "@/lib/audiences/evaluate";
-import type { RuleGroup }    from "@/lib/audiences/types";
+import { evaluateAudience }  from "@/lib/audiences/evaluate";
+import { parseAudienceRules } from "@/lib/audiences/types";
 import type { Node }         from "@xyflow/react";
 
 export const journeyCheckEnrollment = inngest.createFunction(
@@ -68,8 +68,8 @@ export const journeyCheckEnrollment = inngest.createFunction(
         });
         if (!audience) continue;
 
-        const rules   = audience.rules as unknown as RuleGroup;
-        const matches = evaluateGroup(leadRow, rules);
+        const def     = parseAudienceRules(audience.rules);
+        const matches = evaluateAudience(leadRow, def);
         if (!matches) continue;
 
         // Só enrola se ainda não tem enrollment nessa jornada

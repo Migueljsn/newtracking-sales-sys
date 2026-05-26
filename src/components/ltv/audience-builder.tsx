@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback, useTransition, useRef, useEffect } from "react";
-import { Loader2, Users, Zap } from "lucide-react";
+import { Loader2, Users, Zap, ShieldMinus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { RuleGroup } from "@/lib/audiences/types";
+import { RuleGroup, emptyGroup } from "@/lib/audiences/types";
 import { RuleGroupEditor } from "./rule-group-editor";
 import { AUDIENCE_TEMPLATES } from "@/lib/audiences/templates";
 import {
@@ -18,7 +18,8 @@ type ExistingAudience = {
   id:          string
   name:        string
   description: string | null
-  rules:       RuleGroup
+  include:     RuleGroup
+  exclude:     RuleGroup | null
 }
 
 interface AudienceBuilderProps {
@@ -47,23 +48,23 @@ function cloneTemplate(tpl: RuleGroup): RuleGroup {
 export function AudienceBuilder({ pipelineStages, audience, onSaved, onCancel }: AudienceBuilderProps) {
   const isEdit = !!audience
 
-  // step: "template" | "form"  (edit always goes straight to form)
   const [step,        setStep]        = useState<"template" | "form">(isEdit ? "form" : "template")
   const [name,        setName]        = useState(audience?.name        ?? "")
   const [description, setDescription] = useState(audience?.description ?? "")
-  const [group,       setGroup]       = useState<RuleGroup>(() => audience?.rules ?? freshGroup())
+  const [include,     setInclude]     = useState<RuleGroup>(() => audience?.include ?? freshGroup())
+  const [exclude,     setExclude]     = useState<RuleGroup | null>(() => audience?.exclude ?? null)
 
-  const [count,       setCount]       = useState<number | null>(null)
-  const [isPreviewing,startPreview]   = useTransition()
-  const [isSaving,    startSave]      = useTransition()
+  const [count,        setCount]       = useState<number | null>(null)
+  const [isPreviewing, startPreview]   = useTransition()
+  const [isSaving,     startSave]      = useTransition()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const triggerPreview = useCallback((g: RuleGroup) => {
+  const triggerPreview = useCallback((inc: RuleGroup, exc: RuleGroup | null) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       startPreview(async () => {
         try {
-          const result = await previewAudienceAction(g)
+          const result = await previewAudienceAction(inc, exc)
           setCount(result.count)
         } catch { /* silent */ }
       })
@@ -71,20 +72,37 @@ export function AudienceBuilder({ pipelineStages, audience, onSaved, onCancel }:
   }, [])
 
   useEffect(() => {
-    if (step === "form") triggerPreview(group)
+    if (step === "form") triggerPreview(include, exclude)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleGroupChange(next: RuleGroup) {
-    setGroup(next)
-    triggerPreview(next)
+  function handleIncludeChange(next: RuleGroup) {
+    setInclude(next)
+    triggerPreview(next, exclude)
+  }
+
+  function handleExcludeChange(next: RuleGroup) {
+    setExclude(next)
+    triggerPreview(include, next)
+  }
+
+  function addExclusion() {
+    const g = emptyGroup()
+    setExclude(g)
+    triggerPreview(include, g)
+  }
+
+  function removeExclusion() {
+    setExclude(null)
+    triggerPreview(include, null)
   }
 
   function applyTemplate(tpl: RuleGroup, label: string) {
-    setGroup(cloneTemplate(tpl))
+    const cloned = cloneTemplate(tpl)
+    setInclude(cloned)
     setName((prev) => prev || label)
     setStep("form")
-    triggerPreview(cloneTemplate(tpl))
+    triggerPreview(cloned, null)
   }
 
   function handleSave() {
@@ -92,10 +110,20 @@ export function AudienceBuilder({ pipelineStages, audience, onSaved, onCancel }:
     startSave(async () => {
       try {
         if (isEdit) {
-          await updateAudienceAction(audience.id, { name: name.trim(), description: description.trim() || undefined, rules: group })
+          await updateAudienceAction(audience.id, {
+            name:        name.trim(),
+            description: description.trim() || undefined,
+            include,
+            exclude,
+          })
           toast.success("Público atualizado")
         } else {
-          await createAudienceAction({ name: name.trim(), description: description.trim() || undefined, rules: group })
+          await createAudienceAction({
+            name:        name.trim(),
+            description: description.trim() || undefined,
+            include,
+            exclude,
+          })
           toast.success("Público criado")
         }
         onSaved()
@@ -134,16 +162,12 @@ export function AudienceBuilder({ pipelineStages, audience, onSaved, onCancel }:
         </div>
 
         <div className="flex gap-3 pt-1">
-          <button
-            type="button"
-            onClick={onCancel}
+          <button type="button" onClick={onCancel}
             className="h-9 rounded-xl border border-[var(--border)] px-4 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--surface-muted)] transition-colors"
           >
             Cancelar
           </button>
-          <button
-            type="button"
-            onClick={() => setStep("form")}
+          <button type="button" onClick={() => setStep("form")}
             className="h-9 rounded-xl border border-[var(--border)] px-4 text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-muted)] transition-colors"
           >
             Começar do zero
@@ -182,15 +206,61 @@ export function AudienceBuilder({ pipelineStages, audience, onSaved, onCancel }:
         </div>
       </div>
 
-      {/* Rule group editor */}
-      <RuleGroupEditor
-        group={group}
-        depth={0}
-        pipelineStages={pipelineStages}
-        onChange={handleGroupChange}
-      />
+      {/* ── Inclusion rules ─────────────────────────────────────────────────── */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent-soft)]">
+            <Users size={11} className="text-[var(--accent)]" />
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Incluir quem</p>
+        </div>
+        <RuleGroupEditor
+          group={include}
+          depth={0}
+          pipelineStages={pipelineStages}
+          onChange={handleIncludeChange}
+        />
+      </div>
 
-      {/* Preview — só o número */}
+      {/* ── Exclusion rules ─────────────────────────────────────────────────── */}
+      {exclude ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--danger-soft)]">
+                <ShieldMinus size={11} className="text-[var(--danger)]" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--danger)]">Excluir quem</p>
+            </div>
+            <button
+              type="button"
+              onClick={removeExclusion}
+              className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors"
+            >
+              <X size={12} /> Remover exclusão
+            </button>
+          </div>
+          <div className="rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-soft)]/30 p-3">
+            <RuleGroupEditor
+              group={exclude}
+              depth={0}
+              pipelineStages={pipelineStages}
+              onChange={handleExcludeChange}
+            />
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={addExclusion}
+          className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors rounded-xl border border-dashed border-[var(--border)] hover:border-[var(--danger)]/50 w-full px-4 py-2.5 justify-center"
+        >
+          <ShieldMinus size={13} />
+          Adicionar critérios de exclusão
+        </button>
+      )}
+
+      {/* Preview */}
       <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
         <Users size={15} className="shrink-0 text-[var(--text-muted)]" />
         {isPreviewing ? (
@@ -201,6 +271,9 @@ export function AudienceBuilder({ pipelineStages, audience, onSaved, onCancel }:
           <span className="text-sm text-[var(--text)]">
             <span className="text-xl font-bold">{count.toLocaleString("pt-BR")}</span>
             {" "}lead{count !== 1 ? "s" : ""} corresponde{count !== 1 ? "m" : ""} a este público
+            {exclude && exclude.rules.length > 0 && (
+              <span className="ml-1 text-xs text-[var(--danger)]">(após exclusão)</span>
+            )}
           </span>
         )}
       </div>

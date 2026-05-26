@@ -11,6 +11,11 @@ export type RuleGroup = {
   rules: (Rule | RuleGroup)[]
 }
 
+export type AudienceDefinition = {
+  include: RuleGroup
+  exclude: RuleGroup | null
+}
+
 export function isGroup(r: Rule | RuleGroup): r is RuleGroup {
   return "rules" in r
 }
@@ -21,4 +26,14 @@ export function emptyGroup(): RuleGroup {
 
 export function emptyRule(): Rule {
   return { id: crypto.randomUUID(), field: "status", operator: "eq", value: "NEW" }
+}
+
+/** Lê o JSON do banco e normaliza para o formato com include/exclude.
+ *  Compatível com audiências antigas que armazenavam apenas o RuleGroup direto. */
+export function parseAudienceRules(stored: unknown): AudienceDefinition {
+  if (stored && typeof stored === "object" && "include" in stored) {
+    const s = stored as { include: RuleGroup; exclude?: RuleGroup | null }
+    return { include: s.include, exclude: s.exclude ?? null }
+  }
+  return { include: stored as RuleGroup, exclude: null }
 }

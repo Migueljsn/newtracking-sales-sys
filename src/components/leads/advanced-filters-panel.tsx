@@ -49,7 +49,7 @@ export function AdvancedFiltersPanel({ pipelineStages, matchCount, totalCount, a
     if (!saveName.trim()) { toast.error("Informe um nome para o público"); return; }
     startSave(async () => {
       try {
-        await createAudienceAction({ name: saveName.trim(), rules: group });
+        await createAudienceAction({ name: saveName.trim(), include: group, exclude: null });
         toast.success(`Público "${saveName.trim()}" salvo em Jornadas → Públicos`);
         setShowSave(false);
         setSaveName("");

@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { RuleGroup } from "@/lib/audiences/types";
-import { evaluateGroup } from "@/lib/audiences/evaluate";
+import { RuleGroup, AudienceDefinition } from "@/lib/audiences/types";
+import { evaluateAudience } from "@/lib/audiences/evaluate";
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
@@ -20,9 +20,12 @@ export type PreviewResult = {
   samples: PreviewSample[]
 }
 
-export async function previewAudienceAction(rules: RuleGroup): Promise<PreviewResult> {
-  const session   = await getSession();
-  const clientId  = session.clientId!;
+export async function previewAudienceAction(
+  include: RuleGroup,
+  exclude: RuleGroup | null,
+): Promise<PreviewResult> {
+  const session  = await getSession();
+  const clientId = session.clientId!;
 
   const leads = await prisma.lead.findMany({
     where: { clientId },
@@ -41,20 +44,22 @@ export async function previewAudienceAction(rules: RuleGroup): Promise<PreviewRe
     },
   });
 
+  const def: AudienceDefinition = { include, exclude };
+
   const matched = leads.filter((l) =>
-    evaluateGroup(
+    evaluateAudience(
       {
-        status:         l.status,
-        pipelineStageId:l.pipelineStageId,
-        capturedAt:     l.capturedAt,
-        utmSource:      l.utmSource,
-        utmMedium:      l.utmMedium,
-        utmCampaign:    l.utmCampaign,
-        consultant:     l.consultant,
-        customer:       l.customer,
-        sales:          l.sales.map((s) => ({ value: s.value.toString(), soldAt: s.soldAt })),
+        status:          l.status,
+        pipelineStageId: l.pipelineStageId,
+        capturedAt:      l.capturedAt,
+        utmSource:       l.utmSource,
+        utmMedium:       l.utmMedium,
+        utmCampaign:     l.utmCampaign,
+        consultant:      l.consultant,
+        customer:        l.customer,
+        sales:           l.sales.map((s) => ({ value: s.value.toString(), soldAt: s.soldAt })),
       },
-      rules
+      def,
     )
   );
 
@@ -72,9 +77,10 @@ export async function previewAudienceAction(rules: RuleGroup): Promise<PreviewRe
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function createAudienceAction(data: {
-  name: string
+  name:        string
   description?: string
-  rules: RuleGroup
+  include:     RuleGroup
+  exclude:     RuleGroup | null
 }) {
   const session  = await getSession();
   const clientId = session.clientId!;
@@ -84,17 +90,19 @@ export async function createAudienceAction(data: {
       clientId,
       name:        data.name,
       description: data.description ?? null,
-      rules:       data.rules as object,
+      rules:       { include: data.include, exclude: data.exclude } as object,
     },
   });
 
   revalidatePath("/ltv");
+  revalidatePath("/journeys");
 }
 
 export async function updateAudienceAction(id: string, data: {
-  name: string
+  name:        string
   description?: string
-  rules: RuleGroup
+  include:     RuleGroup
+  exclude:     RuleGroup | null
 }) {
   const session  = await getSession();
   const clientId = session.clientId!;
@@ -104,11 +112,12 @@ export async function updateAudienceAction(id: string, data: {
     data: {
       name:        data.name,
       description: data.description ?? null,
-      rules:       data.rules as object,
+      rules:       { include: data.include, exclude: data.exclude } as object,
     },
   });
 
   revalidatePath("/ltv");
+  revalidatePath("/journeys");
 }
 
 export async function deleteAudienceAction(id: string) {

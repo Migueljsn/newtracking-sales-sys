@@ -1,4 +1,4 @@
-import { Rule, RuleGroup, isGroup } from "./types"
+import { Rule, RuleGroup, AudienceDefinition, isGroup } from "./types"
 
 type Sale = { value: number | string; soldAt: Date }
 type LeadRow = {
@@ -15,6 +15,12 @@ type LeadRow = {
     email: string | null
   } | null
   sales: Sale[]
+}
+
+export function evaluateAudience(lead: LeadRow, def: AudienceDefinition): boolean {
+  if (!evaluateGroup(lead, def.include)) return false
+  if (def.exclude && def.exclude.rules.length > 0 && evaluateGroup(lead, def.exclude)) return false
+  return true
 }
 
 export function evaluateGroup(lead: LeadRow, group: RuleGroup): boolean {

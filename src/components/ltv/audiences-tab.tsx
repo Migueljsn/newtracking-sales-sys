@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Users, Copy, CheckSquare, Square, ExternalLink, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Copy, CheckSquare, Square, ExternalLink, Download, ShieldMinus } from "lucide-react";
 import { toast } from "sonner";
-import { RuleGroup, isGroup } from "@/lib/audiences/types";
+import { RuleGroup, isGroup, parseAudienceRules } from "@/lib/audiences/types";
 import { getFieldDef } from "@/lib/audiences/fields";
 import { AudienceBuilder } from "./audience-builder";
 import {
@@ -20,7 +20,7 @@ type AudienceRow = {
   id:          string
   name:        string
   description: string | null
-  rules:       RuleGroup
+  rules:       RuleGroup   // raw JSON stored — use parseAudienceRules to read
   createdAt:   Date
 }
 
@@ -140,12 +140,13 @@ export function AudiencesTab({ audiences, pipelineStages }: AudiencesTabProps) {
   }
 
   if (typeof view === "object" && "edit" in view) {
+    const def = parseAudienceRules(view.edit.rules)
     return (
       <div className="card p-5 max-w-2xl">
         <h2 className="text-base font-semibold text-[var(--text)] mb-5">Editar público</h2>
         <AudienceBuilder
           pipelineStages={pipelineStages}
-          audience={view.edit}
+          audience={{ ...view.edit, include: def.include, exclude: def.exclude }}
           onSaved={() => setView("list")}
           onCancel={() => setView("list")}
         />
@@ -360,24 +361,37 @@ export function AudiencesTab({ audiences, pipelineStages }: AudiencesTabProps) {
 
 // ─── Rule summary ──────────────────────────────────────────────────────────────
 
-function RuleSummary({ rules, pipelineStages }: { rules: RuleGroup; pipelineStages: PipelineStage[] }) {
-  const flat = rules.rules.filter((r) => !isGroup(r)) as Array<{ id: string; field: string; operator: string; value: string }>
-  if (flat.length === 0) return <p className="text-xs text-[var(--text-muted)] mt-1">Sem filtros — corresponde a todos os leads</p>
-
-  const parts = flat.slice(0, 3).map((r) => {
+function groupSummary(group: RuleGroup, pipelineStages: PipelineStage[]): string {
+  const flat = group.rules.filter((r) => !isGroup(r)) as Array<{ id: string; field: string; operator: string; value: string }>
+  if (flat.length === 0) return "todos"
+  const parts = flat.slice(0, 2).map((r) => {
     const def = getFieldDef(r.field)
     const stageLabel = r.field === "pipelineStageId"
       ? (pipelineStages.find((s) => s.id === r.value)?.name ?? r.value)
       : null
     return `${def?.label ?? r.field} ${r.operator} ${stageLabel ?? r.value}`
   })
+  const connector = group.operator === "AND" ? " · " : " ou "
+  const extra = flat.length > 2 ? ` +${flat.length - 2}` : ""
+  return parts.join(connector) + extra
+}
 
-  const connector = rules.operator === "AND" ? " · " : " ou "
-  const extra = flat.length > 3 ? ` + ${flat.length - 3} mais` : ""
+function RuleSummary({ rules, pipelineStages }: { rules: RuleGroup; pipelineStages: PipelineStage[] }) {
+  const def = parseAudienceRules(rules)
+  const incText = groupSummary(def.include, pipelineStages)
+  const hasExclude = def.exclude && def.exclude.rules.length > 0
 
   return (
-    <p className="text-xs text-[var(--text-muted)] mt-1 truncate">
-      {parts.join(connector)}{extra}
-    </p>
+    <div className="mt-1 space-y-0.5">
+      <p className="text-xs text-[var(--text-muted)] truncate">
+        <span className="font-medium text-[var(--text-muted)]">Incluir:</span> {incText}
+      </p>
+      {hasExclude && (
+        <p className="text-xs text-[var(--danger)] truncate flex items-center gap-1">
+          <ShieldMinus size={10} />
+          <span className="font-medium">Excluir:</span> {groupSummary(def.exclude!, pipelineStages)}
+        </p>
+      )}
+    </div>
   )
 }

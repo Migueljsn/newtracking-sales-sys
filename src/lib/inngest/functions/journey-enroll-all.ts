@@ -1,8 +1,8 @@
 import { inngest }        from "@/lib/inngest/client";
 import { enrollAllEvent, stepEvent } from "@/lib/inngest/events";
 import { prisma }         from "@/lib/db/prisma";
-import { evaluateGroup }  from "@/lib/audiences/evaluate";
-import type { RuleGroup } from "@/lib/audiences/types";
+import { evaluateAudience } from "@/lib/audiences/evaluate";
+import { parseAudienceRules } from "@/lib/audiences/types";
 import type { Node }      from "@xyflow/react";
 
 export const journeyEnrollAll = inngest.createFunction(
@@ -32,7 +32,7 @@ export const journeyEnrollAll = inngest.createFunction(
       prisma.audience.findUniqueOrThrow({ where: { id: audienceId, clientId } })
     );
 
-    const rules = audience.rules as unknown as RuleGroup;
+    const def = parseAudienceRules(audience.rules);
 
     // Buscar leads com dados necessários para avaliar o público
     const leads = await step.run("load-leads", () =>
@@ -45,9 +45,9 @@ export const journeyEnrollAll = inngest.createFunction(
       })
     );
 
-    // Filtrar leads que passam nas regras do público
+    // Filtrar leads que passam nas regras do público (include - exclude)
     const matching = leads.filter((lead) =>
-      evaluateGroup(
+      evaluateAudience(
         {
           status:          lead.status,
           pipelineStageId: lead.pipelineStageId,
@@ -59,7 +59,7 @@ export const journeyEnrollAll = inngest.createFunction(
           customer:        lead.customer,
           sales:           lead.sales.map((s) => ({ value: Number(s.value), soldAt: new Date(s.soldAt as unknown as string) })),
         },
-        rules
+        def,
       )
     );
 

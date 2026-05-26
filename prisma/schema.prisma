@@ -142,9 +142,10 @@ model Customer {
   zipCode   String?
   city      String?
   state     String?           // sigla: SP, RJ...
-  lifecycle CustomerLifecycle @default(NEW_BUYER)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  lifecycle    CustomerLifecycle @default(NEW_BUYER)
+  emailOptOut  Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   leads     Lead[]

@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { prisma } from "@/lib/db/prisma";
 import { buildTemplateVars, renderTemplate } from "./render";
 import { DEFAULT_TEMPLATES } from "./default-templates";
+import { generateUnsubToken, unsubscribeUrl } from "./unsubscribe";
 import { Decimal } from "@prisma/client/runtime/library";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -70,9 +71,10 @@ export async function processLtvEmails() {
       // Clientes cuja última venda foi exatamente nessa janela de dias
       const candidates = await prisma.customer.findMany({
         where: {
-          clientId: config.clientId,
-          email:    { not: null },
-          sales:    { some: { soldAt: { gte: windowStart, lte: windowEnd } } },
+          clientId:    config.clientId,
+          email:       { not: null },
+          emailOptOut: { not: true },
+          sales:       { some: { soldAt: { gte: windowStart, lte: windowEnd } } },
         },
         include: {
           sales: { orderBy: { soldAt: "desc" }, take: 1 },
@@ -123,15 +125,20 @@ export async function processLtvEmails() {
 
         if (!template) continue;
 
-        const subject = renderTemplate(template.subject, vars);
-        const html    = renderTemplate(template.body, vars);
+        const subject   = renderTemplate(template.subject, vars);
+        const html      = renderTemplate(template.body, vars);
+        const unsubLink = unsubscribeUrl(customer.id, config.clientId);
 
         try {
           const { data } = await resend.emails.send({
-            from:    `${config.client.name} via Portal CRM <onboarding@resend.dev>`,
+            from:    `${config.client.name} via Portal CRM <noreply@fonilcompany.com.br>`,
             to:      [customer.email!],
             subject,
             html,
+            headers: {
+              "List-Unsubscribe":      `<${unsubLink}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
           });
 
           await prisma.ltvEmailLog.create({

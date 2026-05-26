@@ -4,6 +4,7 @@ import { stepEvent }      from "@/lib/inngest/events";
 import { prisma }         from "@/lib/db/prisma";
 import { evaluateGroup }  from "@/lib/audiences/evaluate";
 import { isInSendWindow, nextWindowStart } from "@/lib/journeys/send-window";
+import { unsubscribeUrl } from "@/lib/email/unsubscribe";
 import type { SendWindowConfig } from "@/lib/journeys/send-window";
 import type { RuleGroup } from "@/lib/audiences/types";
 import type { Node, Edge } from "@xyflow/react";
@@ -118,7 +119,7 @@ export const journeyProcessStep = inngest.createFunction(
         prisma.lead.findUniqueOrThrow({
           where:   { id: leadId },
           include: {
-            customer: { select: { name: true, phone: true, email: true, state: true, city: true } },
+            customer: { select: { name: true, phone: true, email: true, state: true, city: true, emailOptOut: true } },
             sales:    { select: { value: true, soldAt: true } },
           },
         }),
@@ -205,20 +206,25 @@ export const journeyProcessStep = inngest.createFunction(
           await step.sleepUntil("wait-for-send-window", resumeAt);
         }
 
-        if (d.templateId && lead.customer?.email) {
+        if (d.templateId && lead.customer?.email && !lead.customer?.emailOptOut) {
           await step.run("send-email", async () => {
             const template = await prisma.emailTemplate.findUnique({ where: { id: d.templateId! } });
             if (!template || !lead.customer) return;
 
-            const vars    = buildLeadVars(lead, lead.customer, client.name);
-            const subject = renderTemplate(template.subject, vars);
-            const html    = renderTemplate(template.body,    vars);
+            const vars      = buildLeadVars(lead, lead.customer, client.name);
+            const subject   = renderTemplate(template.subject, vars);
+            const html      = renderTemplate(template.body,    vars);
+            const unsubLink = unsubscribeUrl(lead.customerId, clientId);
 
             const { data, error } = await resend.emails.send({
               from:    `${client.name} via Portal CRM <noreply@fonilcompany.com.br>`,
               to:      [lead.customer.email!],
               subject,
               html,
+              headers: {
+                "List-Unsubscribe":      `<${unsubLink}>`,
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              },
             });
 
             if (error) {
@@ -229,6 +235,8 @@ export const journeyProcessStep = inngest.createFunction(
             return { messageId: data?.id };
           });
           nodeResult = "email_sent";
+        } else if (lead.customer?.emailOptOut) {
+          nodeResult = "email_skipped_optout";
         } else {
           nodeResult = "email_skipped";
         }

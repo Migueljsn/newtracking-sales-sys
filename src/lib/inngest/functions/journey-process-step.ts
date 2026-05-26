@@ -35,21 +35,42 @@ function renderTemplate(
   template: string,
   vars: Record<string, string>
 ): string {
-  return template.replace(/\{(\w+)\}/g, (match, key) => vars[key] ?? match);
+  return template.replace(/\{(\w+)\}|\((\w+)\)/g, (match, key1, key2) => {
+    const key = key1 ?? key2;
+    return vars[key] ?? match;
+  });
 }
 
 function buildLeadVars(
-  lead: { consultant: string | null },
+  lead: { consultant: string | null; sales: { value: unknown; soldAt: unknown }[] },
   customer: { name: string; phone: string; email: string | null },
   clientName: string
 ): Record<string, string> {
+  const sorted  = [...lead.sales].sort((a, b) =>
+    new Date(b.soldAt as string).getTime() - new Date(a.soldAt as string).getTime()
+  );
+  const last      = sorted[0];
+  const daysSince = last
+    ? Math.floor((Date.now() - new Date(last.soldAt as string).getTime()) / 86_400_000)
+    : 0;
+  const totalLtv  = lead.sales.reduce((sum, s) => sum + Number(s.value), 0);
+
   return {
-    nome:          customer.name.split(" ")[0],
-    nome_completo: customer.name,
-    telefone:      customer.phone,
-    email:         customer.email ?? "",
-    consultor:     lead.consultant ?? "",
-    empresa:       clientName,
+    nome:               customer.name.split(" ")[0],
+    nome_completo:      customer.name,
+    telefone:           customer.phone,
+    email:              customer.email ?? "",
+    consultor:          lead.consultant ?? "",
+    empresa:            clientName,
+    dias:               String(daysSince),
+    data_ultima_compra: last
+      ? new Date(last.soldAt as string).toLocaleDateString("pt-BR")
+      : "",
+    valor_ultima_compra: last
+      ? Number(last.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+      : "",
+    total_compras:      String(lead.sales.length),
+    valor_total_ltv:    totalLtv.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
   };
 }
 

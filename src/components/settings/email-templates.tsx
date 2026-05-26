@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, X, Copy, CheckSquare, Square, Mail } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -26,7 +26,29 @@ interface Props { templates: Template[] }
 const VARIABLES = ["{nome}", "{nome_completo}", "{telefone}", "{email}", "{dias}", "{data_ultima_compra}", "{valor_ultima_compra}", "{total_compras}", "{valor_total_ltv}", "{empresa}"];
 
 function TemplateModal({ template, onClose }: { template: Partial<Template> | null; onClose: () => void }) {
-  const [loading, setLoading] = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [subject,     setSubject]     = useState(template?.subject ?? "");
+  const [body,        setBody]        = useState(template?.body    ?? "");
+  const [lastFocused, setLastFocused] = useState<"subject" | "body">("body");
+  const subjectRef = useRef<HTMLInputElement>(null);
+  const bodyRef    = useRef<HTMLTextAreaElement>(null);
+
+  function insertVariable(v: string) {
+    const isSubject = lastFocused === "subject";
+    const el        = isSubject ? subjectRef.current : bodyRef.current;
+    if (!el) return;
+    const start  = el.selectionStart ?? (isSubject ? subject : body).length;
+    const end    = el.selectionEnd   ?? start;
+    if (isSubject) {
+      setSubject(subject.slice(0, start) + v + subject.slice(end));
+    } else {
+      setBody(body.slice(0, start) + v + body.slice(end));
+    }
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + v.length, start + v.length);
+    }, 0);
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,15 +86,27 @@ function TemplateModal({ template, onClose }: { template: Partial<Template> | nu
 
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Assunto (subject)</label>
-            <input name="subject" defaultValue={template?.subject ?? ""} required className="input w-full" placeholder="Ex: {nome}, temos uma oferta especial para você!" />
+            <input
+              ref={subjectRef}
+              name="subject"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              onFocus={() => setLastFocused("subject")}
+              required
+              className="input w-full"
+              placeholder="Ex: {nome}, temos uma oferta especial para você!"
+            />
             <p className="text-xs text-[var(--text-muted)] mt-1">O assunto é o fator mais importante para taxa de abertura.</p>
           </div>
 
           <div>
             <label className="text-xs font-medium text-[var(--text-muted)]">Corpo do email (HTML)</label>
             <textarea
+              ref={bodyRef}
               name="body"
-              defaultValue={template?.body ?? ""}
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              onFocus={() => setLastFocused("body")}
               required
               rows={10}
               className="input w-full font-mono text-xs mt-1"
@@ -81,12 +115,19 @@ function TemplateModal({ template, onClose }: { template: Partial<Template> | nu
           </div>
 
           <div>
-            <p className="text-xs font-medium text-[var(--text-muted)] mb-2">Variáveis disponíveis:</p>
+            <p className="text-xs font-medium text-[var(--text-muted)] mb-2">
+              Variáveis disponíveis — clique para inserir no campo em foco:
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {VARIABLES.map(v => (
-                <code key={v} className="rounded bg-[var(--surface-muted)] border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text)]">
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => insertVariable(v)}
+                  className="rounded bg-[var(--surface-muted)] border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--accent)] font-mono hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors cursor-pointer"
+                >
                   {v}
-                </code>
+                </button>
               ))}
             </div>
           </div>

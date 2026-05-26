@@ -54,7 +54,8 @@ export function buildTemplateVars(opts: {
 }
 
 export function renderTemplate(template: string, vars: TemplateVars): string {
-  return template.replace(/\{(\w+)\}/g, (match, key) => {
+  return template.replace(/\{(\w+)\}|\((\w+)\)/g, (match, key1, key2) => {
+    const key   = key1 ?? key2;
     const value = vars[key as keyof TemplateVars];
     return value !== undefined ? String(value) : match;
   });

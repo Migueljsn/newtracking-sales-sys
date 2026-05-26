@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { RuleGroup } from "@/lib/audiences/types";
-import { evaluateGroup } from "@/lib/audiences/evaluate";
+import { parseAudienceRules } from "@/lib/audiences/types";
+import { evaluateAudience } from "@/lib/audiences/evaluate";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const { id }   = await params;
 
     const audience = await prisma.audience.findUniqueOrThrow({ where: { id, clientId } });
-    const rules    = audience.rules as RuleGroup;
+    const def      = parseAudienceRules(audience.rules);
 
     const leads = await prisma.lead.findMany({
       where: { clientId },
@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     const matched = leads.filter((l) =>
-      evaluateGroup(
+      evaluateAudience(
         {
           status:          l.status,
           pipelineStageId: l.pipelineStageId,
@@ -39,7 +39,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             : null,
           sales: l.sales.map((s) => ({ value: s.value.toString(), soldAt: s.soldAt })),
         },
-        rules
+        def
       )
     );
 

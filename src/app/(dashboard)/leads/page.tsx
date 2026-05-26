@@ -8,8 +8,8 @@ import Link from "next/link";
 import { Upload } from "lucide-react";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { CreateLeadModal } from "@/components/leads/create-lead-modal";
-import { RuleGroup } from "@/lib/audiences/types";
-import { evaluateGroup } from "@/lib/audiences/evaluate";
+import { parseAudienceRules } from "@/lib/audiences/types";
+import { evaluateAudience } from "@/lib/audiences/evaluate";
 
 export default async function LeadsPage({
   searchParams,
@@ -44,7 +44,7 @@ export default async function LeadsPage({
   if (audienceId) {
     const audience = await prisma.audience.findUnique({ where: { id: audienceId, clientId } });
     if (audience) {
-      const rules = audience.rules as RuleGroup;
+      const def   = parseAudienceRules(audience.rules);
       const leads = await prisma.lead.findMany({
         where:  { clientId },
         select: {
@@ -63,7 +63,7 @@ export default async function LeadsPage({
 
       const matchedIds = leads
         .filter((l) =>
-          evaluateGroup(
+          evaluateAudience(
             {
               status:          l.status,
               pipelineStageId: l.pipelineStageId,
@@ -75,7 +75,7 @@ export default async function LeadsPage({
               customer:        l.customer,
               sales:           l.sales.map((s) => ({ value: s.value.toString(), soldAt: s.soldAt })),
             },
-            rules
+            def
           )
         )
         .map((l) => l.id);

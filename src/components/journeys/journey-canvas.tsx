@@ -13,7 +13,7 @@ import {
   Zap, Clock, GitBranch, Mail, MessageCircle,
   ArrowRightLeft, UserCheck, Square, Save, Loader2,
   Play, Pause, ChevronLeft, Copy, Trash2,
-  RotateCcw, RotateCw,
+  RotateCcw, RotateCw, Pencil, Check, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -69,6 +69,12 @@ export function JourneyCanvas({
   const [selectedNode, setSelectedNode]  = useState<Node | null>(null);
   const [isSaving,  startSave]    = useTransition();
   const [isPublish, startPublish] = useTransition();
+  const [isRename,  startRename]  = useTransition();
+
+  const [name,        setName]        = useState(journeyName);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput,   setNameInput]   = useState(journeyName);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Context menu
   const [contextMenu,      setContextMenu]      = useState<ContextMenu | null>(null);
@@ -247,6 +253,37 @@ export function JourneyCanvas({
     closeContextMenu();
   }, []);
 
+  function startEditName() {
+    setNameInput(name);
+    setEditingName(true);
+    setTimeout(() => { nameInputRef.current?.select(); }, 0);
+  }
+
+  function cancelEditName() {
+    setEditingName(false);
+    setNameInput(name);
+  }
+
+  function commitName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === name) { cancelEditName(); return; }
+    setEditingName(false);
+    setName(trimmed);
+    startRename(async () => {
+      try {
+        await updateJourneyAction(journeyId, { name: trimmed });
+      } catch {
+        setName(name);
+        toast.error("Erro ao renomear jornada");
+      }
+    });
+  }
+
+  function handleNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter")  { e.preventDefault(); commitName(); }
+    if (e.key === "Escape") { e.preventDefault(); cancelEditName(); }
+  }
+
   const isActive = journeyStatus === "ACTIVE";
 
   return (
@@ -259,7 +296,46 @@ export function JourneyCanvas({
           Jornadas
         </Link>
         <span className="text-[var(--border)]">/</span>
-        <span className="text-sm font-medium text-[var(--text)] truncate max-w-xs">{journeyName}</span>
+
+        {/* Inline journey name edit */}
+        {editingName ? (
+          <div className="flex items-center gap-1">
+            <input
+              ref={nameInputRef}
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={handleNameKeyDown}
+              onBlur={commitName}
+              className="h-7 rounded-lg border border-[var(--accent)] bg-[var(--surface)] px-2 text-sm font-medium text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] min-w-0 w-48"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); commitName(); }}
+              className="text-[#10b981] hover:text-[#059669] p-0.5"
+              title="Confirmar"
+            >
+              <Check size={14} />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); cancelEditName(); }}
+              className="text-[var(--text-muted)] hover:text-[var(--danger)] p-0.5"
+              title="Cancelar"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={startEditName}
+            className="group flex items-center gap-1.5 text-sm font-medium text-[var(--text)] hover:text-[var(--accent)] transition-colors truncate max-w-xs"
+            title="Clique para renomear"
+          >
+            <span className="truncate">{name}</span>
+            <Pencil size={12} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+        )}
 
         <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
           isActive

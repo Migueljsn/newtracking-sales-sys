@@ -6,6 +6,7 @@ import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { updateSaleAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { Spinner } from "@/components/ui/spinner";
 
 interface SaleItem {
   id:       string;
@@ -176,7 +177,8 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 btn-primary">
+                <button type="submit" disabled={loading} className="flex-1 btn-primary flex items-center justify-center gap-2">
+                  {loading && <Spinner size={14} />}
                   {loading ? "Salvando..." : "Salvar alterações"}
                 </button>
               </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { saveLtvEmailConfigAction } from "@/app/(dashboard)/settings/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 type Threshold = { days: number; templateId: string | null; enabled: boolean };
 
@@ -152,7 +153,8 @@ export function LtvEmailConfig({ config, templates }: Props) {
         </p>
       </div>
 
-      <button type="submit" disabled={loading} className="btn-primary px-6 py-2">
+      <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 px-6 py-2">
+        {loading && <Spinner size={14} />}
         {loading ? "Salvando..." : "Salvar configurações de email"}
       </button>
     </form>

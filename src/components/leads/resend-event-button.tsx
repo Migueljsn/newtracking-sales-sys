@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
 import { resendPurchaseEventAction } from "@/app/(dashboard)/leads/[id]/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   saleId:          string;
@@ -48,7 +49,7 @@ export function ResendEventButton({ saleId, hasSuccessEvent }: Props) {
           : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
       } disabled:opacity-40`}
     >
-      <Send size={13} />
+      {loading ? <Spinner size={13} /> : <Send size={13} />}
     </button>
   );
 }

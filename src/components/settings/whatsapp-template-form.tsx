@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { MessageCircle } from "lucide-react";
 import { saveWhatsappTemplateAction } from "@/app/(dashboard)/settings/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 const DEFAULT_TEMPLATE =
   "Olá {nome}! Aqui é da equipe do {estado}. Vi que você demonstrou interesse nos nossos produtos e tenho uma condição especial disponível por tempo limitado. Posso te passar os detalhes agora?";
@@ -51,7 +52,8 @@ export function WhatsappTemplateForm({ currentTemplate }: Props) {
           className="input w-full resize-none text-sm"
           placeholder={DEFAULT_TEMPLATE}
         />
-        <button type="submit" disabled={loading} className="btn-primary px-4 py-2 text-sm disabled:opacity-50">
+        <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+          {loading && <Spinner size={14} />}
           {loading ? "Salvando..." : "Salvar mensagem"}
         </button>
       </form>

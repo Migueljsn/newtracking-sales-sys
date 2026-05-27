@@ -9,6 +9,7 @@ import {
   CheckSquare, UserCheck, ChevronDown, Trash2, AlertTriangle,
   DollarSign, Plus, Minus, ArrowUp, ArrowDown, ChevronsUpDown,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
@@ -1113,9 +1114,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     } catch { toast.error("Erro ao atualizar leads."); }
                     finally { setBulkLoading(false); }
                   }}
-                  className="rounded-xl bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  {bulkLoading ? "..." : "Confirmar"}
+                  {bulkLoading && <Spinner size={12} />}
+                  {bulkLoading ? "Processando..." : "Confirmar"}
                 </button>
                 <button onClick={() => setBulkStep("idle")} className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
@@ -1142,9 +1144,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     } catch { toast.error("Erro ao atualizar etapa."); }
                     finally { setBulkLoading(false); }
                   }}
-                  className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  className="shrink-0 flex items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  {bulkLoading ? "..." : "Aplicar"}
+                  {bulkLoading && <Spinner size={12} />}
+                  {bulkLoading ? "Processando..." : "Aplicar"}
                 </button>
                 <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
@@ -1177,9 +1180,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     } catch { toast.error("Erro ao excluir leads."); }
                     finally { setBulkLoading(false); }
                   }}
-                  className="shrink-0 rounded-xl bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  className="shrink-0 flex items-center gap-1.5 rounded-xl bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  {bulkLoading ? "..." : "Excluir definitivamente"}
+                  {bulkLoading && <Spinner size={12} />}
+                  {bulkLoading ? "Excluindo..." : "Excluir definitivamente"}
                 </button>
                 <button onClick={() => setBulkStep("confirm-delete-1")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
@@ -1206,9 +1210,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     } catch { toast.error("Erro ao atualizar consultor."); }
                     finally { setBulkLoading(false); }
                   }}
-                  className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  className="shrink-0 flex items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  {bulkLoading ? "..." : "Aplicar"}
+                  {bulkLoading && <Spinner size={12} />}
+                  {bulkLoading ? "Processando..." : "Aplicar"}
                 </button>
                 <button onClick={() => setBulkStep("idle")} className="shrink-0 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">Voltar</button>
               </>
@@ -1353,9 +1358,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                   <button
                     onClick={handleRegisterSale}
                     disabled={saleLoading || !saleValue}
-                    className="flex-1 h-10 rounded-xl bg-[var(--success)] text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    className="flex-1 h-10 rounded-xl bg-[var(--success)] text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
                   >
-                    {saleLoading ? <Loader2 size={15} className="mx-auto animate-spin" /> : "Registrar venda"}
+                    {saleLoading && <Spinner size={15} />}
+                    {saleLoading ? "Salvando..." : "Registrar venda"}
                   </button>
                 </div>
               </div>

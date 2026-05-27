@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Plus, X, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { createClientAction } from "@/app/admin/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 export function CreateClientModal() {
   const [open,     setOpen]         = useState(false);
@@ -93,7 +94,8 @@ export function CreateClientModal() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" disabled={pending} className="btn btn-primary flex-1">
+                <button type="submit" disabled={pending} className="btn btn-primary flex-1 flex items-center justify-center gap-2">
+                  {pending && <Spinner size={14} />}
                   {pending ? "Criando..." : "Criar cliente"}
                 </button>
               </div>

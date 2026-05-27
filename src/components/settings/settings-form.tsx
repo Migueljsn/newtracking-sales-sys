@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Copy, Eye, EyeOff, RefreshCw, Check } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { saveGoogleSettingsAction, disconnectGoogleAdsAction } from "@/app/(dashboard)/settings/actions";
 import { saveSettingsAction, rotateLeadCaptureKeyAction } from "@/app/(dashboard)/settings/actions";
 
@@ -210,8 +211,9 @@ export function SettingsForm({ settings, googleStatus, leadCaptureKey }: Props) 
         <button
           type="submit"
           disabled={loading}
-          className="btn-primary px-6 py-2"
+          className="btn-primary flex items-center gap-2 px-6 py-2"
         >
+          {loading && <Spinner size={14} />}
           {loading ? "Salvando..." : "Salvar configurações"}
         </button>
       </form>
@@ -310,8 +312,9 @@ export function SettingsForm({ settings, googleStatus, leadCaptureKey }: Props) 
         <button
           type="submit"
           disabled={googleLoading}
-          className="btn-primary px-6 py-2"
+          className="btn-primary flex items-center gap-2 px-6 py-2"
         >
+          {googleLoading && <Spinner size={14} />}
           {googleLoading ? "Salvando..." : "Salvar configurações Google Ads"}
         </button>
       </form>

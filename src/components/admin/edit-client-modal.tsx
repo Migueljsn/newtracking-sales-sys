@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { updateClientAction } from "@/app/admin/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   client: {
@@ -100,7 +101,8 @@ export function EditClientModal({ client }: Props) {
                 <button type="button" onClick={() => setOpen(false)} className="btn btn-ghost flex-1">
                   Cancelar
                 </button>
-                <button type="submit" disabled={pending} className="btn btn-primary flex-1">
+                <button type="submit" disabled={pending} className="btn btn-primary flex-1 flex items-center justify-center gap-2">
+                  {pending && <Spinner size={14} />}
                   {pending ? "Salvando..." : "Salvar"}
                 </button>
               </div>

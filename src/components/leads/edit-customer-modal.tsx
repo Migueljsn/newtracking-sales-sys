@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { updateCustomerAction } from "@/app/(dashboard)/leads/[id]/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
@@ -160,7 +161,8 @@ export function EditCustomerModal({ leadId, customer }: Props) {
 
               <div className="col-span-2 flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 btn-primary">
+                <button type="submit" disabled={loading} className="flex-1 btn-primary flex items-center justify-center gap-2">
+                  {loading && <Spinner size={14} />}
                   {loading ? "Salvando..." : "Salvar alterações"}
                 </button>
               </div>

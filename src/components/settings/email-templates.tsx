@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, X, Copy, CheckSquare, Square, Mail } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { createPortal } from "react-dom";
 import {
   saveEmailTemplateAction,
@@ -134,7 +135,8 @@ function TemplateModal({ template, onClose }: { template: Partial<Template> | nu
 
           <div className="flex gap-2 justify-end pt-2">
             <button type="button" onClick={onClose} className="btn-secondary px-4 py-2 text-sm">Cancelar</button>
-            <button type="submit" disabled={loading} className="btn-primary px-4 py-2 text-sm">
+            <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm">
+              {loading && <Spinner size={14} />}
               {loading ? "Salvando..." : "Salvar template"}
             </button>
           </div>
@@ -299,7 +301,7 @@ export function EmailTemplates({ templates }: Props) {
                 : "border border-[var(--accent)] text-[var(--accent)] hover:bg-white/20"
             }`}
           >
-            <Copy size={13} />
+            {bulkDuplicating ? <Spinner size={13} /> : <Copy size={13} />}
             {confirmBulkDup ? "Confirmar duplicação" : "Duplicar selecionados"}
           </button>
           <button
@@ -312,7 +314,7 @@ export function EmailTemplates({ templates }: Props) {
                 : "border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger-soft)]"
             }`}
           >
-            <Trash2 size={13} />
+            {bulkDeleting ? <Spinner size={13} /> : <Trash2 size={13} />}
             {confirmBulkDel ? "Confirmar exclusão" : "Excluir selecionados"}
           </button>
           <button
@@ -396,7 +398,7 @@ export function EmailTemplates({ templates }: Props) {
                       }`}
                       title={isDupMe ? "Clique novamente para confirmar" : "Duplicar"}
                     >
-                      <Copy size={13} />
+                      {duplicating ? <Spinner size={13} /> : <Copy size={13} />}
                     </button>
 
                     {/* Delete — 2 cliques */}
@@ -410,7 +412,7 @@ export function EmailTemplates({ templates }: Props) {
                       }`}
                       title={isDeletingMe ? "Clique novamente para confirmar" : "Excluir"}
                     >
-                      <Trash2 size={13} />
+                      {deleting ? <Spinner size={13} /> : <Trash2 size={13} />}
                     </button>
                   </>
                 )}

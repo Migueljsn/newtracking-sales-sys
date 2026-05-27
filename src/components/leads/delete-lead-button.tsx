@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteLeadAction } from "@/app/(dashboard)/leads/[id]/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   leadId:  string;
@@ -38,8 +39,9 @@ export function DeleteLeadButton({ leadId, hasSale }: Props) {
         <button
           onClick={handleDelete}
           disabled={loading}
-          className="flex h-8 items-center rounded-xl bg-[var(--danger)] px-3 text-xs font-medium text-white disabled:opacity-60"
+          className="flex h-8 items-center gap-1.5 rounded-xl bg-[var(--danger)] px-3 text-xs font-medium text-white disabled:opacity-60"
         >
+          {loading && <Spinner size={12} />}
           {loading ? "Excluindo..." : "Sim, excluir"}
         </button>
         <button

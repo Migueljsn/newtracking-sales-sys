@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { updateLeadAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { ConsultantSelect } from "@/components/leads/consultant-select";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   leadId:      string;
@@ -107,7 +108,8 @@ export function EditLeadModal({ leadId, consultant, notes, utmSource, utmMedium,
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 btn-primary">
+                <button type="submit" disabled={loading} className="flex-1 btn-primary flex items-center justify-center gap-2">
+                  {loading && <Spinner size={14} />}
                   {loading ? "Salvando..." : "Salvar alterações"}
                 </button>
               </div>

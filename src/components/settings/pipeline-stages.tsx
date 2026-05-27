@@ -6,6 +6,7 @@ import {
   Plus, Pencil, Trash2, Check, X, ChevronUp, ChevronDown,
   ChevronRight, ListChecks, GripVertical,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   createPipelineStageAction,
   updatePipelineStageAction,
@@ -234,7 +235,7 @@ export function PipelineStages({ stages: initial }: Props) {
                     className="input flex-1 text-sm py-1.5" placeholder="Nome da etapa" autoFocus />
                   <button onClick={() => handleUpdate(stage)} disabled={loading}
                     className="flex items-center gap-1 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                    <Check size={12} /> Salvar
+                    {loading ? <Spinner size={12} /> : <Check size={12} />} Salvar
                   </button>
                   <button onClick={cancelEdit}
                     className="flex items-center gap-1 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">
@@ -280,7 +281,8 @@ export function PipelineStages({ stages: initial }: Props) {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-[var(--danger)]">Confirmar?</span>
                       <button onClick={() => handleDelete(stage.id)} disabled={loading}
-                        className="rounded-xl bg-[var(--danger)] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Sim</button>
+                        className="flex items-center gap-1 rounded-xl bg-[var(--danger)] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                        {loading && <Spinner size={12} />}Sim</button>
                       <button onClick={() => setDeletingId(null)}
                         className="rounded-xl border border-[var(--border)] px-2.5 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)]">Não</button>
                     </div>
@@ -335,7 +337,7 @@ export function PipelineStages({ stages: initial }: Props) {
                                 autoFocus />
                               <button onClick={() => handleUpdateReq(req.id, stage.id)} disabled={reqLoading}
                                 className="flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50">
-                                <Check size={11} />
+                                {reqLoading ? <Spinner size={11} /> : <Check size={11} />}
                               </button>
                               <button onClick={() => setReqEditingId(null)}
                                 className="flex items-center rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text)]">
@@ -351,7 +353,7 @@ export function PipelineStages({ stages: initial }: Props) {
                               </button>
                               <button onClick={() => handleDeleteReq(req.id, stage.id)} disabled={reqLoading}
                                 className="flex items-center rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors">
-                                <Trash2 size={11} />
+                                {reqLoading ? <Spinner size={11} /> : <Trash2 size={11} />}
                               </button>
                             </>
                           )}
@@ -375,7 +377,7 @@ export function PipelineStages({ stages: initial }: Props) {
                       />
                       <button onClick={() => handleAddReq(stage.id)} disabled={reqLoading}
                         className="flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50">
-                        <Check size={11} /> Salvar
+                        {reqLoading ? <Spinner size={11} /> : <Check size={11} />} Salvar
                       </button>
                       <button onClick={() => { setReqAdding((p) => ({ ...p, [stage.id]: false })); setReqNewText((p) => ({ ...p, [stage.id]: "" })); }}
                         className="flex items-center rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text)]">
@@ -405,7 +407,7 @@ export function PipelineStages({ stages: initial }: Props) {
             onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") { setAdding(false); setNewName(""); } }} />
           <button onClick={handleAdd} disabled={loading}
             className="flex items-center gap-1 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-            <Check size={12} /> Criar
+            {loading ? <Spinner size={12} /> : <Check size={12} />} Criar
           </button>
           <button onClick={() => { setAdding(false); setNewName(""); }}
             className="flex items-center gap-1 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]">

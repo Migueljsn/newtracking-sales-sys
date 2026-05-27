@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Globe, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { addAuthorizedDomainAction, deleteAuthorizedDomainAction } from "@/app/(dashboard)/settings/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Domain {
   id:        string;
@@ -77,8 +78,9 @@ export function AuthorizedDomains({ domains }: Props) {
                   <button
                     onClick={() => handleDelete(d.id)}
                     disabled={pending}
-                    className="flex h-7 items-center rounded-xl bg-[var(--danger)] px-3 text-xs font-medium text-white disabled:opacity-60"
+                    className="flex h-7 items-center gap-1.5 rounded-xl bg-[var(--danger)] px-3 text-xs font-medium text-white disabled:opacity-60"
                   >
+                    {pending && <Spinner size={12} />}
                     Sim
                   </button>
                   <button
@@ -95,7 +97,7 @@ export function AuthorizedDomains({ domains }: Props) {
                   disabled={pending}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
                 >
-                  <Trash2 size={14} />
+                  {pending ? <Spinner size={14} /> : <Trash2 size={14} />}
                 </button>
               )}
             </li>
@@ -129,7 +131,7 @@ export function AuthorizedDomains({ domains }: Props) {
           disabled={pending}
           className="btn-primary flex items-center gap-2 justify-center"
         >
-          <Plus size={15} />
+          {pending ? <Spinner size={15} /> : <Plus size={15} />}
           Adicionar
         </button>
       </form>

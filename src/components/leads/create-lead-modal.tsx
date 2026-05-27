@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createLeadAction } from "@/app/(dashboard)/leads/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { ConsultantSelect } from "@/components/leads/consultant-select";
+import { Spinner } from "@/components/ui/spinner";
 
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
@@ -355,7 +356,8 @@ export function CreateLeadModal() {
                 <button type="button" onClick={handleClose} className="flex-1 btn-secondary">
                   Cancelar
                 </button>
-                <button type="submit" disabled={loading} className="flex-1 btn-primary">
+                <button type="submit" disabled={loading} className="flex-1 btn-primary flex items-center justify-center gap-2">
+                  {loading && <Spinner size={14} />}
                   {loading
                     ? "Salvando..."
                     : sellNow

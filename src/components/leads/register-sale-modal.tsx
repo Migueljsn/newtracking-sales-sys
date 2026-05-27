@@ -5,6 +5,7 @@ import { X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { registerSaleAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   leadId:           string;
@@ -200,7 +201,8 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
                 <button type="button" onClick={() => setOpen(false)} className="flex-1 btn-secondary">
                   Cancelar
                 </button>
-                <button type="submit" disabled={loading} className="flex-1 btn-primary">
+                <button type="submit" disabled={loading} className="flex-1 btn-primary flex items-center justify-center gap-2">
+                  {loading && <Spinner size={14} />}
                   {loading ? "Salvando..." : "Confirmar venda"}
                 </button>
               </div>

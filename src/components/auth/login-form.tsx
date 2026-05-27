@@ -5,6 +5,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -75,8 +76,9 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="btn-primary w-full"
+        className="btn-primary w-full flex items-center justify-center gap-2"
       >
+        {loading && <Spinner size={14} />}
         {loading ? "Entrando..." : "Entrar"}
       </button>
     </form>

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { deleteClientAction } from "@/app/admin/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   client: { id: string; name: string };
@@ -70,8 +71,9 @@ export function DeleteClientButton({ client }: Props) {
                 type="button"
                 disabled={pending}
                 onClick={handleDelete}
-                className="btn flex-1 bg-[var(--danger)] text-white hover:opacity-90 disabled:opacity-50"
+                className="btn flex-1 bg-[var(--danger)] text-white hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
               >
+                {pending && <Spinner size={14} />}
                 {pending ? "Excluindo..." : "Excluir"}
               </button>
             </div>

@@ -154,20 +154,47 @@ export function NodeConfigPanel({
         {/* ── Trigger ── */}
         {type === "trigger" && (() => {
           const d = data as unknown as TriggerData;
+          const selectedIds: string[] = d.audienceIds ?? [];
+
+          function toggleAudience(id: string, name: string) {
+            const already = selectedIds.includes(id);
+            const nextIds   = already ? selectedIds.filter((x) => x !== id) : [...selectedIds, id];
+            const nextNames = nextIds.map((i) => audiences.find((a) => a.id === i)?.name ?? name).filter(Boolean);
+            onUpdate(node.id, { ...data, audienceIds: nextIds, audienceNames: nextNames });
+          }
+
           return (
-            <div>
-              <label className={labelClass}>Público de entrada</label>
-              <select
-                value={d.audienceId ?? ""}
-                onChange={(e) => {
-                  const aud = audiences.find((a) => a.id === e.target.value);
-                  onUpdate(node.id, { ...data, audienceId: aud?.id ?? null, audienceName: aud?.name ?? null });
-                }}
-                className={selectClass}
-              >
-                <option value="">Selecione um público…</option>
-                {audiences.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+            <div className="space-y-2">
+              <label className={labelClass}>Públicos de entrada</label>
+              {audiences.length === 0 && (
+                <p className="text-xs text-[var(--text-muted)]">Nenhum público criado ainda.</p>
+              )}
+              {audiences.map((a) => {
+                const checked = selectedIds.includes(a.id);
+                return (
+                  <label
+                    key={a.id}
+                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 cursor-pointer transition-colors ${
+                      checked
+                        ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                        : "border-[var(--border)] hover:border-[var(--accent)]/50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleAudience(a.id, a.name)}
+                      className="accent-[var(--accent)] w-3.5 h-3.5 shrink-0"
+                    />
+                    <span className="text-sm text-[var(--text)] truncate">{a.name}</span>
+                  </label>
+                );
+              })}
+              {selectedIds.length > 0 && (
+                <p className="text-xs text-[var(--text-muted)] bg-[var(--surface-muted)] rounded-lg p-2">
+                  Lead entra se pertencer a <span className="font-medium text-[var(--text)]">qualquer</span> dos públicos selecionados.
+                </p>
+              )}
             </div>
           );
         })()}

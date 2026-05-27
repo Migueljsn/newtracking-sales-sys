@@ -11,12 +11,16 @@ import { FIELD_DEFS } from "@/lib/audiences/fields";
 
 export function TriggerNode({ data, selected }: NodeProps) {
   const d = data as unknown as TriggerData;
+  const names = d.audienceNames?.length ? d.audienceNames : null;
+  const summary = names
+    ? names.length === 1 ? names[0] : `${names.length} públicos`
+    : "Nenhum público selecionado";
   return (
     <BaseNode
       label="Gatilho"
       color="#6366f1"
       icon={<Zap size={13} />}
-      summary={d.audienceName ?? "Nenhum público selecionado"}
+      summary={summary}
       selected={!!selected}
       hasInput={false}
     />

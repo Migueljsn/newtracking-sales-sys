@@ -1,8 +1,8 @@
 // ─── Node data types ──────────────────────────────────────────────────────────
 
 export type TriggerData = {
-  audienceId:   string | null
-  audienceName: string | null
+  audienceIds:   string[]
+  audienceNames: string[]
 }
 
 export type WaitData = {
@@ -72,7 +72,7 @@ export const NODE_DEFS: NodeDef[] = [
     label:       "Gatilho",
     description: "Público de entrada da jornada",
     color:       "#6366f1",
-    defaultData: { audienceId: null, audienceName: null },
+    defaultData: { audienceIds: [], audienceNames: [] },
   },
   {
     type:        "wait",

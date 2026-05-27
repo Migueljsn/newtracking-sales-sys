@@ -128,15 +128,10 @@ export function JourneyCanvas({
 
   // ── Node operations ───────────────────────────────────────────────────────
 
-  const MAX_TRIGGERS = 3;
-
   function addNode(type: NodeType) {
-    if (type === "trigger") {
-      const triggerCount = nodes.filter((n) => n.type === "trigger").length;
-      if (triggerCount >= MAX_TRIGGERS) {
-        toast.error(`Máximo de ${MAX_TRIGGERS} gatilhos por jornada`);
-        return;
-      }
+    if (type === "trigger" && nodes.some((n) => n.type === "trigger")) {
+      toast.error("Cada jornada pode ter apenas 1 gatilho. Para múltiplos públicos, selecione-os dentro do nó de gatilho.");
+      return;
     }
     pushUndo();
     const def = NODE_DEFS.find((d) => d.type === type)!;

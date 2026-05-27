@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Node } from "@xyflow/react";
-import { X, Trash2, Copy, Eye, EyeOff } from "lucide-react";
+import { X, Trash2, Copy, Eye, EyeOff, Plus } from "lucide-react";
 import {
   TriggerData, WaitData, ConditionData, EmailData,
   WhatsAppData, ChangeStatusData, AssignData, NodeType,
@@ -156,12 +156,24 @@ export function NodeConfigPanel({
           const d = data as unknown as TriggerData;
           const selectedIds: string[] = d.audienceIds ?? [];
 
-          function toggleAudience(id: string, name: string) {
-            const already = selectedIds.includes(id);
-            const nextIds   = already ? selectedIds.filter((x) => x !== id) : [...selectedIds, id];
-            const nextNames = nextIds.map((i) => audiences.find((a) => a.id === i)?.name ?? name).filter(Boolean);
+          function setRow(index: number, id: string) {
+            const nextIds = [...selectedIds];
+            nextIds[index] = id;
+            const nextNames = nextIds.map((i) => audiences.find((a) => a.id === i)?.name ?? "");
             onUpdate(node.id, { ...data, audienceIds: nextIds, audienceNames: nextNames });
           }
+
+          function removeRow(index: number) {
+            const nextIds   = selectedIds.filter((_, i) => i !== index);
+            const nextNames = nextIds.map((i) => audiences.find((a) => a.id === i)?.name ?? "");
+            onUpdate(node.id, { ...data, audienceIds: nextIds, audienceNames: nextNames });
+          }
+
+          function addRow() {
+            onUpdate(node.id, { ...data, audienceIds: [...selectedIds, ""], audienceNames: [...(d.audienceNames ?? []), ""] });
+          }
+
+          const rows = selectedIds.length > 0 ? selectedIds : [""];
 
           return (
             <div className="space-y-2">
@@ -169,28 +181,47 @@ export function NodeConfigPanel({
               {audiences.length === 0 && (
                 <p className="text-xs text-[var(--text-muted)]">Nenhum público criado ainda.</p>
               )}
-              {audiences.map((a) => {
-                const checked = selectedIds.includes(a.id);
+              {rows.map((id, index) => {
+                const takenIds = selectedIds.filter((_, i) => i !== index);
+                const available = audiences.filter((a) => !takenIds.includes(a.id));
                 return (
-                  <label
-                    key={a.id}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 cursor-pointer transition-colors ${
-                      checked
-                        ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                        : "border-[var(--border)] hover:border-[var(--accent)]/50"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleAudience(a.id, a.name)}
-                      className="accent-[var(--accent)] w-3.5 h-3.5 shrink-0"
-                    />
-                    <span className="text-sm text-[var(--text)] truncate">{a.name}</span>
-                  </label>
+                  <div key={index} className="flex items-center gap-1.5">
+                    <select
+                      value={id}
+                      onChange={(e) => setRow(index, e.target.value)}
+                      className={selectClass + " flex-1"}
+                    >
+                      <option value="">Selecione um público…</option>
+                      {available.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                    {rows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRow(index)}
+                        className="shrink-0 text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors p-1"
+                        title="Remover"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
-              {selectedIds.length > 0 && (
+
+              {rows.length < audiences.length && (
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="flex items-center gap-1.5 text-xs font-medium text-[var(--accent)] hover:underline mt-1"
+                >
+                  <Plus size={12} />
+                  Adicionar público
+                </button>
+              )}
+
+              {selectedIds.filter(Boolean).length > 1 && (
                 <p className="text-xs text-[var(--text-muted)] bg-[var(--surface-muted)] rounded-lg p-2">
                   Lead entra se pertencer a <span className="font-medium text-[var(--text)]">qualquer</span> dos públicos selecionados.
                 </p>

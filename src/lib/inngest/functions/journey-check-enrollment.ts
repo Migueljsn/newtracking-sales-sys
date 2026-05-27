@@ -56,32 +56,35 @@ export const journeyCheckEnrollment = inngest.createFunction(
       const created: Array<{ enrollmentId: string; journeyId: string; nodeId: string }> = [];
 
       for (const journey of journeys) {
-        const nodes   = journey.nodes as unknown as Node[];
-        const trigger = nodes.find((n) => n.type === "trigger");
-        if (!trigger) continue;
+        const nodes    = journey.nodes as unknown as Node[];
+        const triggers = nodes.filter((n) => n.type === "trigger");
+        if (triggers.length === 0) continue;
 
-        const audienceId = (trigger.data as { audienceId?: string | null }).audienceId;
-        if (!audienceId) continue;
-
-        const audience = await prisma.audience.findUnique({
-          where: { id: audienceId, clientId },
-        });
-        if (!audience) continue;
-
-        const def     = parseAudienceRules(audience.rules);
-        const matches = evaluateAudience(leadRow, def);
-        if (!matches) continue;
-
-        // Só enrola se ainda não tem enrollment nessa jornada
+        // Deduplicação: se já está inscrito nessa jornada, pula todos os triggers
         const existing = await prisma.journeyEnrollment.findUnique({
           where: { journeyId_leadId: { journeyId: journey.id, leadId } },
         });
         if (existing) continue;
 
-        const enrollment = await prisma.journeyEnrollment.create({
-          data: { journeyId: journey.id, leadId, currentNode: trigger.id },
-        });
-        created.push({ enrollmentId: enrollment.id, journeyId: journey.id, nodeId: trigger.id });
+        for (const trigger of triggers) {
+          const audienceId = (trigger.data as { audienceId?: string | null }).audienceId;
+          if (!audienceId) continue;
+
+          const audience = await prisma.audience.findUnique({
+            where: { id: audienceId, clientId },
+          });
+          if (!audience) continue;
+
+          const def     = parseAudienceRules(audience.rules);
+          const matches = evaluateAudience(leadRow, def);
+          if (!matches) continue;
+
+          const enrollment = await prisma.journeyEnrollment.create({
+            data: { journeyId: journey.id, leadId, currentNode: trigger.id },
+          });
+          created.push({ enrollmentId: enrollment.id, journeyId: journey.id, nodeId: trigger.id });
+          break; // lead entrou pelo primeiro trigger que bateu — não processar os demais
+        }
       }
 
       return created;

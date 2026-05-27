@@ -20,21 +20,12 @@ export const journeyEnrollAll = inngest.createFunction(
 
     if (journey.status !== "ACTIVE") return { skipped: "journey not active" };
 
-    // Achar o nó trigger
-    const nodes   = journey.nodes as unknown as Node[];
-    const trigger = nodes.find((n) => n.type === "trigger");
-    if (!trigger) return { skipped: "no trigger node" };
+    // Achar todos os nós trigger
+    const nodes    = journey.nodes as unknown as Node[];
+    const triggers = nodes.filter((n) => n.type === "trigger");
+    if (triggers.length === 0) return { skipped: "no trigger node" };
 
-    const audienceId = (trigger.data as { audienceId?: string | null }).audienceId;
-    if (!audienceId) return { skipped: "trigger has no audience" };
-
-    const audience = await step.run("load-audience", () =>
-      prisma.audience.findUniqueOrThrow({ where: { id: audienceId, clientId } })
-    );
-
-    const def = parseAudienceRules(audience.rules);
-
-    // Buscar leads com dados necessários para avaliar o público
+    // Buscar leads uma única vez para todos os triggers
     const leads = await step.run("load-leads", () =>
       prisma.lead.findMany({
         where:   { clientId },
@@ -45,51 +36,56 @@ export const journeyEnrollAll = inngest.createFunction(
       })
     );
 
-    // Filtrar leads que passam nas regras do público (include - exclude)
-    const matching = leads.filter((lead) =>
-      evaluateAudience(
-        {
-          status:          lead.status,
-          pipelineStageId: lead.pipelineStageId,
-          capturedAt:      new Date(lead.capturedAt as unknown as string),
-          utmSource:       lead.utmSource,
-          utmMedium:       lead.utmMedium,
-          utmCampaign:     lead.utmCampaign,
-          consultant:      lead.consultant,
-          customer:        lead.customer,
-          sales:           lead.sales.map((s) => ({ value: Number(s.value), soldAt: new Date(s.soldAt as unknown as string) })),
-        },
-        def,
-      )
-    );
-
-    if (matching.length === 0) return { enrolled: 0 };
-
-    // Criar enrollments (ignorar já existentes pelo @@unique)
     const newEnrollments = await step.run("create-enrollments", async () => {
-      const created: Array<{ enrollmentId: string; leadId: string }> = [];
+      const created: Array<{ enrollmentId: string; leadId: string; nodeId: string }> = [];
 
-      for (const lead of matching) {
-        const existing = await prisma.journeyEnrollment.findUnique({
-          where: { journeyId_leadId: { journeyId, leadId: lead.id } },
-        });
-        if (existing) continue;
+      for (const trigger of triggers) {
+        const audienceId = (trigger.data as { audienceId?: string | null }).audienceId;
+        if (!audienceId) continue;
 
-        const enrollment = await prisma.journeyEnrollment.create({
-          data: { journeyId, leadId: lead.id, currentNode: trigger.id },
-        });
-        created.push({ enrollmentId: enrollment.id, leadId: lead.id });
+        const audience = await prisma.audience.findUnique({ where: { id: audienceId, clientId } });
+        if (!audience) continue;
+
+        const def      = parseAudienceRules(audience.rules);
+        const matching = leads.filter((lead) =>
+          evaluateAudience(
+            {
+              status:          lead.status,
+              pipelineStageId: lead.pipelineStageId,
+              capturedAt:      new Date(lead.capturedAt as unknown as string),
+              utmSource:       lead.utmSource,
+              utmMedium:       lead.utmMedium,
+              utmCampaign:     lead.utmCampaign,
+              consultant:      lead.consultant,
+              customer:        lead.customer,
+              sales:           lead.sales.map((s) => ({ value: Number(s.value), soldAt: new Date(s.soldAt as unknown as string) })),
+            },
+            def,
+          )
+        );
+
+        for (const lead of matching) {
+          // Deduplicação: um lead entra na jornada apenas uma vez
+          const existing = await prisma.journeyEnrollment.findUnique({
+            where: { journeyId_leadId: { journeyId, leadId: lead.id } },
+          });
+          if (existing) continue;
+
+          const enrollment = await prisma.journeyEnrollment.create({
+            data: { journeyId, leadId: lead.id, currentNode: trigger.id },
+          });
+          created.push({ enrollmentId: enrollment.id, leadId: lead.id, nodeId: trigger.id });
+        }
       }
 
       return created;
     });
 
-    // Disparar journey/step para cada lead matriculado
     if (newEnrollments.length > 0) {
       await step.sendEvent(
         "fire-steps",
-        newEnrollments.map(({ enrollmentId, leadId }) =>
-          stepEvent.create({ enrollmentId, journeyId, leadId, nodeId: trigger.id, clientId })
+        newEnrollments.map(({ enrollmentId, leadId, nodeId }) =>
+          stepEvent.create({ enrollmentId, journeyId, leadId, nodeId, clientId })
         )
       );
     }

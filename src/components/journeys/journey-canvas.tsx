@@ -128,7 +128,16 @@ export function JourneyCanvas({
 
   // ── Node operations ───────────────────────────────────────────────────────
 
+  const MAX_TRIGGERS = 3;
+
   function addNode(type: NodeType) {
+    if (type === "trigger") {
+      const triggerCount = nodes.filter((n) => n.type === "trigger").length;
+      if (triggerCount >= MAX_TRIGGERS) {
+        toast.error(`Máximo de ${MAX_TRIGGERS} gatilhos por jornada`);
+        return;
+      }
+    }
     pushUndo();
     const def = NODE_DEFS.find((d) => d.type === type)!;
     const x = (reactFlowWrapper.current?.getBoundingClientRect().width ?? 600) / 2 - 90 + Math.random() * 40 - 20;

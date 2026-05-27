@@ -211,10 +211,10 @@ export const journeyProcessStep = inngest.createFunction(
             const template = await prisma.emailTemplate.findUnique({ where: { id: d.templateId! } });
             if (!template || !lead.customer) return;
 
-            const vars      = buildLeadVars(lead, lead.customer, client.name);
+            const unsubLink = unsubscribeUrl(lead.customerId, clientId);
+            const vars      = { ...buildLeadVars(lead, lead.customer, client.name), unsub_url: unsubLink };
             const subject   = renderTemplate(template.subject, vars);
             const html      = renderTemplate(template.body,    vars);
-            const unsubLink = unsubscribeUrl(lead.customerId, clientId);
 
             const { data, error } = await resend.emails.send({
               from:    `${client.name} via Portal CRM <noreply@fonilcompany.com.br>`,

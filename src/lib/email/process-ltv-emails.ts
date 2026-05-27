@@ -125,9 +125,10 @@ export async function processLtvEmails() {
 
         if (!template) continue;
 
-        const subject   = renderTemplate(template.subject, vars);
-        const html      = renderTemplate(template.body, vars);
         const unsubLink = unsubscribeUrl(customer.id, config.clientId);
+        const varsWithUnsub = { ...vars, unsub_url: unsubLink };
+        const subject   = renderTemplate(template.subject, varsWithUnsub);
+        const html      = renderTemplate(template.body, varsWithUnsub);
 
         try {
           const { data } = await resend.emails.send({

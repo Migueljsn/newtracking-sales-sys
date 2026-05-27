@@ -11,6 +11,7 @@ interface TemplateVars {
   total_compras:     number;
   valor_total_ltv:   string;
   empresa:           string;
+  unsub_url?:        string;
 }
 
 function formatCurrency(value: Decimal | number): string {

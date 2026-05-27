@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
 import { AdvancedFiltersPanel } from "./advanced-filters-panel";
+import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
 import { evaluateGroup } from "@/lib/audiences/evaluate";
 import type { RuleGroup } from "@/lib/audiences/types";
 import {
@@ -218,6 +219,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   const [consultantFilter, setConsultantFilter] = useState<string>("ALL");
   const [stageFilter,      setStageFilter]      = useState<string>("ALL");
   const [inactivityFilter, setInactivityFilter] = useState<number | null>(null);
+  const [capturedRange,    setCapturedRange]    = useState<DateRange | null>(null);
   const [page,             setPage]             = useState(0);
 
   // Page size
@@ -457,7 +459,12 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
     const matchStage      = stageFilter      === "ALL" || lead.pipelineStage?.id === stageFilter;
     const matchInactivity = inactivityFilter === null  || getInactivityDays(lead) >= inactivityFilter;
 
-    return matchSearch && matchStatus && matchState && matchConsultant && matchStage && matchInactivity;
+    const capturedMs = new Date(lead.capturedAt).getTime();
+    const matchCaptured = !capturedRange ||
+      (capturedMs >= new Date(capturedRange.from + "T00:00:00").getTime() &&
+       capturedMs <= new Date(capturedRange.to   + "T23:59:59").getTime());
+
+    return matchSearch && matchStatus && matchState && matchConsultant && matchStage && matchInactivity && matchCaptured;
   });
 
   function getSortValue(lead: Lead, key: SortKey): number {
@@ -481,7 +488,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   const paginated  = sorted.slice(safePage * pageSize, (safePage + 1) * pageSize);
   const pageNums   = getPageNumbers(safePage, totalPages);
 
-  const hasActiveFilters = search !== "" || statusFilter !== "ALL" || stateFilter !== "ALL" || consultantFilter !== "ALL" || stageFilter !== "ALL" || inactivityFilter !== null;
+  const hasActiveFilters = search !== "" || statusFilter !== "ALL" || stateFilter !== "ALL" || consultantFilter !== "ALL" || stageFilter !== "ALL" || inactivityFilter !== null || capturedRange !== null;
 
   // Lead selecionada para venda (apenas quando exatamente 1)
   const singleSelectedLead = selectedIds.size === 1
@@ -495,6 +502,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
     setConsultantFilter("ALL");
     setStageFilter("ALL");
     setInactivityFilter(null);
+    setCapturedRange(null);
     resetPage();
   }
 
@@ -578,6 +586,12 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
             );
           })}
         </div>
+
+        <DateRangePicker
+          value={capturedRange}
+          onChange={(r) => { setCapturedRange(r); resetPage(); }}
+          placeholder="Capturada em"
+        />
       </div>
 
       {/* Advanced filters */}

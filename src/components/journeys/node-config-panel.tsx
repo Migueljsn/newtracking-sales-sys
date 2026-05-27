@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Node } from "@xyflow/react";
-import { X, Trash2, Copy } from "lucide-react";
+import { X, Trash2, Copy, Eye, EyeOff } from "lucide-react";
 import {
   TriggerData, WaitData, ConditionData, EmailData,
   WhatsAppData, ChangeStatusData, AssignData, NodeType,
@@ -10,8 +10,35 @@ import {
 import { FIELD_DEFS, OPERATORS_BY_TYPE, getFieldDef, defaultOperator, defaultValue } from "@/lib/audiences/fields";
 
 type PipelineStage  = { id: string; name: string }
-type EmailTemplate  = { id: string; name: string }
+type EmailTemplate  = { id: string; name: string; subject: string; body: string }
 type AudienceOption = { id: string; name: string }
+
+const SAMPLE_VARS: Record<string, string> = {
+  nome:                "João",
+  nome_completo:       "João Silva",
+  telefone:            "11999999999",
+  email:               "joao@email.com",
+  consultor:           "Maria Vendas",
+  empresa:             "Minha Empresa",
+  dias:                "15",
+  data_ultima_compra:  new Date().toLocaleDateString("pt-BR"),
+  valor_ultima_compra: "R$ 350,00",
+  total_compras:       "3",
+  valor_total_ltv:     "R$ 1.050,00",
+  unsub_url:           "#",
+};
+
+function renderSample(text: string): string {
+  return text.replace(/\{(\w+)\}/g, (match, key) => (SAMPLE_VARS as Record<string, string>)[key] ?? match);
+}
+
+function buildPreviewHtml(body: string): string {
+  const rendered = renderSample(body);
+  if (rendered.trimStart().toLowerCase().startsWith("<!doctype") || rendered.trimStart().startsWith("<html")) {
+    return rendered;
+  }
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:16px;font-family:Arial,sans-serif;">${rendered}</body></html>`;
+}
 
 interface NodeConfigPanelProps {
   node:           Node
@@ -28,6 +55,71 @@ interface NodeConfigPanelProps {
 const inputClass = "w-full h-9 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 const selectClass = inputClass;
 const labelClass  = "block text-xs font-medium text-[var(--text-muted)] mb-1";
+
+function EmailNodeConfig({
+  data, tpl, emailTemplates, onUpdate,
+}: {
+  data:           EmailData;
+  tpl:            EmailTemplate | undefined;
+  emailTemplates: EmailTemplate[];
+  onUpdate:       (next: Partial<EmailData>) => void;
+}) {
+  const [showPreview, setShowPreview] = useState(false);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className={labelClass}>Template de e-mail</label>
+        <select
+          value={data.templateId ?? ""}
+          onChange={(e) => {
+            const t = emailTemplates.find((t) => t.id === e.target.value);
+            onUpdate({ templateId: t?.id ?? null, templateName: t?.name ?? null });
+            setShowPreview(false);
+          }}
+          className={selectClass}
+        >
+          <option value="">Selecione um template…</option>
+          {emailTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        {emailTemplates.length === 0 && (
+          <p className="text-xs text-[var(--text-muted)] mt-1">Crie templates em Jornadas → Templates.</p>
+        )}
+      </div>
+
+      {tpl && (
+        <>
+          {/* Assunto */}
+          <div className="rounded-lg bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--text-muted)]">
+            <span className="font-semibold">Assunto: </span>
+            <span className="text-[var(--text)]">{renderSample(tpl.subject)}</span>
+          </div>
+
+          {/* Toggle prévia */}
+          <button
+            type="button"
+            onClick={() => setShowPreview((v) => !v)}
+            className="flex items-center gap-1.5 text-xs font-medium text-[var(--accent)] hover:underline"
+          >
+            {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
+            {showPreview ? "Fechar prévia" : "Ver prévia do e-mail"}
+          </button>
+
+          {showPreview && (
+            <div className="rounded-xl border border-[var(--border)] overflow-hidden bg-white" style={{ height: 340 }}>
+              <iframe
+                srcDoc={buildPreviewHtml(tpl.body)}
+                sandbox="allow-same-origin"
+                className="w-full h-full"
+                title="Prévia do e-mail"
+              />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export function NodeConfigPanel({
   node, onUpdate, onDelete, onDuplicate, onClose,
@@ -157,25 +249,15 @@ export function NodeConfigPanel({
 
         {/* ── Email ── */}
         {type === "email" && (() => {
-          const d = data as unknown as EmailData;
+          const d   = data as unknown as EmailData;
+          const tpl = emailTemplates.find((t) => t.id === d.templateId);
           return (
-            <div>
-              <label className={labelClass}>Template de e-mail</label>
-              <select
-                value={d.templateId ?? ""}
-                onChange={(e) => {
-                  const tpl = emailTemplates.find((t) => t.id === e.target.value);
-                  onUpdate(node.id, { ...data, templateId: tpl?.id ?? null, templateName: tpl?.name ?? null });
-                }}
-                className={selectClass}
-              >
-                <option value="">Selecione um template…</option>
-                {emailTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              {emailTemplates.length === 0 && (
-                <p className="text-xs text-[var(--text-muted)] mt-1">Crie templates em LTV → Templates.</p>
-              )}
-            </div>
+            <EmailNodeConfig
+              data={d}
+              tpl={tpl}
+              emailTemplates={emailTemplates}
+              onUpdate={(next) => onUpdate(node.id, { ...data, ...next })}
+            />
           );
         })()}
 

@@ -22,7 +22,7 @@ export default async function JourneyEditorPage({
     prisma.emailTemplate.findMany({
       where:   { OR: [{ clientId }, { clientId: null, isDefault: true }] },
       orderBy: { createdAt: "asc" },
-      select:  { id: true, name: true },
+      select:  { id: true, name: true, subject: true, body: true },
     }),
     prisma.audience.findMany({ where: { clientId }, orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
     prisma.clientSettings.findUnique({ where: { clientId }, select: { consultants: true } }),

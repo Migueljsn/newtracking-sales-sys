@@ -6,7 +6,7 @@ import {
   addEdge, useNodesState, useEdgesState,
   type Node, type Edge, type Connection,
   type OnConnect, type NodeMouseHandler,
-  BackgroundVariant, Panel,
+  BackgroundVariant, Panel, SelectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -14,6 +14,7 @@ import {
   ArrowRightLeft, UserCheck, Square, Save, Loader2,
   Play, Pause, ChevronLeft, Copy, Trash2,
   RotateCcw, RotateCw, Pencil, Check, X,
+  MousePointer2, Hand,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -66,7 +67,10 @@ export function JourneyCanvas({
 }: JourneyCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [selectedNode, setSelectedNode]  = useState<Node | null>(null);
+  const [selectedNode,       setSelectedNode]       = useState<Node | null>(null);
+  const [multiSelectedNodes, setMultiSelectedNodes] = useState<Node[]>([]);
+  const [panMode,            setPanMode]            = useState(false);
+  const [confirmBulkDelete,  setConfirmBulkDelete]  = useState(false);
   const [isSaving,  startSave]    = useTransition();
   const [isPublish, startPublish] = useTransition();
   const [isRename,  startRename]  = useTransition();
@@ -161,6 +165,35 @@ export function JourneyCanvas({
     toast.success("Nó duplicado");
   }
 
+  function bulkDuplicateNodes(nodesToDup: Node[]) {
+    if (!nodesToDup.length) return;
+    pushUndo();
+    const copies = nodesToDup.map((n) => ({
+      id:       newId(),
+      type:     n.type,
+      position: { x: n.position.x + 40, y: n.position.y + 40 },
+      data:     { ...n.data },
+    }));
+    setNodes((nds) => [...nds, ...copies]);
+    toast.success(`${copies.length} nó${copies.length !== 1 ? "s" : ""} duplicado${copies.length !== 1 ? "s" : ""}`);
+  }
+
+  function bulkDeleteNodes(nodesToDel: Node[]) {
+    if (!nodesToDel.length) return;
+    pushUndo();
+    const ids = new Set(nodesToDel.map((n) => n.id));
+    setNodes((nds) => nds.filter((n) => !ids.has(n.id)));
+    setEdges((eds) => eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
+    setMultiSelectedNodes([]);
+    setSelectedNode(null);
+    setConfirmBulkDelete(false);
+    toast.success(`${ids.size} nó${ids.size !== 1 ? "s" : ""} removido${ids.size !== 1 ? "s" : ""}`);
+  }
+
+  function selectAllNodes() {
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: true })));
+  }
+
   function updateNodeData(id: string, data: Record<string, unknown>) {
     pushUndo();
     setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data } : n));
@@ -193,6 +226,9 @@ export function JourneyCanvas({
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
 
+  const multiSelectedRef = useRef<Node[]>([]);
+  multiSelectedRef.current = multiSelectedNodes;
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey;
@@ -202,9 +238,12 @@ export function JourneyCanvas({
       if (meta && e.shiftKey && e.key === "z") { e.preventDefault(); redo(); return; }
       if (meta && e.key === "z")               { e.preventDefault(); undo(); return; }
       if (meta && e.key === "y")               { e.preventDefault(); redo(); return; }
+      if (meta && e.key === "a")               { e.preventDefault(); selectAllNodes(); return; }
       if (meta && e.key === "c" && selectedNode) { setCopiedNode(selectedNode); toast.success("Nó copiado"); return; }
       if (meta && e.key === "v" && copiedNode)   { duplicateNode(copiedNode); return; }
-      if (e.key === "Escape") closeContextMenu();
+      if (e.key === "s" || e.key === "S")      { setPanMode(false); return; }
+      if (e.key === "h" || e.key === "H")      { setPanMode(true); return; }
+      if (e.key === "Escape") { closeContextMenu(); setConfirmBulkDelete(false); }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -247,6 +286,13 @@ export function JourneyCanvas({
     });
   }
 
+  const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
+    setMultiSelectedNodes(sel);
+    setConfirmBulkDelete(false);
+    if (sel.length === 1) setSelectedNode(sel[0]);
+    else if (sel.length === 0) setSelectedNode(null);
+  }, []);
+
   const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
     setSelectedNode(node);
     closeContextMenu();
@@ -254,6 +300,8 @@ export function JourneyCanvas({
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+    setMultiSelectedNodes([]);
+    setConfirmBulkDelete(false);
     closeContextMenu();
   }, []);
 
@@ -381,6 +429,35 @@ export function JourneyCanvas({
             </button>
           </div>
 
+          {/* Mode toggle: select ↔ pan */}
+          <div className="flex items-center border border-[var(--border)] rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setPanMode(false)}
+              title="Modo seleção (S)"
+              className={`flex items-center justify-center h-8 w-8 transition-colors ${
+                !panMode
+                  ? "bg-[var(--accent)] text-white"
+                  : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              <MousePointer2 size={13} />
+            </button>
+            <div className="w-px h-4 bg-[var(--border)]" />
+            <button
+              type="button"
+              onClick={() => setPanMode(true)}
+              title="Modo mão — pan (H ou Espaço)"
+              className={`flex items-center justify-center h-8 w-8 transition-colors ${
+                panMode
+                  ? "bg-[var(--accent)] text-white"
+                  : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              <Hand size={13} />
+            </button>
+          </div>
+
           <SendWindowConfigPanel journeyId={journeyId} initialConfig={sendWindow} />
 
           <button
@@ -444,10 +521,16 @@ export function JourneyCanvas({
             onPaneClick={onPaneClick}
             onNodeContextMenu={onNodeContextMenu}
             onNodeDragStart={onNodeDragStart}
+            onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.3 }}
-            deleteKeyCode="Delete"
+            deleteKeyCode={null}
+            selectionOnDrag={!panMode}
+            panOnDrag={panMode}
+            panActivationKeyCode=" "
+            selectionMode={SelectionMode.Partial}
+            multiSelectionKeyCode="Shift"
             className="bg-[var(--bg)]"
             defaultEdgeOptions={{ animated: true, style: { stroke: "var(--accent)", strokeWidth: 2 } }}
           >
@@ -465,6 +548,50 @@ export function JourneyCanvas({
                 <div className="mt-32 text-center pointer-events-none">
                   <p className="text-[var(--text-muted)] text-sm">Clique em um nó à esquerda para adicionar ao canvas</p>
                   <p className="text-[var(--text-muted)] text-xs mt-1">Conecte os nós arrastando de uma saída para uma entrada</p>
+                </div>
+              </Panel>
+            )}
+
+            {/* Floating bulk action bar */}
+            {multiSelectedNodes.length > 1 && (
+              <Panel position="bottom-center">
+                <div className="mb-4 flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 shadow-lg">
+                  <span className="text-sm font-medium text-[var(--text)] mr-1">
+                    {multiSelectedNodes.length} nós selecionados
+                  </span>
+                  <div className="w-px h-4 bg-[var(--border)]" />
+                  <button
+                    type="button"
+                    onClick={() => bulkDuplicateNodes(multiSelectedNodes)}
+                    className="flex items-center gap-1.5 h-7 rounded-lg px-2.5 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent)] transition-colors"
+                  >
+                    <Copy size={12} />
+                    Duplicar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!confirmBulkDelete) { setConfirmBulkDelete(true); return; }
+                      bulkDeleteNodes(multiSelectedNodes);
+                    }}
+                    onBlur={() => setConfirmBulkDelete(false)}
+                    className={`flex items-center gap-1.5 h-7 rounded-lg px-2.5 text-xs font-medium transition-colors ${
+                      confirmBulkDelete
+                        ? "bg-[var(--danger)] text-white"
+                        : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--danger)]"
+                    }`}
+                  >
+                    <Trash2 size={12} />
+                    {confirmBulkDelete ? "Confirmar" : "Excluir"}
+                  </button>
+                  <div className="w-px h-4 bg-[var(--border)]" />
+                  <button
+                    type="button"
+                    onClick={() => { setMultiSelectedNodes([]); setNodes(nds => nds.map(n => ({ ...n, selected: false }))); }}
+                    className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </Panel>
             )}

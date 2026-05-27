@@ -41,6 +41,8 @@ model Client {
   journeys          Journey[]
   leadInteractions  LeadInteraction[]
   journeyNodeLogs   JourneyNodeLog[]
+  webhookToken      WebhookToken?
+  webhookLogs       WebhookInboundLog[]
 }
 
 model AuthorizedDomain {
@@ -588,4 +590,42 @@ enum InteractionType {
   MEETING
   EMAIL
   OTHER
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WEBHOOK — entrada de leads externos (BotConversa, Make, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WebhookToken {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  token     String   @unique @default(cuid())
+  label     String   @default("Webhook")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  logs      WebhookInboundLog[]
+
+  @@index([token])
+}
+
+model WebhookInboundLog {
+  id         String   @id @default(cuid())
+  tokenId    String
+  clientId   String
+  phone      String
+  action     String   // "created" | "enriched" | "duplicate" | "error"
+  customerId String?
+  leadId     String?
+  payload    Json
+  error      String?
+  createdAt  DateTime @default(now())
+
+  token      WebhookToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([tokenId])
+  @@index([clientId])
 }

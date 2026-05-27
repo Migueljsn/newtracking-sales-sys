@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
+import { createId } from "@paralleldrive/cuid2";
 
 export async function saveSettingsAction(formData: FormData) {
   const session  = await getSession();
@@ -297,4 +298,44 @@ export async function resetConsultantPasswordAction(id: string, formData: FormDa
   });
 
   revalidatePath("/settings?tab=acessos");
+}
+
+// ─── Webhook ─────────────────────────────────────────────────────────────────
+
+export async function generateWebhookTokenAction() {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.webhookToken.upsert({
+    where:  { clientId },
+    create: { clientId },
+    update: {},
+  });
+
+  revalidatePath("/settings?tab=webhooks");
+}
+
+export async function regenerateWebhookTokenAction() {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.webhookToken.upsert({
+    where:  { clientId },
+    create: { clientId, token: createId() },
+    update: { token: createId() },
+  });
+
+  revalidatePath("/settings?tab=webhooks");
+}
+
+export async function toggleWebhookTokenAction(enabled: boolean) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.webhookToken.update({
+    where: { clientId },
+    data:  { enabled },
+  });
+
+  revalidatePath("/settings?tab=webhooks");
 }

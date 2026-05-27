@@ -8,11 +8,13 @@ import { WhatsappTemplateForm } from "@/components/settings/whatsapp-template-fo
 import { GuideCard } from "@/components/ui/guide-card";
 import { PipelineStages } from "@/components/settings/pipeline-stages";
 import { ConsultantAccess } from "@/components/settings/consultant-access";
+import { WebhookConfig } from "@/components/settings/webhook-config";
 
 const TABS = [
   { key: "geral",    label: "Geral"     },
   { key: "pipeline", label: "Pipeline"  },
   { key: "acessos",  label: "Acessos"   },
+  { key: "webhooks", label: "Webhooks"  },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -38,7 +40,7 @@ export default async function SettingsPage({
     ? "error"
     : null;
 
-  const [client, settings, authorizedDomains, pipelineStages, consultantUsers] = await Promise.all([
+  const [client, settings, authorizedDomains, pipelineStages, consultantUsers, webhookToken, webhookLogs] = await Promise.all([
     prisma.client.findUniqueOrThrow({ where: { id: clientId } }),
     prisma.clientSettings.findUnique({ where: { clientId } }),
     prisma.authorizedDomain.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
@@ -48,6 +50,13 @@ export default async function SettingsPage({
       include: { requirements: { orderBy: { position: "asc" } } },
     }),
     prisma.consultantUser.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
+    prisma.webhookToken.findUnique({ where: { clientId } }),
+    prisma.webhookInboundLog.findMany({
+      where:   { clientId },
+      orderBy: { createdAt: "desc" },
+      take:    20,
+      select:  { id: true, phone: true, action: true, error: true, createdAt: true },
+    }),
   ]);
 
   return (
@@ -118,6 +127,16 @@ export default async function SettingsPage({
       {activeTab === "acessos" && (
         <div className="card p-5">
           <ConsultantAccess consultants={consultantUsers} />
+        </div>
+      )}
+
+      {activeTab === "webhooks" && (
+        <div className="card p-5">
+          <WebhookConfig
+            token={webhookToken}
+            recentLogs={webhookLogs}
+            appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+          />
         </div>
       )}
     </div>

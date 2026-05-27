@@ -119,7 +119,11 @@ export default async function JourneysPage({
 
       {activeTab === "templates" && (
         <div className="card p-5">
-          <EmailTemplates templates={emailTemplates} />
+          <EmailTemplates
+            templates={emailTemplates}
+            userEmail={session.email}
+            clientName={session.client!.name}
+          />
         </div>
       )}
 

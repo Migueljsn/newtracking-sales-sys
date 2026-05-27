@@ -292,7 +292,11 @@ export default async function LtvPage({
 
       {/* Templates */}
       {activeTab === "templates" && (
-        <EmailTemplates templates={emailTemplates} />
+        <EmailTemplates
+          templates={emailTemplates}
+          userEmail={session.email}
+          clientName={session.client!.name}
+        />
       )}
 
       {/* Histórico */}

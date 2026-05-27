@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { createId } from "@paralleldrive/cuid2";
+import { Resend } from "resend";
 
 export async function saveSettingsAction(formData: FormData) {
   const session  = await getSession();
@@ -338,4 +339,45 @@ export async function toggleWebhookTokenAction(enabled: boolean) {
   });
 
   revalidatePath("/settings?tab=webhooks");
+}
+
+// ─── Test email ───────────────────────────────────────────────────────────────
+
+const SAMPLE_VARS: Record<string, string> = {
+  nome:                "João",
+  nome_completo:       "João Silva",
+  telefone:            "11999999999",
+  email:               "joao@email.com",
+  consultor:           "Maria Vendas",
+  dias:                "15",
+  data_ultima_compra:  new Date().toLocaleDateString("pt-BR"),
+  valor_ultima_compra: "R$ 350,00",
+  total_compras:       "3",
+  valor_total_ltv:     "R$ 1.050,00",
+  unsub_url:           "#",
+};
+
+function renderSample(template: string, clientName: string): string {
+  const vars = { ...SAMPLE_VARS, empresa: clientName };
+  return template.replace(/\{(\w+)\}/g, (match, key) => (vars as Record<string, string>)[key] ?? match);
+}
+
+export async function sendTestEmailAction(subject: string, body: string, testEmail: string) {
+  const session    = await getSession();
+  const clientName = session.client!.name;
+
+  if (!testEmail || !testEmail.includes("@")) throw new Error("E-mail inválido");
+
+  const resend         = new Resend(process.env.RESEND_API_KEY);
+  const renderedSubject = renderSample(subject, clientName);
+  const renderedBody    = renderSample(body,    clientName);
+
+  const { error } = await resend.emails.send({
+    from:    `${clientName} via Portal CRM <noreply@fonilcompany.com.br>`,
+    to:      [testEmail],
+    subject: `[TESTE] ${renderedSubject}`,
+    html:    renderedBody,
+  });
+
+  if (error) throw new Error(error.message);
 }

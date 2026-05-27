@@ -9,6 +9,7 @@ import { updateCustomerLifecycle } from "@/lib/domain/customer/update-lifecycle"
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 import { prisma } from "@/lib/db/prisma";
 import { invalidate, cacheKeys } from "@/lib/cache/invalidate";
+import { normalizePhone, normalizeDocument, normalizeEmail, normalizeState } from "@/lib/utils/normalize";
 import { inngest } from "@/lib/inngest/client";
 import { leadChangedEvent } from "@/lib/inngest/events";
 
@@ -201,13 +202,13 @@ export async function updateCustomerAction(formData: FormData) {
     select: { customerId: true },
   });
 
-  const name     = (formData.get("name")     as string).trim();
-  const phone    = (formData.get("phone")    as string).replace(/\D/g, "");
-  const email    = (formData.get("email")    as string)?.trim()             || null;
-  const document = (formData.get("document") as string)?.replace(/\D/g, "") || null;
+  const name     = (formData.get("name")  as string).trim();
+  const phone    = normalizePhone((formData.get("phone")    as string) ?? "");
+  const email    = normalizeEmail((formData.get("email")    as string) ?? "") || null;
+  const document = normalizeDocument((formData.get("document") as string) ?? "") || null;
   const zipCode  = (formData.get("zipCode")  as string)?.replace(/\D/g, "") || null;
   const city     = (formData.get("city")     as string)?.trim()             || null;
-  const state    = (formData.get("state")    as string)?.trim()             || null;
+  const state    = normalizeState((formData.get("state")    as string) ?? "") || null;
 
   if (!name || !phone) throw new Error("Nome e telefone são obrigatórios");
 

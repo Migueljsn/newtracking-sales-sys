@@ -8,6 +8,7 @@ import { createSale } from "@/lib/domain/sale/create";
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 import { prisma } from "@/lib/db/prisma";
 import { invalidate, cacheKeys } from "@/lib/cache/invalidate";
+import { normalizePhone, normalizeDocument, normalizeEmail, normalizeState } from "@/lib/utils/normalize";
 import { inngest } from "@/lib/inngest/client";
 import { leadChangedEvent } from "@/lib/inngest/events";
 
@@ -19,15 +20,16 @@ function normalizeDigits(value: string | null) {
   return value?.replace(/\D/g, "") || "";
 }
 
+
 export async function createLeadAction(
   formData: FormData
 ): Promise<{ duplicate: boolean; saleCreated: boolean }> {
   const session = await getSession();
   const clientId = session.clientId!;
 
-  const name     = (formData.get("name")     as string)?.trim();
-  const phone    = normalizeDigits(formData.get("phone") as string | null);
-  const document = normalizeDigits(formData.get("document") as string | null);
+  const name     = (formData.get("name")  as string)?.trim();
+  const phone    = normalizePhone(formData.get("phone")    as string ?? "");
+  const document = normalizeDocument(formData.get("document") as string ?? "");
   const zipCode  = normalizeDigits(formData.get("zipCode") as string | null);
 
   if (!name || !phone) throw new Error("Nome e telefone são obrigatórios");
@@ -44,11 +46,11 @@ export async function createLeadAction(
     clientId,
     name,
     phone,
-    email:      (formData.get("email")   as string)?.trim() || undefined,
+    email:      normalizeEmail((formData.get("email") as string) ?? "") || undefined,
     document:   document || undefined,
     zipCode:    zipCode  || undefined,
     city:       (formData.get("city")    as string)?.trim() || undefined,
-    state:      (formData.get("state")   as string)?.trim() || undefined,
+    state:      normalizeState((formData.get("state") as string) ?? "") || undefined,
     source:     "MANUAL",
     consultant,
     utmSource,

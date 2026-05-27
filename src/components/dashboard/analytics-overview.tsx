@@ -7,13 +7,14 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
-  ArrowDownRight, ArrowUpRight, Calendar as CalendarIcon,
+  ArrowDownRight, ArrowUpRight,
   ChevronLeft, ChevronRight,
   Download, Minus, Users, DollarSign, PercentSquare, Ticket,
   RefreshCw, TrendingUp, Clock, AlertCircle,
 } from "lucide-react";
 import type { AnalyticsData, LtvData, CohortData, PipelineData } from "@/lib/queries/analytics";
 import { HintTooltip } from "@/components/ui/hint-tooltip";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -250,41 +251,16 @@ export function AnalyticsOverview() {
               {p.label}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => setMode("custom")}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-sm font-medium transition-all ${
-              mode === "custom"
-                ? "bg-[var(--accent)] text-white shadow"
-                : "text-[var(--text-muted)] hover:text-[var(--text)]"
-            }`}
-          >
-            <CalendarIcon size={13} />
-            Personalizado
-          </button>
         </div>
 
-        {/* compact inline date range — only when custom is active */}
-        {mode === "custom" && (
-          <div className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5">
-            <input
-              type="date"
-              value={customFrom}
-              max={customTo || TODAY}
-              onChange={e => setCustomFrom(e.target.value)}
-              className="bg-transparent text-sm text-[var(--text)] outline-none"
-            />
-            <span className="text-[var(--text-muted)] text-xs select-none">→</span>
-            <input
-              type="date"
-              value={customTo}
-              min={customFrom}
-              max={TODAY}
-              onChange={e => setCustomTo(e.target.value)}
-              className="bg-transparent text-sm text-[var(--text)] outline-none"
-            />
-          </div>
-        )}
+        <DateRangePicker
+          value={mode === "custom" ? { from: customFrom, to: customTo } : null}
+          onChange={(r) => {
+            if (r) { setMode("custom"); setCustomFrom(r.from); setCustomTo(r.to); }
+            else   { setMode("preset"); setDays(30); }
+          }}
+          placeholder="Personalizado"
+        />
 
         {/* forward arrow */}
         <button

@@ -12,8 +12,8 @@ import {
   createJourneyAction, archiveJourneyAction,
   deleteJourneyAction, duplicateJourneyAction,
   bulkDeleteJourneysAction, bulkArchiveJourneysAction,
-  bulkDuplicateJourneysAction,
-  publishJourneyAction, pauseJourneyAction,
+  bulkDuplicateJourneysAction, bulkPublishJourneysAction,
+  bulkPauseJourneysAction, publishJourneyAction, pauseJourneyAction,
 } from "@/app/(dashboard)/journeys/actions";
 import { JourneyMetricsDrawer } from "@/components/journeys/journey-metrics-drawer";
 import { JourneyTemplateGallery } from "@/components/journeys/journey-template-gallery";
@@ -79,6 +79,10 @@ export function JourneyList({ journeys }: JourneyListProps) {
   const allIds      = journeys.map((j) => j.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
   const anySelected = selected.size > 0;
+
+  const selectedJourneys = journeys.filter((j) => selected.has(j.id));
+  const activatableIds   = selectedJourneys.filter((j) => j.status !== "ACTIVE" && j.status !== "ARCHIVED").map((j) => j.id);
+  const pausableIds      = selectedJourneys.filter((j) => j.status === "ACTIVE").map((j) => j.id);
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -151,6 +155,30 @@ export function JourneyList({ journeys }: JourneyListProps) {
   }
 
   // ── Bulk actions ───────────────────────────────────────────────────────────
+
+  function handleBulkPublish() {
+    const ids = activatableIds;
+    if (ids.length === 0) return;
+    clearSelection();
+    startAction(async () => {
+      try {
+        await bulkPublishJourneysAction(ids);
+        toast.success(`${ids.length} jornada${ids.length !== 1 ? "s" : ""} ativada${ids.length !== 1 ? "s" : ""}`);
+      } catch { toast.error("Erro ao ativar") }
+    });
+  }
+
+  function handleBulkPause() {
+    const ids = pausableIds;
+    if (ids.length === 0) return;
+    clearSelection();
+    startAction(async () => {
+      try {
+        await bulkPauseJourneysAction(ids);
+        toast.success(`${ids.length} jornada${ids.length !== 1 ? "s" : ""} pausada${ids.length !== 1 ? "s" : ""}`);
+      } catch { toast.error("Erro ao pausar") }
+    });
+  }
 
   function handleBulkDelete() {
     if (!confirmBulkDelete) { setConfirmBulkDelete(true); setConfirmBulkArchive(false); setConfirmBulkDuplicate(false); return; }
@@ -255,6 +283,28 @@ export function JourneyList({ journeys }: JourneyListProps) {
             {selected.size} selecionada{selected.size !== 1 ? "s" : ""}
           </span>
           <div className="ml-auto flex items-center gap-2">
+            {activatableIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkPublish}
+                disabled={acting}
+                className="flex items-center gap-1.5 h-8 rounded-xl px-3 text-sm font-medium transition-colors disabled:opacity-50 border border-[#10b981]/40 text-[#10b981] hover:bg-[#10b981]/10"
+              >
+                <Play size={13} />
+                Ativar{activatableIds.length !== selectedJourneys.length ? ` (${activatableIds.length})` : ""}
+              </button>
+            )}
+            {pausableIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkPause}
+                disabled={acting}
+                className="flex items-center gap-1.5 h-8 rounded-xl px-3 text-sm font-medium transition-colors disabled:opacity-50 border border-[#f59e0b]/40 text-[#f59e0b] hover:bg-[#f59e0b]/10"
+              >
+                <Pause size={13} />
+                Pausar{pausableIds.length !== selectedJourneys.length ? ` (${pausableIds.length})` : ""}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleBulkDuplicate}

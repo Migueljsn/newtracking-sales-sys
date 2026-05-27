@@ -122,6 +122,41 @@ export async function bulkArchiveJourneysAction(ids: string[]) {
   revalidatePath("/journeys");
 }
 
+export async function bulkPublishJourneysAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const toActivate = await prisma.journey.findMany({
+    where:  { id: { in: ids }, clientId, status: { notIn: ["ACTIVE", "ARCHIVED"] } },
+    select: { id: true },
+  });
+  if (toActivate.length === 0) return;
+
+  const activateIds = toActivate.map((j) => j.id);
+  await prisma.journey.updateMany({
+    where: { id: { in: activateIds }, clientId },
+    data:  { status: "ACTIVE" },
+  });
+
+  await inngest.send(
+    activateIds.map((journeyId) => enrollAllEvent.create({ journeyId, clientId }))
+  );
+
+  revalidatePath("/journeys");
+}
+
+export async function bulkPauseJourneysAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.journey.updateMany({
+    where: { id: { in: ids }, clientId, status: "ACTIVE" },
+    data:  { status: "PAUSED" },
+  });
+
+  revalidatePath("/journeys");
+}
+
 export async function bulkDuplicateJourneysAction(ids: string[]) {
   const session  = await getSession();
   const clientId = session.clientId!;

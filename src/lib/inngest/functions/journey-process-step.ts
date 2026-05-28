@@ -77,26 +77,42 @@ function buildLeadVars(
 
 // ─── WhatsApp via EvoAPI ───────────────────────────────────────────────────────
 
-async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
-  const baseUrl  = process.env.EVO_API_URL;
-  const apiKey   = process.env.EVO_API_KEY;
-  const instance = process.env.EVO_API_INSTANCE;
+async function sendWhatsApp(phone: string, message: string, clientId: string): Promise<boolean> {
+  const baseUrl = process.env.EVO_API_URL;
+  const apiKey  = process.env.EVO_API_KEY;
 
-  if (!baseUrl || !apiKey || !instance) {
-    console.warn("[Journey] WhatsApp não configurado — defina EVO_API_URL, EVO_API_KEY e EVO_API_INSTANCE");
+  if (!baseUrl || !apiKey) {
+    console.warn("[Journey] EVO_API_URL ou EVO_API_KEY não configurados");
+    return false;
+  }
+
+  // Busca instâncias conectadas do cliente por prioridade
+  const instances = await prisma.whatsAppInstance.findMany({
+    where:   { clientId, status: "connected" },
+    orderBy: { priority: "asc" },
+    select:  { instanceName: true },
+  });
+
+  if (instances.length === 0) {
+    console.warn(`[Journey] Nenhuma instância WhatsApp conectada para cliente ${clientId}`);
     return false;
   }
 
   const digits = phone.replace(/\D/g, "");
   const number = digits.startsWith("55") ? digits : `55${digits}`;
 
-  const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json", apikey: apiKey },
-    body:    JSON.stringify({ number, text: message }),
-  });
+  // Tenta cada instância em ordem de prioridade (fallback automático)
+  for (const inst of instances) {
+    const res = await fetch(`${baseUrl}/message/sendText/${inst.instanceName}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body:    JSON.stringify({ number, text: message }),
+    });
+    if (res.ok) return true;
+    console.warn(`[Journey] Falha na instância ${inst.instanceName}, tentando próxima…`);
+  }
 
-  return res.ok;
+  return false;
 }
 
 // ─── Main function ─────────────────────────────────────────────────────────────
@@ -259,7 +275,7 @@ export const journeyProcessStep = inngest.createFunction(
             if (!lead.customer) return;
             const vars    = buildLeadVars(lead, lead.customer, client.name);
             const message = renderTemplate(d.message, vars);
-            await sendWhatsApp(lead.customer.phone, message);
+            await sendWhatsApp(lead.customer.phone, message, clientId);
           });
           nodeResult = "whatsapp_sent";
         } else {

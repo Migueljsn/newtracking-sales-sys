@@ -41,8 +41,9 @@ model Client {
   journeys          Journey[]
   leadInteractions  LeadInteraction[]
   journeyNodeLogs   JourneyNodeLog[]
-  webhookToken      WebhookToken?
-  webhookLogs       WebhookInboundLog[]
+  webhookToken        WebhookToken?
+  webhookLogs         WebhookInboundLog[]
+  whatsappInstances   WhatsAppInstance[]
 }
 
 model AuthorizedDomain {
@@ -590,6 +591,31 @@ enum InteractionType {
   MEETING
   EMAIL
   OTHER
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WEBHOOK — entrada de leads externos (BotConversa, Make, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WHATSAPP — instâncias EvoAPI por cliente
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WhatsAppInstance {
+  id            String   @id @default(cuid())
+  clientId      String
+  instanceName  String   @unique
+  status        String   @default("disconnected") // "connected" | "disconnected"
+  phone         String?
+  profileName   String?
+  profilePicUrl String?
+  priority      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

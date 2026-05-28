@@ -9,12 +9,14 @@ import { GuideCard } from "@/components/ui/guide-card";
 import { PipelineStages } from "@/components/settings/pipeline-stages";
 import { ConsultantAccess } from "@/components/settings/consultant-access";
 import { WebhookConfig } from "@/components/settings/webhook-config";
+import { WhatsAppInstances } from "@/components/settings/whatsapp-instances";
 
 const TABS = [
-  { key: "geral",    label: "Geral"     },
-  { key: "pipeline", label: "Pipeline"  },
-  { key: "acessos",  label: "Acessos"   },
-  { key: "webhooks", label: "Webhooks"  },
+  { key: "geral",     label: "Geral"      },
+  { key: "pipeline",  label: "Pipeline"   },
+  { key: "acessos",   label: "Acessos"    },
+  { key: "whatsapp",  label: "WhatsApp"   },
+  { key: "webhooks",  label: "Webhooks"   },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -40,7 +42,7 @@ export default async function SettingsPage({
     ? "error"
     : null;
 
-  const [client, settings, authorizedDomains, pipelineStages, consultantUsers, webhookToken, webhookLogs] = await Promise.all([
+  const [client, settings, authorizedDomains, pipelineStages, consultantUsers, webhookToken, webhookLogs, whatsappInstances] = await Promise.all([
     prisma.client.findUniqueOrThrow({ where: { id: clientId } }),
     prisma.clientSettings.findUnique({ where: { clientId } }),
     prisma.authorizedDomain.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
@@ -56,6 +58,11 @@ export default async function SettingsPage({
       orderBy: { createdAt: "desc" },
       take:    20,
       select:  { id: true, phone: true, action: true, error: true, createdAt: true },
+    }),
+    prisma.whatsAppInstance.findMany({
+      where:   { clientId },
+      orderBy: { priority: "asc" },
+      select:  { id: true, instanceName: true, status: true, phone: true, profileName: true },
     }),
   ]);
 
@@ -127,6 +134,12 @@ export default async function SettingsPage({
       {activeTab === "acessos" && (
         <div className="card p-5">
           <ConsultantAccess consultants={consultantUsers} />
+        </div>
+      )}
+
+      {activeTab === "whatsapp" && (
+        <div className="card p-5">
+          <WhatsAppInstances initialInstances={whatsappInstances} />
         </div>
       )}
 

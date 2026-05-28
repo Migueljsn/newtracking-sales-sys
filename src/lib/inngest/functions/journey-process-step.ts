@@ -327,10 +327,11 @@ export const journeyProcessStep = inngest.createFunction(
               ? renderTemplate(template.mediaCaption ?? "", vars)
               : renderTemplate(template.body, vars);
 
-            // Delay aleatório entre delayMin e delayMax segundos
-            const minMs = (d.delayMin ?? 5) * 1000;
-            const maxMs = (d.delayMax ?? 15) * 1000;
-            const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+            const unitMs: Record<string, number> = { seconds: 1_000, minutes: 60_000, hours: 3_600_000 };
+            const factor = unitMs[d.delayUnit ?? "seconds"] ?? 1_000;
+            const minMs  = (d.delayMin ?? 5)  * factor;
+            const maxMs  = (d.delayMax ?? 30) * factor;
+            const delay  = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
             await new Promise((r) => setTimeout(r, delay));
 
             if (template.waType === "MEDIA" && template.mediaUrl) {

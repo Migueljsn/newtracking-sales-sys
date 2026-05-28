@@ -121,6 +121,199 @@ function EmailNodeConfig({
   );
 }
 
+// ─── WhatsApp Node Config ──────────────────────────────────────────────────────
+
+const SAMPLE_VARS_WA: Record<string, string> = {
+  nome: "João", nome_completo: "João Silva", telefone: "11999999999",
+  email: "joao@email.com", consultor: "Maria Vendas", empresa: "Minha Empresa",
+  dias: "15", data_ultima_compra: new Date().toLocaleDateString("pt-BR"),
+  valor_ultima_compra: "R$ 350,00", total_compras: "3", valor_total_ltv: "R$ 1.050,00",
+};
+
+function renderWA(text: string) {
+  return text.replace(/\{(\w+)\}|\((\w+)\)/g, (m, k1, k2) => SAMPLE_VARS_WA[k1 ?? k2] ?? m);
+}
+
+function WhatsAppNodeConfig({
+  d, tpl, waTemplates, delayMin, delayMax, delayUnit,
+  unitLabels, risk, waTypeIcon, now, onUpdate, inputClass, selectClass, labelClass,
+}: {
+  d:            WhatsAppData;
+  tpl:          EmailTemplate | undefined;
+  waTemplates:  EmailTemplate[];
+  delayMin:     number;
+  delayMax:     number;
+  delayUnit:    string;
+  unitLabels:   Record<string, string>;
+  risk:         { bg: string; icon: string; label: string; color: string };
+  waTypeIcon:   Record<string, React.ReactNode>;
+  now:          string;
+  onUpdate:     (patch: Partial<WhatsAppData>) => void;
+  inputClass:   string;
+  selectClass:  string;
+  labelClass:   string;
+}) {
+  const [showPreview, setShowPreview] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      {/* Template selector */}
+      <div>
+        <label className={labelClass}>Template WhatsApp</label>
+        <select
+          value={d.templateId ?? ""}
+          onChange={(e) => {
+            const t = waTemplates.find((t) => t.id === e.target.value);
+            onUpdate({ templateId: t?.id ?? null, templateName: t?.name ?? null, waType: t?.waType ?? null });
+          }}
+          className={selectClass}
+        >
+          <option value="">Selecione um template…</option>
+          {waTemplates.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        {waTemplates.length === 0 && (
+          <p className="text-xs text-[var(--text-muted)] mt-1">Crie templates em Jornadas → Templates → WhatsApp.</p>
+        )}
+      </div>
+
+      {/* Template info + preview toggle */}
+      {tpl && (
+        <>
+          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
+            <div className="flex items-center gap-1.5 text-xs text-[var(--text)]">
+              {tpl.waType && waTypeIcon[tpl.waType]}
+              <span className="font-medium truncate max-w-[130px]">{tpl.name}</span>
+              {tpl.waType && (
+                <span className="text-[10px] bg-[#25D366]/15 text-[#25D366] px-1.5 py-0.5 rounded-full shrink-0">
+                  {tpl.waType}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPreview((v) => !v)}
+              className="flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] hover:underline shrink-0 ml-2"
+            >
+              {showPreview ? <EyeOff size={11} /> : <Eye size={11} />}
+              {showPreview ? "Fechar" : "Prévia"}
+            </button>
+          </div>
+
+          {/* Inline bubble preview */}
+          {showPreview && (
+            <div className="rounded-xl border border-[var(--border)] bg-[#ECE5DD] p-3">
+              <div className="flex justify-end">
+                <div className="max-w-[85%] bg-[#DCF8C6] rounded-2xl rounded-tr-sm shadow-sm overflow-hidden">
+
+                  {tpl.waType === "MEDIA" && (
+                    <div className="bg-[#c5e8a4] flex items-center justify-center min-h-[80px]">
+                      {tpl.mediaUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={tpl.mediaUrl} alt="mídia" className="max-h-36 w-full object-cover"
+                          onError={(e) => { (e.target as HTMLElement).style.display = "none"; }} />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 py-4 px-6 text-[#128C7E]">
+                          <Image size={22} />
+                          <span className="text-[10px]">Imagem / Vídeo</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {tpl.waType === "AUDIO" && (
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <div className="w-7 h-7 rounded-full bg-[#128C7E] flex items-center justify-center shrink-0">
+                        <Mic size={12} className="text-white" />
+                      </div>
+                      <div className="flex gap-0.5 items-end h-5">
+                        {[2,4,6,4,2,5,3,5,7,4,2,5,6,3,4].map((h, i) => (
+                          <div key={i} className="w-0.5 bg-[#128C7E] rounded-full" style={{ height: `${h * 2}px` }} />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-[#667781]">0:12</span>
+                    </div>
+                  )}
+
+                  {(tpl.waType === "TEXT" || tpl.waType === "MEDIA") && (
+                    <div className="px-3 py-2">
+                      {tpl.waType === "TEXT" && (
+                        <p className="text-[12px] text-[#111B21] leading-snug whitespace-pre-wrap">
+                          {renderWA(tpl.body) || <span className="italic text-[#667781]">Mensagem vazia</span>}
+                        </p>
+                      )}
+                      {tpl.waType === "MEDIA" && tpl.mediaCaption && (
+                        <p className="text-[12px] text-[#111B21] leading-snug whitespace-pre-wrap">
+                          {renderWA(tpl.mediaCaption)}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-[#667781] text-right mt-0.5">{now} ✓✓</p>
+                    </div>
+                  )}
+
+                  {tpl.waType === "AUDIO" && (
+                    <div className="px-3 pb-1.5">
+                      <p className="text-[10px] text-[#667781] text-right">{now} ✓✓</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="text-[10px] text-[#667781] text-center mt-2">Variáveis substituídas por dados de exemplo</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Delay config */}
+      <div>
+        <label className={labelClass}>Delay entre mensagens</label>
+        <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <span className="text-[10px] text-[var(--text-muted)]">Mínimo</span>
+            <input
+              type="number" min={0} step={1}
+              value={delayMin}
+              onChange={(e) => onUpdate({ delayMin: Number(e.target.value) })}
+              className={inputClass + " mt-0.5"}
+            />
+          </div>
+          <div className="flex-1">
+            <span className="text-[10px] text-[var(--text-muted)]">Máximo</span>
+            <input
+              type="number" min={0} step={1}
+              value={delayMax}
+              onChange={(e) => onUpdate({ delayMax: Number(e.target.value) })}
+              className={inputClass + " mt-0.5"}
+            />
+          </div>
+          <div className="w-24">
+            <span className="text-[10px] text-[var(--text-muted)]">Unidade</span>
+            <select
+              value={delayUnit}
+              onChange={(e) => onUpdate({ delayUnit: e.target.value as WhatsAppData["delayUnit"] })}
+              className={selectClass + " mt-0.5"}
+            >
+              <option value="seconds">Segundos</option>
+              <option value="minutes">Minutos</option>
+              <option value="hours">Horas</option>
+            </select>
+          </div>
+        </div>
+        <p className="text-[10px] text-[var(--text-muted)] mt-1">
+          Enviará com delay aleatório entre {delayMin}–{delayMax} {unitLabels[delayUnit] ?? delayUnit}
+        </p>
+      </div>
+
+      {/* Risk warning */}
+      <div className={`flex items-start gap-2 rounded-xl p-3 ${risk.bg}`}>
+        <span className="text-sm shrink-0">{risk.icon}</span>
+        <p className={`text-xs ${risk.color}`}>{risk.label}</p>
+      </div>
+    </div>
+  );
+}
+
 export function NodeConfigPanel({
   node, onUpdate, onDelete, onDuplicate, onClose,
   pipelineStages, emailTemplates, audiences, consultants,
@@ -321,112 +514,42 @@ export function NodeConfigPanel({
 
         {/* ── WhatsApp ── */}
         {type === "whatsapp" && (() => {
-          const d          = data as unknown as WhatsAppData;
+          const d           = data as unknown as WhatsAppData;
           const waTemplates = emailTemplates.filter((t) => t.channel === "WHATSAPP");
           const tpl         = waTemplates.find((t) => t.id === d.templateId);
-          const delayMin    = d.delayMin ?? 5;
-          const delayMax    = d.delayMax ?? 15;
+          const delayMin    = d.delayMin  ?? 5;
+          const delayMax    = d.delayMax  ?? 30;
+          const delayUnit   = d.delayUnit ?? "seconds";
+
+          const unitLabels: Record<string, string> = { seconds: "s", minutes: "min", hours: "h" };
+
+          // converte para segundos para calcular o risco
+          const toSec = (v: number, u: string) =>
+            u === "hours" ? v * 3600 : u === "minutes" ? v * 60 : v;
+          const minSec = toSec(delayMin, delayUnit);
+
+          const risk = minSec === 0
+            ? { bg: "bg-red-500/10",    icon: "🔴", label: "Risco alto — delay 0 pode gerar banimento pelo WhatsApp.", color: "text-red-500" }
+            : minSec < 30
+            ? { bg: "bg-yellow-500/10", icon: "🟡", label: "Atenção — delay muito baixo aumenta risco de bloqueio.", color: "text-yellow-600" }
+            : { bg: "bg-[#10b981]/10",  icon: "🟢", label: "Delay seguro para envios em massa.", color: "text-[#10b981]" };
 
           const waTypeIcon: Record<string, React.ReactNode> = {
-            TEXT:  <FileText  size={11} className="inline" />,
-            MEDIA: <Image     size={11} className="inline" />,
-            AUDIO: <Mic       size={11} className="inline" />,
+            TEXT:  <FileText size={11} />,
+            MEDIA: <Image    size={11} />,
+            AUDIO: <Mic      size={11} />,
           };
 
-          // Risk level based on min delay
-          const risk = delayMin === 0
-            ? { color: "text-red-500",    bg: "bg-red-500/10",    icon: "🔴", label: "Risco alto — delay 0s pode gerar banimento" }
-            : delayMin < 4
-            ? { color: "text-yellow-500", bg: "bg-yellow-500/10", icon: "🟡", label: "Atenção — delay baixo aumenta risco de bloqueio" }
-            : { color: "text-[#10b981]",  bg: "bg-[#10b981]/10",  icon: "🟢", label: "Delay seguro para envios em massa" };
+          const now = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
           return (
-            <div className="space-y-4">
-              {/* Template selector */}
-              <div>
-                <label className={labelClass}>Template WhatsApp</label>
-                <select
-                  value={d.templateId ?? ""}
-                  onChange={(e) => {
-                    const t = waTemplates.find((t) => t.id === e.target.value);
-                    onUpdate(node.id, { ...data, templateId: t?.id ?? null, templateName: t?.name ?? null, waType: t?.waType ?? null });
-                  }}
-                  className={selectClass}
-                >
-                  <option value="">Selecione um template…</option>
-                  {waTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-                {waTemplates.length === 0 && (
-                  <p className="text-xs text-[var(--text-muted)] mt-1">Crie templates em Jornadas → Templates → WhatsApp.</p>
-                )}
-              </div>
-
-              {/* Template preview info */}
-              {tpl && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text)]">
-                    {tpl.waType && waTypeIcon[tpl.waType]}
-                    <span>{tpl.name}</span>
-                    {tpl.waType && (
-                      <span className="ml-auto text-[10px] bg-[#25D366]/15 text-[#25D366] px-1.5 py-0.5 rounded-full">
-                        {tpl.waType}
-                      </span>
-                    )}
-                  </div>
-                  {tpl.waType === "TEXT" && tpl.body && (
-                    <p className="text-[11px] text-[var(--text-muted)] line-clamp-2">{tpl.body}</p>
-                  )}
-                  {tpl.waType === "MEDIA" && (
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      {tpl.mediaUrl ? "✓ Mídia configurada" : "⚠ URL da mídia não definida"}
-                      {tpl.mediaCaption ? ` · Legenda: ${tpl.mediaCaption.slice(0, 40)}…` : ""}
-                    </p>
-                  )}
-                  {tpl.waType === "AUDIO" && (
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      {tpl.mediaUrl ? "✓ Áudio configurado" : "⚠ URL do áudio não definida"}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Delay config */}
-              <div>
-                <label className={labelClass}>Delay entre mensagens</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-[10px] text-[var(--text-muted)]">Mínimo (seg)</span>
-                    <input
-                      type="number" min={0} max={300} step={1}
-                      value={delayMin}
-                      onChange={(e) => onUpdate(node.id, { ...data, delayMin: Number(e.target.value) })}
-                      className={inputClass + " mt-0.5"}
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[var(--text-muted)]">Máximo (seg)</span>
-                    <input
-                      type="number" min={0} max={300} step={1}
-                      value={delayMax}
-                      onChange={(e) => onUpdate(node.id, { ...data, delayMax: Number(e.target.value) })}
-                      className={inputClass + " mt-0.5"}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Risk warning */}
-              <div className={`flex items-start gap-2 rounded-xl p-3 ${risk.bg}`}>
-                <span className="text-sm shrink-0">{risk.icon}</span>
-                <p className={`text-xs ${risk.color}`}>{risk.label}</p>
-              </div>
-
-              <p className="text-[11px] text-[var(--text-muted)]">
-                O delay é aplicado por lead antes do envio. Use valores entre 5–30s para reduzir risco de bloqueio pela Meta.
-              </p>
-            </div>
+            <WhatsAppNodeConfig
+              d={d} tpl={tpl} waTemplates={waTemplates}
+              delayMin={delayMin} delayMax={delayMax} delayUnit={delayUnit}
+              unitLabels={unitLabels} risk={risk} waTypeIcon={waTypeIcon} now={now}
+              onUpdate={(patch) => onUpdate(node.id, { ...data, ...patch })}
+              inputClass={inputClass} selectClass={selectClass} labelClass={labelClass}
+            />
           );
         })()}
 

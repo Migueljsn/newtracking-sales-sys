@@ -53,7 +53,8 @@ interface JourneyListProps {
 export function JourneyList({ journeys }: JourneyListProps) {
   const [name,        setName]       = useState("");
   const [creating,    startCreate]   = useTransition();
-  // actingOn tracks which specific action is running (e.g. "toggle-id", "bulk-publish")
+  const [,            startAction]   = useTransition();
+  // tracks which specific button is loading (for per-item spinner)
   const [actingOn,    setActingOn]   = useState<string | null>(null);
 
   // Metrics drawer
@@ -113,10 +114,12 @@ export function JourneyList({ journeys }: JourneyListProps) {
     });
   }
 
-  async function runAction(key: string, fn: () => Promise<void>) {
+  function runAction(key: string, fn: () => Promise<void>) {
     if (actingOn) return;
     setActingOn(key);
-    try { await fn(); } finally { setActingOn(null); }
+    startAction(async () => {
+      try { await fn(); } finally { setActingOn(null); }
+    });
   }
 
   function handleDelete(id: string) {
@@ -143,10 +146,8 @@ export function JourneyList({ journeys }: JourneyListProps) {
 
   function handleDuplicate(id: string) {
     runAction(`duplicate-${id}`, async () => {
-      try {
-        await duplicateJourneyAction(id);
-        toast.success("Jornada duplicada com \"-cópia\"");
-      } catch { toast.error("Erro ao duplicar"); }
+      try { await duplicateJourneyAction(id); }
+      catch { toast.error("Erro ao duplicar"); }
     });
   }
 

@@ -77,29 +77,31 @@ function buildLeadVars(
 
 // ─── WhatsApp via EvoAPI ───────────────────────────────────────────────────────
 
-async function sendWhatsApp(phone: string, message: string, clientId: string): Promise<boolean> {
+async function resolveWaInstances(clientId: string) {
   const baseUrl = process.env.EVO_API_URL;
   const apiKey  = process.env.EVO_API_KEY;
 
-  if (!baseUrl || !apiKey) {
-    console.warn("[Journey] EVO_API_URL ou EVO_API_KEY não configurados");
-    return false;
-  }
+  if (!baseUrl || !apiKey) throw new Error("[Journey] EVO_API_URL ou EVO_API_KEY não configurados nas env vars");
 
-  // Busca instâncias conectadas do cliente por prioridade
   const instances = await prisma.whatsAppInstance.findMany({
     where:   { clientId, status: "connected" },
     orderBy: { priority: "asc" },
     select:  { instanceName: true },
   });
 
-  if (instances.length === 0) {
-    console.warn(`[Journey] Nenhuma instância WhatsApp conectada para cliente ${clientId}`);
-    return false;
-  }
+  if (instances.length === 0) throw new Error(`[Journey] Nenhuma instância WhatsApp conectada para cliente ${clientId}`);
 
+  return { baseUrl, apiKey, instances };
+}
+
+function formatWaNumber(phone: string) {
   const digits = phone.replace(/\D/g, "");
-  const number = digits.startsWith("55") ? digits : `55${digits}`;
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+async function sendWhatsApp(phone: string, message: string, clientId: string): Promise<void> {
+  const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
+  const number = formatWaNumber(phone);
 
   for (const inst of instances) {
     const res = await fetch(`${baseUrl}/message/sendText/${inst.instanceName}`, {
@@ -107,24 +109,17 @@ async function sendWhatsApp(phone: string, message: string, clientId: string): P
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body:    JSON.stringify({ number, text: message }),
     });
-    if (res.ok) return true;
-    console.warn(`[Journey] Falha na instância ${inst.instanceName}, tentando próxima…`);
+    if (res.ok) return;
+    const err = await res.text();
+    console.warn(`[Journey] Falha na instância ${inst.instanceName}: ${err}`);
   }
 
-  return false;
+  throw new Error(`[Journey] Todas as instâncias falharam ao enviar para ${phone}`);
 }
 
-async function sendWhatsAppMedia(phone: string, mediaUrl: string, caption: string, clientId: string): Promise<boolean> {
-  const baseUrl = process.env.EVO_API_URL;
-  const apiKey  = process.env.EVO_API_KEY;
-  if (!baseUrl || !apiKey) return false;
-
-  const instances = await prisma.whatsAppInstance.findMany({
-    where: { clientId, status: "connected" }, orderBy: { priority: "asc" }, select: { instanceName: true },
-  });
-
-  const digits = phone.replace(/\D/g, "");
-  const number = digits.startsWith("55") ? digits : `55${digits}`;
+async function sendWhatsAppMedia(phone: string, mediaUrl: string, caption: string, clientId: string): Promise<void> {
+  const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
+  const number = formatWaNumber(phone);
 
   for (const inst of instances) {
     const res = await fetch(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
@@ -132,22 +127,16 @@ async function sendWhatsAppMedia(phone: string, mediaUrl: string, caption: strin
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body:    JSON.stringify({ number, mediaUrl, caption, mediatype: "image" }),
     });
-    if (res.ok) return true;
+    if (res.ok) return;
+    console.warn(`[Journey] Falha de mídia na instância ${inst.instanceName}`);
   }
-  return false;
+
+  throw new Error(`[Journey] Todas as instâncias falharam ao enviar mídia para ${phone}`);
 }
 
-async function sendWhatsAppAudio(phone: string, audioUrl: string, clientId: string): Promise<boolean> {
-  const baseUrl = process.env.EVO_API_URL;
-  const apiKey  = process.env.EVO_API_KEY;
-  if (!baseUrl || !apiKey) return false;
-
-  const instances = await prisma.whatsAppInstance.findMany({
-    where: { clientId, status: "connected" }, orderBy: { priority: "asc" }, select: { instanceName: true },
-  });
-
-  const digits = phone.replace(/\D/g, "");
-  const number = digits.startsWith("55") ? digits : `55${digits}`;
+async function sendWhatsAppAudio(phone: string, audioUrl: string, clientId: string): Promise<void> {
+  const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
+  const number = formatWaNumber(phone);
 
   for (const inst of instances) {
     const res = await fetch(`${baseUrl}/message/sendWhatsAppAudio/${inst.instanceName}`, {
@@ -155,9 +144,11 @@ async function sendWhatsAppAudio(phone: string, audioUrl: string, clientId: stri
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body:    JSON.stringify({ number, audio: audioUrl }),
     });
-    if (res.ok) return true;
+    if (res.ok) return;
+    console.warn(`[Journey] Falha de áudio na instância ${inst.instanceName}`);
   }
-  return false;
+
+  throw new Error(`[Journey] Todas as instâncias falharam ao enviar áudio para ${phone}`);
 }
 
 // ─── Main function ─────────────────────────────────────────────────────────────
@@ -317,10 +308,10 @@ export const journeyProcessStep = inngest.createFunction(
 
         if (d.templateId && lead.customer?.phone) {
           await step.run("send-whatsapp", async () => {
-            if (!lead.customer) return;
+            if (!lead.customer) throw new Error("lead.customer ausente");
 
             const template = await prisma.emailTemplate.findUnique({ where: { id: d.templateId! } });
-            if (!template) return;
+            if (!template) throw new Error(`Template ${d.templateId} não encontrado`);
 
             const vars    = buildLeadVars(lead, lead.customer, client.name);
             const message = template.waType === "MEDIA"

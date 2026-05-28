@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Plus, Archive, Copy, Trash2, Zap, Users, GitBranch,
   Square, CheckSquare, CheckSquare as CheckSquareIcon,
-  BarChart2, Play, Pause,
+  BarChart2, Play, Pause, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -53,7 +53,8 @@ interface JourneyListProps {
 export function JourneyList({ journeys }: JourneyListProps) {
   const [name,        setName]       = useState("");
   const [creating,    startCreate]   = useTransition();
-  const [acting,      startAction]   = useTransition();
+  // actingOn tracks which specific action is running (e.g. "toggle-id", "bulk-publish")
+  const [actingOn,    setActingOn]   = useState<string | null>(null);
 
   // Metrics drawer
   const [metricsOpen,    setMetricsOpen]    = useState(false);
@@ -112,36 +113,45 @@ export function JourneyList({ journeys }: JourneyListProps) {
     });
   }
 
+  async function runAction(key: string, fn: () => Promise<void>) {
+    if (actingOn) return;
+    setActingOn(key);
+    try { await fn(); } finally { setActingOn(null); }
+  }
+
   function handleDelete(id: string) {
     if (confirmDelete !== id) { setConfirmDelete(id); setConfirmArchive(null); return; }
     setConfirmDelete(null);
-    startAction(async () => {
+    runAction(`delete-${id}`, async () => {
       try {
         await deleteJourneyAction(id);
         toast.success("Jornada removida");
-      } catch { toast.error("Erro ao remover") }
+      } catch { toast.error("Erro ao remover"); }
     });
   }
 
   function handleArchive(id: string) {
     if (confirmArchive !== id) { setConfirmArchive(id); setConfirmDelete(null); return; }
     setConfirmArchive(null);
-    startAction(async () => {
+    runAction(`archive-${id}`, async () => {
       try {
         await archiveJourneyAction(id);
         toast.success("Jornada arquivada");
-      } catch { toast.error("Erro ao arquivar") }
+      } catch { toast.error("Erro ao arquivar"); }
     });
   }
 
   function handleDuplicate(id: string) {
-    startAction(async () => {
-      await duplicateJourneyAction(id);
+    runAction(`duplicate-${id}`, async () => {
+      try {
+        await duplicateJourneyAction(id);
+        toast.success("Jornada duplicada com \"-cópia\"");
+      } catch { toast.error("Erro ao duplicar"); }
     });
   }
 
   function handleToggleStatus(id: string, status: string) {
-    startAction(async () => {
+    runAction(`toggle-${id}`, async () => {
       try {
         if (status === "ACTIVE") {
           await pauseJourneyAction(id);
@@ -150,7 +160,7 @@ export function JourneyList({ journeys }: JourneyListProps) {
           await publishJourneyAction(id);
           toast.success("Jornada ativada");
         }
-      } catch { toast.error("Erro ao alterar status") }
+      } catch { toast.error("Erro ao alterar status"); }
     });
   }
 
@@ -159,60 +169,60 @@ export function JourneyList({ journeys }: JourneyListProps) {
   function handleBulkPublish() {
     const ids = activatableIds;
     if (ids.length === 0) return;
-    clearSelection();
-    startAction(async () => {
+    runAction("bulk-publish", async () => {
       try {
         await bulkPublishJourneysAction(ids);
         toast.success(`${ids.length} jornada${ids.length !== 1 ? "s" : ""} ativada${ids.length !== 1 ? "s" : ""}`);
-      } catch { toast.error("Erro ao ativar") }
+        clearSelection();
+      } catch { toast.error("Erro ao ativar"); }
     });
   }
 
   function handleBulkPause() {
     const ids = pausableIds;
     if (ids.length === 0) return;
-    clearSelection();
-    startAction(async () => {
+    runAction("bulk-pause", async () => {
       try {
         await bulkPauseJourneysAction(ids);
         toast.success(`${ids.length} jornada${ids.length !== 1 ? "s" : ""} pausada${ids.length !== 1 ? "s" : ""}`);
-      } catch { toast.error("Erro ao pausar") }
+        clearSelection();
+      } catch { toast.error("Erro ao pausar"); }
     });
   }
 
   function handleBulkDelete() {
     if (!confirmBulkDelete) { setConfirmBulkDelete(true); setConfirmBulkArchive(false); setConfirmBulkDuplicate(false); return; }
     const ids = [...selected];
-    clearSelection();
-    startAction(async () => {
+    runAction("bulk-delete", async () => {
       try {
         await bulkDeleteJourneysAction(ids);
         toast.success(`${ids.length} jornada${ids.length !== 1 ? "s" : ""} removida${ids.length !== 1 ? "s" : ""}`);
-      } catch { toast.error("Erro ao remover") }
+        clearSelection();
+      } catch { toast.error("Erro ao remover"); }
     });
   }
 
   function handleBulkDuplicate() {
     if (!confirmBulkDuplicate) { setConfirmBulkDuplicate(true); setConfirmBulkDelete(false); setConfirmBulkArchive(false); return; }
     const ids = [...selected];
-    clearSelection();
-    startAction(async () => {
+    runAction("bulk-duplicate", async () => {
       try {
         await bulkDuplicateJourneysAction(ids);
         toast.success(`${ids.length} jornada${ids.length !== 1 ? "s" : ""} duplicada${ids.length !== 1 ? "s" : ""} com "-cópia"`);
-      } catch { toast.error("Erro ao duplicar") }
+        clearSelection();
+      } catch { toast.error("Erro ao duplicar"); }
     });
   }
 
   function handleBulkArchive() {
     if (!confirmBulkArchive) { setConfirmBulkArchive(true); setConfirmBulkDelete(false); setConfirmBulkDuplicate(false); return; }
     const ids = [...selected];
-    clearSelection();
-    startAction(async () => {
+    runAction("bulk-archive", async () => {
       try {
         await bulkArchiveJourneysAction(ids);
         toast.success(`${ids.length} jornada${ids.length !== 1 ? "s" : ""} arquivada${ids.length !== 1 ? "s" : ""}`);
-      } catch { toast.error("Erro ao arquivar") }
+        clearSelection();
+      } catch { toast.error("Erro ao arquivar"); }
     });
   }
 
@@ -287,10 +297,10 @@ export function JourneyList({ journeys }: JourneyListProps) {
               <button
                 type="button"
                 onClick={handleBulkPublish}
-                disabled={acting}
+                disabled={!!actingOn}
                 className="flex items-center gap-1.5 h-8 rounded-xl px-3 text-sm font-medium transition-colors disabled:opacity-50 border border-[#10b981]/40 text-[#10b981] hover:bg-[#10b981]/10"
               >
-                <Play size={13} />
+                {actingOn === "bulk-publish" ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
                 Ativar{activatableIds.length !== selectedJourneys.length ? ` (${activatableIds.length})` : ""}
               </button>
             )}
@@ -298,56 +308,57 @@ export function JourneyList({ journeys }: JourneyListProps) {
               <button
                 type="button"
                 onClick={handleBulkPause}
-                disabled={acting}
+                disabled={!!actingOn}
                 className="flex items-center gap-1.5 h-8 rounded-xl px-3 text-sm font-medium transition-colors disabled:opacity-50 border border-[#f59e0b]/40 text-[#f59e0b] hover:bg-[#f59e0b]/10"
               >
-                <Pause size={13} />
+                {actingOn === "bulk-pause" ? <Loader2 size={13} className="animate-spin" /> : <Pause size={13} />}
                 Pausar{pausableIds.length !== selectedJourneys.length ? ` (${pausableIds.length})` : ""}
               </button>
             )}
             <button
               type="button"
               onClick={handleBulkDuplicate}
-              disabled={acting}
+              disabled={!!actingOn}
               className={`flex items-center gap-1.5 h-8 rounded-xl px-3 text-sm font-medium transition-colors disabled:opacity-50 ${
                 confirmBulkDuplicate
                   ? "bg-[var(--accent)] text-white"
                   : "border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
               }`}
             >
-              <Copy size={13} />
+              {actingOn === "bulk-duplicate" ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
               {confirmBulkDuplicate ? "Confirmar duplicação" : "Duplicar"}
             </button>
             <button
               type="button"
               onClick={handleBulkArchive}
-              disabled={acting}
+              disabled={!!actingOn}
               className={`flex items-center gap-1.5 h-8 rounded-xl px-3 text-sm font-medium transition-colors disabled:opacity-50 ${
                 confirmBulkArchive
                   ? "bg-[#f59e0b] text-white"
                   : "border border-[var(--border)] text-[var(--text-muted)] hover:border-[#f59e0b] hover:text-[#f59e0b]"
               }`}
             >
-              <Archive size={13} />
+              {actingOn === "bulk-archive" ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
               {confirmBulkArchive ? "Confirmar arquivo" : "Arquivar"}
             </button>
             <button
               type="button"
               onClick={handleBulkDelete}
-              disabled={acting}
+              disabled={!!actingOn}
               className={`flex items-center gap-1.5 h-8 rounded-xl px-3 text-sm font-medium transition-colors disabled:opacity-50 ${
                 confirmBulkDelete
                   ? "bg-[var(--danger)] text-white"
                   : "border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)]"
               }`}
             >
-              <Trash2 size={13} />
+              {actingOn === "bulk-delete" ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
               {confirmBulkDelete ? "Confirmar exclusão" : "Excluir"}
             </button>
             <button
               type="button"
               onClick={clearSelection}
-              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors px-2"
+              disabled={!!actingOn}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors px-2 disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -501,7 +512,7 @@ export function JourneyList({ journeys }: JourneyListProps) {
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(j.id, j.status)}
-                    disabled={acting}
+                    disabled={!!actingOn}
                     className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
                       j.status === "ACTIVE"
                         ? "text-[#f59e0b] hover:bg-[#f59e0b]/10 border border-[#f59e0b]/30"
@@ -509,7 +520,9 @@ export function JourneyList({ journeys }: JourneyListProps) {
                     }`}
                     title={j.status === "ACTIVE" ? "Pausar jornada" : "Ativar jornada"}
                   >
-                    {j.status === "ACTIVE" ? <Pause size={13} /> : <Play size={13} />}
+                    {actingOn === `toggle-${j.id}`
+                      ? <Loader2 size={13} className="animate-spin" />
+                      : j.status === "ACTIVE" ? <Pause size={13} /> : <Play size={13} />}
                     {j.status === "ACTIVE" ? "Pausar" : "Ativar"}
                   </button>
                 )}
@@ -523,39 +536,39 @@ export function JourneyList({ journeys }: JourneyListProps) {
                 <button
                   type="button"
                   onClick={() => handleDuplicate(j.id)}
-                  disabled={acting}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] transition-colors"
+                  disabled={!!actingOn}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] transition-colors disabled:opacity-50"
                   title="Duplicar"
                 >
-                  <Copy size={14} />
+                  {actingOn === `duplicate-${j.id}` ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
                 </button>
                 {j.status !== "ARCHIVED" && (
                   <button
                     type="button"
                     onClick={() => handleArchive(j.id)}
-                    disabled={acting}
-                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-colors ${
+                    disabled={!!actingOn}
+                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
                       isArchivingMe
                         ? "bg-[#f59e0b] text-white"
                         : "text-[var(--text-muted)] hover:bg-[#f59e0b]/10 hover:text-[#f59e0b]"
                     }`}
                     title={isArchivingMe ? "Confirmar arquivo" : "Arquivar"}
                   >
-                    <Archive size={14} />
+                    {actingOn === `archive-${j.id}` ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => handleDelete(j.id)}
-                  disabled={acting}
-                  className={`h-8 w-8 flex items-center justify-center rounded-lg transition-colors ${
+                  disabled={!!actingOn}
+                  className={`h-8 w-8 flex items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
                     isDeletingMe
                       ? "bg-[var(--danger)] text-white"
                       : "text-[var(--text-muted)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
                   }`}
                   title={isDeletingMe ? "Confirmar exclusão" : "Excluir"}
                 >
-                  <Trash2 size={14} />
+                  {actingOn === `delete-${j.id}` ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 </button>
               </div>
             </div>

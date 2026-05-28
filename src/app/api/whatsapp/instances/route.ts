@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const evoRes = await fetch(`${EVO_URL}/instance/create`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", apikey: EVO_KEY },
-    body:    JSON.stringify({ instanceName: name, integration: "BAILEYS" }),
+    body:    JSON.stringify({ instanceName: name, integration: "WHATSAPP-BAILEYS" }),
   });
 
   if (!evoRes.ok) {

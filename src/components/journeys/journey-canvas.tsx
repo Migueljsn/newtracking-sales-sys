@@ -26,7 +26,7 @@ import { SendWindowConfig as SendWindowConfigPanel } from "@/components/journeys
 import type { SendWindowConfig } from "@/lib/journeys/send-window";
 
 type PipelineStage  = { id: string; name: string }
-type EmailTemplate  = { id: string; name: string; subject: string; body: string }
+type EmailTemplate  = { id: string; name: string; channel: string; subject: string; body: string; waType: string | null; mediaUrl: string | null; mediaCaption: string | null }
 type AudienceOption = { id: string; name: string }
 
 interface JourneyCanvasProps {

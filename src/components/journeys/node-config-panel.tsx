@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Node } from "@xyflow/react";
-import { X, Trash2, Copy, Eye, EyeOff, Plus } from "lucide-react";
+import { X, Trash2, Copy, Eye, EyeOff, Plus, MessageSquare, FileText, Image, Mic, AlertTriangle, CheckCircle } from "lucide-react";
 import {
   TriggerData, WaitData, ConditionData, EmailData,
   WhatsAppData, ChangeStatusData, AssignData, NodeType,
@@ -10,7 +10,7 @@ import {
 import { FIELD_DEFS, OPERATORS_BY_TYPE, getFieldDef, defaultOperator, defaultValue } from "@/lib/audiences/fields";
 
 type PipelineStage  = { id: string; name: string }
-type EmailTemplate  = { id: string; name: string; subject: string; body: string }
+type EmailTemplate  = { id: string; name: string; channel: string; subject: string; body: string; waType: string | null; mediaUrl: string | null; mediaCaption: string | null }
 type AudienceOption = { id: string; name: string }
 
 const SAMPLE_VARS: Record<string, string> = {
@@ -321,18 +321,111 @@ export function NodeConfigPanel({
 
         {/* ── WhatsApp ── */}
         {type === "whatsapp" && (() => {
-          const d = data as unknown as WhatsAppData;
+          const d          = data as unknown as WhatsAppData;
+          const waTemplates = emailTemplates.filter((t) => t.channel === "WHATSAPP");
+          const tpl         = waTemplates.find((t) => t.id === d.templateId);
+          const delayMin    = d.delayMin ?? 5;
+          const delayMax    = d.delayMax ?? 15;
+
+          const waTypeIcon: Record<string, React.ReactNode> = {
+            TEXT:  <FileText  size={11} className="inline" />,
+            MEDIA: <Image     size={11} className="inline" />,
+            AUDIO: <Mic       size={11} className="inline" />,
+          };
+
+          // Risk level based on min delay
+          const risk = delayMin === 0
+            ? { color: "text-red-500",    bg: "bg-red-500/10",    icon: "🔴", label: "Risco alto — delay 0s pode gerar banimento" }
+            : delayMin < 4
+            ? { color: "text-yellow-500", bg: "bg-yellow-500/10", icon: "🟡", label: "Atenção — delay baixo aumenta risco de bloqueio" }
+            : { color: "text-[#10b981]",  bg: "bg-[#10b981]/10",  icon: "🟢", label: "Delay seguro para envios em massa" };
+
           return (
-            <div>
-              <label className={labelClass}>Mensagem</label>
-              <textarea
-                value={d.message}
-                onChange={(e) => set("message", e.target.value)}
-                rows={5}
-                placeholder="Olá {nome}, tudo bem?"
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none"
-              />
-              <p className="text-xs text-[var(--text-muted)] mt-1">Variáveis: {"{nome}"}, {"{estado}"}, {"{cidade}"}</p>
+            <div className="space-y-4">
+              {/* Template selector */}
+              <div>
+                <label className={labelClass}>Template WhatsApp</label>
+                <select
+                  value={d.templateId ?? ""}
+                  onChange={(e) => {
+                    const t = waTemplates.find((t) => t.id === e.target.value);
+                    onUpdate(node.id, { ...data, templateId: t?.id ?? null, templateName: t?.name ?? null, waType: t?.waType ?? null });
+                  }}
+                  className={selectClass}
+                >
+                  <option value="">Selecione um template…</option>
+                  {waTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                {waTemplates.length === 0 && (
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Crie templates em Jornadas → Templates → WhatsApp.</p>
+                )}
+              </div>
+
+              {/* Template preview info */}
+              {tpl && (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text)]">
+                    {tpl.waType && waTypeIcon[tpl.waType]}
+                    <span>{tpl.name}</span>
+                    {tpl.waType && (
+                      <span className="ml-auto text-[10px] bg-[#25D366]/15 text-[#25D366] px-1.5 py-0.5 rounded-full">
+                        {tpl.waType}
+                      </span>
+                    )}
+                  </div>
+                  {tpl.waType === "TEXT" && tpl.body && (
+                    <p className="text-[11px] text-[var(--text-muted)] line-clamp-2">{tpl.body}</p>
+                  )}
+                  {tpl.waType === "MEDIA" && (
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      {tpl.mediaUrl ? "✓ Mídia configurada" : "⚠ URL da mídia não definida"}
+                      {tpl.mediaCaption ? ` · Legenda: ${tpl.mediaCaption.slice(0, 40)}…` : ""}
+                    </p>
+                  )}
+                  {tpl.waType === "AUDIO" && (
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      {tpl.mediaUrl ? "✓ Áudio configurado" : "⚠ URL do áudio não definida"}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Delay config */}
+              <div>
+                <label className={labelClass}>Delay entre mensagens</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-[var(--text-muted)]">Mínimo (seg)</span>
+                    <input
+                      type="number" min={0} max={300} step={1}
+                      value={delayMin}
+                      onChange={(e) => onUpdate(node.id, { ...data, delayMin: Number(e.target.value) })}
+                      className={inputClass + " mt-0.5"}
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[var(--text-muted)]">Máximo (seg)</span>
+                    <input
+                      type="number" min={0} max={300} step={1}
+                      value={delayMax}
+                      onChange={(e) => onUpdate(node.id, { ...data, delayMax: Number(e.target.value) })}
+                      className={inputClass + " mt-0.5"}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Risk warning */}
+              <div className={`flex items-start gap-2 rounded-xl p-3 ${risk.bg}`}>
+                <span className="text-sm shrink-0">{risk.icon}</span>
+                <p className={`text-xs ${risk.color}`}>{risk.label}</p>
+              </div>
+
+              <p className="text-[11px] text-[var(--text-muted)]">
+                O delay é aplicado por lead antes do envio. Use valores entre 5–30s para reduzir risco de bloqueio pela Meta.
+              </p>
             </div>
           );
         })()}

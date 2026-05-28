@@ -122,24 +122,31 @@ export async function saveEmailTemplateAction(formData: FormData) {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const id      = (formData.get("id") as string) || undefined;
-  const name    = (formData.get("name") as string).trim();
-  const subject = (formData.get("subject") as string).trim();
-  const body    = (formData.get("body") as string).trim();
+  const id           = (formData.get("id") as string) || undefined;
+  const name         = (formData.get("name") as string).trim();
+  const channel      = (formData.get("channel") as string) || "EMAIL";
+  const subject      = (formData.get("subject") as string | null)?.trim() ?? "";
+  const body         = (formData.get("body") as string).trim();
+  const waType       = (formData.get("waType") as string | null) || null;
+  const mediaUrl     = (formData.get("mediaUrl") as string | null)?.trim() || null;
+  const mediaCaption = (formData.get("mediaCaption") as string | null)?.trim() || null;
+
+  const data = { name, channel, subject, body, waType, mediaUrl, mediaCaption };
 
   if (id) {
     await prisma.emailTemplate.updateMany({
       where: { id, clientId },
-      data:  { name, subject, body },
+      data,
     });
   } else {
     await prisma.emailTemplate.create({
-      data: { clientId, name, subject, body, type: "CUSTOMER" },
+      data: { clientId, type: "CUSTOMER", ...data },
     });
   }
 
   revalidatePath("/settings");
   revalidatePath("/ltv");
+  revalidatePath("/journeys");
 }
 
 export async function deleteEmailTemplateAction(id: string) {
@@ -163,10 +170,14 @@ export async function duplicateEmailTemplateAction(id: string) {
   await prisma.emailTemplate.create({
     data: {
       clientId,
-      name:    `${original.name}-cópia`,
-      subject: original.subject,
-      body:    original.body,
-      type:    original.type,
+      name:        `${original.name}-cópia`,
+      channel:     original.channel,
+      subject:     original.subject,
+      body:        original.body,
+      waType:      original.waType,
+      mediaUrl:    original.mediaUrl,
+      mediaCaption: original.mediaCaption,
+      type:        original.type,
     },
   });
 
@@ -199,10 +210,14 @@ export async function bulkDuplicateEmailTemplatesAction(ids: string[]) {
   await prisma.emailTemplate.createMany({
     data: originals.map((t) => ({
       clientId,
-      name:    `${t.name}-cópia`,
-      subject: t.subject,
-      body:    t.body,
-      type:    t.type,
+      name:        `${t.name}-cópia`,
+      channel:     t.channel,
+      subject:     t.subject,
+      body:        t.body,
+      waType:      t.waType,
+      mediaUrl:    t.mediaUrl,
+      mediaCaption: t.mediaCaption,
+      type:        t.type,
     })),
   });
 

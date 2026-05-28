@@ -101,7 +101,6 @@ async function sendWhatsApp(phone: string, message: string, clientId: string): P
   const digits = phone.replace(/\D/g, "");
   const number = digits.startsWith("55") ? digits : `55${digits}`;
 
-  // Tenta cada instância em ordem de prioridade (fallback automático)
   for (const inst of instances) {
     const res = await fetch(`${baseUrl}/message/sendText/${inst.instanceName}`, {
       method:  "POST",
@@ -112,6 +111,52 @@ async function sendWhatsApp(phone: string, message: string, clientId: string): P
     console.warn(`[Journey] Falha na instância ${inst.instanceName}, tentando próxima…`);
   }
 
+  return false;
+}
+
+async function sendWhatsAppMedia(phone: string, mediaUrl: string, caption: string, clientId: string): Promise<boolean> {
+  const baseUrl = process.env.EVO_API_URL;
+  const apiKey  = process.env.EVO_API_KEY;
+  if (!baseUrl || !apiKey) return false;
+
+  const instances = await prisma.whatsAppInstance.findMany({
+    where: { clientId, status: "connected" }, orderBy: { priority: "asc" }, select: { instanceName: true },
+  });
+
+  const digits = phone.replace(/\D/g, "");
+  const number = digits.startsWith("55") ? digits : `55${digits}`;
+
+  for (const inst of instances) {
+    const res = await fetch(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body:    JSON.stringify({ number, mediaUrl, caption, mediatype: "image" }),
+    });
+    if (res.ok) return true;
+  }
+  return false;
+}
+
+async function sendWhatsAppAudio(phone: string, audioUrl: string, clientId: string): Promise<boolean> {
+  const baseUrl = process.env.EVO_API_URL;
+  const apiKey  = process.env.EVO_API_KEY;
+  if (!baseUrl || !apiKey) return false;
+
+  const instances = await prisma.whatsAppInstance.findMany({
+    where: { clientId, status: "connected" }, orderBy: { priority: "asc" }, select: { instanceName: true },
+  });
+
+  const digits = phone.replace(/\D/g, "");
+  const number = digits.startsWith("55") ? digits : `55${digits}`;
+
+  for (const inst of instances) {
+    const res = await fetch(`${baseUrl}/message/sendWhatsAppAudio/${inst.instanceName}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body:    JSON.stringify({ number, audio: audioUrl }),
+    });
+    if (res.ok) return true;
+  }
   return false;
 }
 
@@ -270,12 +315,31 @@ export const journeyProcessStep = inngest.createFunction(
           await step.sleepUntil("wait-for-send-window", resumeAt);
         }
 
-        if (d.message && lead.customer?.phone) {
+        if (d.templateId && lead.customer?.phone) {
           await step.run("send-whatsapp", async () => {
             if (!lead.customer) return;
+
+            const template = await prisma.emailTemplate.findUnique({ where: { id: d.templateId! } });
+            if (!template) return;
+
             const vars    = buildLeadVars(lead, lead.customer, client.name);
-            const message = renderTemplate(d.message, vars);
-            await sendWhatsApp(lead.customer.phone, message, clientId);
+            const message = template.waType === "MEDIA"
+              ? renderTemplate(template.mediaCaption ?? "", vars)
+              : renderTemplate(template.body, vars);
+
+            // Delay aleatório entre delayMin e delayMax segundos
+            const minMs = (d.delayMin ?? 5) * 1000;
+            const maxMs = (d.delayMax ?? 15) * 1000;
+            const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+            await new Promise((r) => setTimeout(r, delay));
+
+            if (template.waType === "MEDIA" && template.mediaUrl) {
+              await sendWhatsAppMedia(lead.customer.phone, template.mediaUrl, message, clientId);
+            } else if (template.waType === "AUDIO" && template.mediaUrl) {
+              await sendWhatsAppAudio(lead.customer.phone, template.mediaUrl, clientId);
+            } else {
+              await sendWhatsApp(lead.customer.phone, message, clientId);
+            }
           });
           nodeResult = "whatsapp_sent";
         } else {

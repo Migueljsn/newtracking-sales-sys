@@ -67,7 +67,11 @@ export default async function JourneysPage({
   }
 
   // ── Templates ───────────────────────────────────────────────────────────────
-  let emailTemplates: { id: string; name: string; subject: string; body: string; isDefault: boolean; clientId: string | null }[] = [];
+  let emailTemplates: {
+    id: string; name: string; channel: string; subject: string; body: string;
+    waType: string | null; mediaUrl: string | null; mediaCaption: string | null;
+    isDefault: boolean; clientId: string | null;
+  }[] = [];
 
   if (activeTab === "templates") {
     emailTemplates = await prisma.emailTemplate.findMany({

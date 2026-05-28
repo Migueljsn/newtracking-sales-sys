@@ -21,7 +21,11 @@ export type EmailData = {
 }
 
 export type WhatsAppData = {
-  message: string
+  templateId:   string | null
+  templateName: string | null
+  waType:       string | null   // "TEXT" | "MEDIA" | "AUDIO"
+  delayMin:     number          // segundos entre cada mensagem (mínimo)
+  delayMax:     number          // segundos entre cada mensagem (máximo)
 }
 
 export type ChangeStatusData = {
@@ -100,7 +104,7 @@ export const NODE_DEFS: NodeDef[] = [
     label:       "WhatsApp",
     description: "Enviar mensagem via EvoAPI",
     color:       "#10b981",
-    defaultData: { message: "" },
+    defaultData: { templateId: null, templateName: null, waType: null, delayMin: 5, delayMax: 15 },
   },
   {
     type:        "changeStatus",

@@ -146,8 +146,9 @@ model Customer {
   city      String?
   state     String?           // sigla: SP, RJ...
   lifecycle    CustomerLifecycle @default(NEW_BUYER)
-  emailOptOut  Boolean           @default(false)
-  createdAt    DateTime          @default(now())
+  emailOptOut     Boolean           @default(false)
+  whatsappOptOut  Boolean           @default(false)
+  createdAt       DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
   client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -505,20 +506,25 @@ enum NotificationType {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model EmailTemplate {
-  id        String            @id @default(cuid())
-  clientId  String?           // null = template padrão do sistema
-  name      String
-  subject   String
-  body      String            @db.Text
-  type      EmailTemplateType @default(CUSTOMER)
-  isDefault Boolean           @default(false)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id           String            @id @default(cuid())
+  clientId     String?           // null = template padrão do sistema
+  name         String
+  channel      String            @default("EMAIL")  // "EMAIL" | "WHATSAPP"
+  subject      String            @default("")
+  body         String            @db.Text
+  waType       String?           // null para email | "TEXT" | "MEDIA" | "AUDIO"
+  mediaUrl     String?
+  mediaCaption String?           @db.Text
+  type         EmailTemplateType @default(CUSTOMER)
+  isDefault    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   client    Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   logs      LtvEmailLog[]
 
   @@index([clientId])
+  @@index([clientId, channel])
 }
 
 enum EmailTemplateType {

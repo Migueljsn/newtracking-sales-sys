@@ -76,7 +76,7 @@ export function WhatsAppNode({ data, selected }: NodeProps) {
       label="WhatsApp"
       color="#10b981"
       icon={<MessageCircle size={13} />}
-      summary={d.message ? d.message.slice(0, 50) + (d.message.length > 50 ? "…" : "") : "Mensagem não definida"}
+      summary={d.templateName ?? "Nenhum template"}
       selected={!!selected}
     />
   );

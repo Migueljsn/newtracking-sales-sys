@@ -307,6 +307,17 @@ export const journeyProcessStep = inngest.createFunction(
         }
 
         if (d.templateId && lead.customer?.phone) {
+          // Calcular delay fora do step para usar step.sleep (não setTimeout em serverless)
+          const unitSec: Record<string, number> = { seconds: 1, minutes: 60, hours: 3600 };
+          const factor  = unitSec[d.delayUnit ?? "seconds"] ?? 1;
+          const minSec  = (d.delayMin ?? 5)  * factor;
+          const maxSec  = (d.delayMax ?? 30) * factor;
+          const delaySec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
+
+          if (delaySec > 0) {
+            await step.sleep("whatsapp-delay", `${delaySec}s`);
+          }
+
           await step.run("send-whatsapp", async () => {
             if (!lead.customer) throw new Error("lead.customer ausente");
 
@@ -317,13 +328,6 @@ export const journeyProcessStep = inngest.createFunction(
             const message = template.waType === "MEDIA"
               ? renderTemplate(template.mediaCaption ?? "", vars)
               : renderTemplate(template.body, vars);
-
-            const unitMs: Record<string, number> = { seconds: 1_000, minutes: 60_000, hours: 3_600_000 };
-            const factor = unitMs[d.delayUnit ?? "seconds"] ?? 1_000;
-            const minMs  = (d.delayMin ?? 5)  * factor;
-            const maxMs  = (d.delayMax ?? 30) * factor;
-            const delay  = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-            await new Promise((r) => setTimeout(r, delay));
 
             if (template.waType === "MEDIA" && template.mediaUrl) {
               await sendWhatsAppMedia(lead.customer.phone, template.mediaUrl, message, clientId);

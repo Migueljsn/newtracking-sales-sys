@@ -10,6 +10,7 @@ import { PipelineStages } from "@/components/settings/pipeline-stages";
 import { ConsultantAccess } from "@/components/settings/consultant-access";
 import { WebhookConfig } from "@/components/settings/webhook-config";
 import { WhatsAppInstances } from "@/components/settings/whatsapp-instances";
+import { BotconversaConfig } from "@/components/settings/botconversa-config";
 
 const TABS = [
   { key: "geral",     label: "Geral"      },
@@ -138,8 +139,18 @@ export default async function SettingsPage({
       )}
 
       {activeTab === "whatsapp" && (
-        <div className="card p-5">
-          <WhatsAppInstances initialInstances={whatsappInstances} />
+        <div className="space-y-4">
+          <div className="card p-5">
+            <WhatsAppInstances initialInstances={whatsappInstances} />
+          </div>
+          <div className="card p-5">
+            <BotconversaConfig
+              currentApiKey={settings?.botconversaApiKey ?? null}
+              currentFlowId={settings?.botconversaFlowId ?? null}
+              currentFlowName={settings?.botconversaFlowName ?? null}
+              currentEnabled={settings?.botconversaEnabled ?? false}
+            />
+          </div>
         </div>
       )}
 

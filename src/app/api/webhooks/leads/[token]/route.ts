@@ -5,6 +5,7 @@ import { createLead } from "@/lib/domain/lead/create";
 import { normalizePhone } from "@/lib/utils/normalize";
 import { inngest } from "@/lib/inngest/client";
 import { leadChangedEvent } from "@/lib/inngest/events";
+import { triggerFlowForLead } from "@/lib/botconversa/client";
 
 // Aceita múltiplos nomes de campo comuns em integrações BR
 function pick(body: Record<string, unknown>, ...keys: string[]): string {
@@ -150,6 +151,22 @@ export async function POST(
   // ── Dispara verificação de jornadas ─────────────────────────────────────────
   if (leadId && action !== "error") {
     inngest.send(leadChangedEvent.create({ leadId, clientId })).catch(() => {});
+  }
+
+  // ── Botconversa — dispara fluxo ao criar lead novo ───────────────────────────
+  if (action === "created" && leadId) {
+    const botSettings = await prisma.clientSettings.findUnique({
+      where:  { clientId },
+      select: { botconversaEnabled: true, botconversaApiKey: true, botconversaFlowId: true },
+    });
+    if (botSettings?.botconversaEnabled && botSettings.botconversaApiKey && botSettings.botconversaFlowId) {
+      triggerFlowForLead({
+        apiKey:  botSettings.botconversaApiKey,
+        flowId:  botSettings.botconversaFlowId,
+        phone,
+        name:    name || phone,
+      }).catch(err => console.error("[botconversa] trigger falhou:", err));
+    }
   }
 
   // ── Grava log ────────────────────────────────────────────────────────────────

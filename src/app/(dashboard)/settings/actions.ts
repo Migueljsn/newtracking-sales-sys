@@ -316,6 +316,26 @@ export async function resetConsultantPasswordAction(id: string, formData: FormDa
   revalidatePath("/settings?tab=acessos");
 }
 
+// ─── Botconversa ─────────────────────────────────────────────────────────────
+
+export async function saveBotconversaConfigAction(formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const apiKey   = (formData.get("botconversaApiKey")   as string).trim() || null;
+  const flowId   = (formData.get("botconversaFlowId")   as string).trim() || null;
+  const flowName = (formData.get("botconversaFlowName") as string).trim() || null;
+  const enabled  = formData.get("botconversaEnabled") === "on";
+
+  await prisma.clientSettings.upsert({
+    where:  { clientId },
+    create: { clientId, botconversaApiKey: apiKey, botconversaFlowId: flowId ? Number(flowId) : null, botconversaFlowName: flowName, botconversaEnabled: enabled },
+    update: { botconversaApiKey: apiKey, botconversaFlowId: flowId ? Number(flowId) : null, botconversaFlowName: flowName, botconversaEnabled: enabled },
+  });
+
+  revalidatePath("/settings?tab=whatsapp");
+}
+
 // ─── Webhook — leads ─────────────────────────────────────────────────────────
 
 export async function generateWebhookTokenAction() {

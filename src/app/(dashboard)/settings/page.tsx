@@ -62,7 +62,7 @@ export default async function SettingsPage({
     prisma.whatsAppInstance.findMany({
       where:   { clientId },
       orderBy: { priority: "asc" },
-      select:  { id: true, instanceName: true, status: true, phone: true, profileName: true },
+      select:  { id: true, instanceName: true, status: true, phone: true, profileName: true, priority: true },
     }),
   ]);
 

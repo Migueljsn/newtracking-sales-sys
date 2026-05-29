@@ -36,6 +36,28 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ id: instance.id, instanceName: name });
 }
 
+export async function PATCH(req: NextRequest) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const { instanceName } = await req.json();
+  if (!instanceName) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
+
+  // Define a selecionada como prioridade 0, demais como 1
+  await prisma.$transaction([
+    prisma.whatsAppInstance.updateMany({
+      where: { clientId },
+      data:  { priority: 1 },
+    }),
+    prisma.whatsAppInstance.updateMany({
+      where: { clientId, instanceName },
+      data:  { priority: 0 },
+    }),
+  ]);
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(req: NextRequest) {
   const session  = await getSession();
   const clientId = session.clientId!;

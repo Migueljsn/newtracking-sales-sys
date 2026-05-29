@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, Trash2, Wifi, WifiOff, Loader2, QrCode, X, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Wifi, WifiOff, Loader2, QrCode, X, RefreshCw, Star } from "lucide-react";
 import { toast } from "sonner";
 
 type Instance = {
@@ -10,6 +10,7 @@ type Instance = {
   status:       string;
   phone:        string | null;
   profileName:  string | null;
+  priority:     number;
 };
 
 interface WhatsAppInstancesProps {
@@ -102,7 +103,7 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Erro ao criar"); return; }
 
-      const newInst: Instance = { id: data.id, instanceName: data.instanceName, status: "disconnected", phone: null, profileName: null };
+      const newInst: Instance = { id: data.id, instanceName: data.instanceName, status: "disconnected", phone: null, profileName: null, priority: 1 };
       setInstances((prev) => [...prev, newInst]);
       setNewName("");
       setShowForm(false);
@@ -125,6 +126,23 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
       setConfirmDelete(null);
       toast.success("Instância removida");
     } catch { toast.error("Erro ao remover"); }
+    finally   { setActingOn(null); }
+  }
+
+  async function handleSetDefault(instanceName: string) {
+    setActingOn({ name: instanceName, action: "refresh" }); // reutiliza estado visual
+    try {
+      const res = await fetch("/api/whatsapp/instances", {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ instanceName }),
+      });
+      if (!res.ok) { toast.error("Erro ao definir padrão"); return; }
+      setInstances(prev =>
+        prev.map(i => ({ ...i, priority: i.instanceName === instanceName ? 0 : 1 }))
+      );
+      toast.success(`${instanceName} definida como instância padrão`);
+    } catch { toast.error("Erro ao definir padrão"); }
     finally   { setActingOn(null); }
   }
 
@@ -196,6 +214,8 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
           const isDeleting     = confirmDelete === inst.instanceName;
           const isDeletingNow  = actingOn?.name === inst.instanceName && actingOn.action === "delete";
           const isBusy         = !!actingOn;
+          const isDefault      = inst.priority === 0 || instances.length === 1;
+          const multipleInst   = instances.length > 1;
 
           return (
             <div key={inst.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
@@ -221,17 +241,36 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
                 </p>
               </div>
 
-              {/* Badge */}
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                connected
-                  ? "bg-[#10b981]/15 text-[#10b981]"
-                  : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
-              }`}>
-                {connected ? "Conectado" : "Desconectado"}
-              </span>
+              {/* Badges */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {multipleInst && isDefault && (
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-[var(--accent)]/15 text-[var(--accent)]">
+                    Padrão
+                  </span>
+                )}
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                  connected
+                    ? "bg-[#10b981]/15 text-[#10b981]"
+                    : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
+                }`}>
+                  {connected ? "Conectado" : "Desconectado"}
+                </span>
+              </div>
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
+                {multipleInst && !isDefault && (
+                  <button
+                    type="button"
+                    onClick={() => handleSetDefault(inst.instanceName)}
+                    disabled={isBusy}
+                    title="Definir como padrão"
+                    className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] transition-colors disabled:opacity-40"
+                  >
+                    <Star size={13} />
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => handleRefreshStatus(inst.instanceName)}

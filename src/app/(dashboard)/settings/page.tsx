@@ -52,7 +52,7 @@ export default async function SettingsPage({
       include: { requirements: { orderBy: { position: "asc" } } },
     }),
     prisma.consultantUser.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
-    prisma.webhookToken.findUnique({ where: { clientId } }),
+    prisma.webhookToken.findUnique({ where: { clientId }, select: { id: true, token: true, flowToken: true, enabled: true } }),
     prisma.webhookInboundLog.findMany({
       where:   { clientId },
       orderBy: { createdAt: "desc" },

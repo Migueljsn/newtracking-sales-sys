@@ -516,6 +516,7 @@ enum NotificationType {
   SPEED_TO_LEAD         // lead NEW sem primeiro contato (2h / 8h)
   ACTIVATION_ALERT      // lead REGISTERED sem venda (3d / 7d)
   LTV_REACTIVATION      // lead SOLD sem recompra (30d / 60d / 90d)
+  FLOW_COMPLETED        // bot/fluxo externo concluiu qualificação de lead
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -646,18 +647,20 @@ model WhatsAppInstance {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model WebhookToken {
-  id        String   @id @default(cuid())
-  clientId  String   @unique
-  token     String   @unique @default(cuid())
-  label     String   @default("Webhook")
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  clientId   String   @unique
+  token      String   @unique @default(cuid())
+  flowToken  String?  @unique             // token separado para /webhooks/flows
+  label      String   @default("Webhook")
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   client    Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   logs      WebhookInboundLog[]
 
   @@index([token])
+  @@index([flowToken])
 }
 
 model WebhookInboundLog {

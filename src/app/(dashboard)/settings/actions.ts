@@ -316,7 +316,7 @@ export async function resetConsultantPasswordAction(id: string, formData: FormDa
   revalidatePath("/settings?tab=acessos");
 }
 
-// ─── Webhook ─────────────────────────────────────────────────────────────────
+// ─── Webhook — leads ─────────────────────────────────────────────────────────
 
 export async function generateWebhookTokenAction() {
   const session  = await getSession();
@@ -351,6 +351,33 @@ export async function toggleWebhookTokenAction(enabled: boolean) {
   await prisma.webhookToken.update({
     where: { clientId },
     data:  { enabled },
+  });
+
+  revalidatePath("/settings?tab=webhooks");
+}
+
+// ─── Webhook — flows ─────────────────────────────────────────────────────────
+
+export async function generateFlowTokenAction() {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.webhookToken.upsert({
+    where:  { clientId },
+    create: { clientId, flowToken: createId() },
+    update: { flowToken: createId() },
+  });
+
+  revalidatePath("/settings?tab=webhooks");
+}
+
+export async function regenerateFlowTokenAction() {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.webhookToken.update({
+    where: { clientId },
+    data:  { flowToken: createId() },
   });
 
   revalidatePath("/settings?tab=webhooks");

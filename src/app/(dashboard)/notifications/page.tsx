@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { AlertCircle, Bell, CheckCircle, Info, TriangleAlert, ChevronRight, Clock, UserCheck, RefreshCw } from "lucide-react";
+import { AlertCircle, Bell, CheckCircle, Info, TriangleAlert, ChevronRight, Clock, UserCheck, RefreshCw, Bot } from "lucide-react";
 import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
@@ -19,6 +19,7 @@ const typeConfig: Record<
   SPEED_TO_LEAD:          { icon: Clock,         iconClass: "bg-[var(--danger-soft)] text-[var(--danger)]",   label: "Speed-to-lead" },
   ACTIVATION_ALERT:       { icon: UserCheck,     iconClass: "bg-[var(--warning-soft)] text-[var(--warning)]", label: "Cadastro parado" },
   LTV_REACTIVATION:       { icon: RefreshCw,     iconClass: "bg-[var(--accent-soft)] text-[var(--accent)]",   label: "Reativação LTV" },
+  FLOW_COMPLETED:         { icon: Bot,           iconClass: "bg-violet-500/10 text-violet-500",               label: "Fluxo bot concluído" },
 };
 
 function extractLeadId(metadata: unknown): string | null {

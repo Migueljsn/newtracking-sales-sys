@@ -217,6 +217,7 @@ model Lead {
   checklists          LeadChecklist[]
 
   interactions        LeadInteraction[]
+  audienceMemberships AudienceMembership[]
 
   @@index([clientId])
   @@index([customerId])
@@ -307,10 +308,26 @@ model Audience {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client      Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   journeys    Journey[]
+  memberships AudienceMembership[]
 
   @@index([clientId])
+}
+
+model AudienceMembership {
+  audienceId String
+  leadId     String
+  clientId   String
+  enteredAt  DateTime @default(now())
+
+  audience   Audience @relation(fields: [audienceId], references: [id], onDelete: Cascade)
+  lead       Lead     @relation(fields: [leadId],     references: [id], onDelete: Cascade)
+
+  @@unique([audienceId, leadId])
+  @@index([leadId])
+  @@index([clientId])
+  @@index([audienceId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

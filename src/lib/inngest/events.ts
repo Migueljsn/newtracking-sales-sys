@@ -17,3 +17,7 @@ export const stepEvent = eventType("journey/step", {
 export const leadChangedEvent = eventType("lead/changed", {
   schema: staticSchema<{ leadId: string; clientId: string }>(),
 });
+
+export const audienceMemberEnteredEvent = eventType("audience/member-entered", {
+  schema: staticSchema<{ audienceId: string; leadId: string; clientId: string }>(),
+});

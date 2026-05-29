@@ -75,6 +75,15 @@ export const journeyEnrollAll = inngest.createFunction(
         });
         if (existing) continue;
 
+        // Gravar membership de público (upsert para evitar duplicatas)
+        for (const audienceId of audienceIds) {
+          await prisma.audienceMembership.upsert({
+            where:  { audienceId_leadId: { audienceId, leadId: lead.id } },
+            create: { audienceId, leadId: lead.id, clientId },
+            update: {},
+          });
+        }
+
         const enrollment = await prisma.journeyEnrollment.create({
           data: { journeyId, leadId: lead.id, currentNode: trigger.id },
         });

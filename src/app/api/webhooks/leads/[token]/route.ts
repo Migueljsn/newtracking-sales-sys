@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { findOrCreateCustomer } from "@/lib/domain/customer/find-or-create";
 import { createLead } from "@/lib/domain/lead/create";
 import { normalizePhone } from "@/lib/utils/normalize";
+import { inngest } from "@/lib/inngest/client";
+import { leadChangedEvent } from "@/lib/inngest/events";
 
 // Aceita múltiplos nomes de campo comuns em integrações BR
 function pick(body: Record<string, unknown>, ...keys: string[]): string {
@@ -81,29 +83,27 @@ export async function POST(
       });
       customerId = existingCustomer.id;
 
-      // Atualiza lead ativa se pipeline_stage ou consultor foram fornecidos
-      if (pipelineStageName || consultantName) {
-        const activeLead = await prisma.lead.findFirst({
-          where: { clientId, customerId: existingCustomer.id, status: { in: ["NEW", "REGISTERED"] } },
-          orderBy: { createdAt: "desc" },
-        });
+      // Encontra lead ativa para notificar jornadas e aplicar atualizações
+      const activeLead = await prisma.lead.findFirst({
+        where:   { clientId, customerId: existingCustomer.id, status: { in: ["NEW", "REGISTERED"] } },
+        orderBy: { createdAt: "desc" },
+      });
 
-        if (activeLead) {
-          leadId = activeLead.id;
-          const updates: Record<string, unknown> = {};
+      if (activeLead) {
+        leadId = activeLead.id;
+        const updates: Record<string, unknown> = {};
 
-          if (consultantName) updates.consultant = consultantName;
+        if (consultantName) updates.consultant = consultantName;
 
-          if (pipelineStageName) {
-            const stage = await prisma.pipelineStage.findFirst({
-              where: { clientId, name: { equals: pipelineStageName, mode: "insensitive" } },
-            });
-            if (stage) updates.pipelineStageId = stage.id;
-          }
+        if (pipelineStageName) {
+          const stage = await prisma.pipelineStage.findFirst({
+            where: { clientId, name: { equals: pipelineStageName, mode: "insensitive" } },
+          });
+          if (stage) updates.pipelineStageId = stage.id;
+        }
 
-          if (Object.keys(updates).length > 0) {
-            await prisma.lead.update({ where: { id: activeLead.id }, data: updates });
-          }
+        if (Object.keys(updates).length > 0) {
+          await prisma.lead.update({ where: { id: activeLead.id }, data: updates });
         }
       }
 
@@ -145,6 +145,11 @@ export async function POST(
     error  = err instanceof Error ? err.message : "Erro interno";
     action = "error";
     console.error("[webhook/leads]", err);
+  }
+
+  // ── Dispara verificação de jornadas ─────────────────────────────────────────
+  if (leadId && action !== "error") {
+    inngest.send(leadChangedEvent.create({ leadId, clientId })).catch(() => {});
   }
 
   // ── Grava log ────────────────────────────────────────────────────────────────

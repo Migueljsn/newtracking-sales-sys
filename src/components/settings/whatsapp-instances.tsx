@@ -23,7 +23,7 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
   const [creating,     setCreating]     = useState(false);
   const [newName,      setNewName]      = useState("");
   const [showForm,     setShowForm]     = useState(false);
-  const [loading,      setLoading]      = useState(false);
+  const [actingOn,     setActingOn]     = useState<{ name: string; action: "refresh" | "delete" } | null>(null);
 
   // QR code modal
   const [qrInstance,   setQrInstance]   = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
 
   async function handleDelete(instanceName: string) {
     if (confirmDelete !== instanceName) { setConfirmDelete(instanceName); return; }
-    setLoading(true);
+    setActingOn({ name: instanceName, action: "delete" });
     try {
       await fetch("/api/whatsapp/instances", {
         method:  "DELETE",
@@ -125,13 +125,17 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
       setConfirmDelete(null);
       toast.success("Instância removida");
     } catch { toast.error("Erro ao remover"); }
-    finally   { setLoading(false); }
+    finally   { setActingOn(null); }
   }
 
   async function handleRefreshStatus(instanceName: string) {
-    setLoading(true);
-    await checkStatus(instanceName);
-    setLoading(false);
+    setActingOn({ name: instanceName, action: "refresh" });
+    try {
+      const connected = await checkStatus(instanceName);
+      if (!connected) toast.info("Instância ainda desconectada");
+    } finally {
+      setActingOn(null);
+    }
   }
 
   return (
@@ -187,8 +191,11 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
 
       <div className="space-y-2">
         {instances.map((inst) => {
-          const connected = inst.status === "connected";
-          const isDeleting = confirmDelete === inst.instanceName;
+          const connected      = inst.status === "connected";
+          const isRefreshing   = actingOn?.name === inst.instanceName && actingOn.action === "refresh";
+          const isDeleting     = confirmDelete === inst.instanceName;
+          const isDeletingNow  = actingOn?.name === inst.instanceName && actingOn.action === "delete";
+          const isBusy         = !!actingOn;
 
           return (
             <div key={inst.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
@@ -196,16 +203,21 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
               <div className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg ${
                 connected ? "bg-[#10b981]/15 text-[#10b981]" : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
               }`}>
-                {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
+                {isRefreshing
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : connected ? <Wifi size={14} /> : <WifiOff size={14} />
+                }
               </div>
 
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-[var(--text)]">{inst.instanceName}</p>
                 <p className="text-xs text-[var(--text-muted)]">
-                  {connected
-                    ? `${inst.profileName ?? ""} · +${inst.phone ?? "—"}`
-                    : "Desconectado"}
+                  {isRefreshing
+                    ? "Verificando status…"
+                    : connected
+                      ? `${inst.profileName ?? ""} · +${inst.phone ?? "—"}`
+                      : "Desconectado"}
                 </p>
               </div>
 
@@ -223,18 +235,19 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
                 <button
                   type="button"
                   onClick={() => handleRefreshStatus(inst.instanceName)}
-                  disabled={loading}
+                  disabled={isBusy}
                   title="Verificar status"
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] transition-colors"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] transition-colors disabled:opacity-40"
                 >
-                  <RefreshCw size={13} />
+                  <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} />
                 </button>
 
                 {!connected && (
                   <button
                     type="button"
                     onClick={() => openQr(inst.instanceName)}
-                    className="flex items-center gap-1.5 h-8 rounded-lg px-2.5 text-xs font-medium border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
+                    disabled={isBusy}
+                    className="flex items-center gap-1.5 h-8 rounded-lg px-2.5 text-xs font-medium border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-40"
                   >
                     <QrCode size={12} />
                     Conectar
@@ -244,16 +257,19 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
                 <button
                   type="button"
                   onClick={() => handleDelete(inst.instanceName)}
-                  disabled={loading}
-                  className={`flex items-center gap-1.5 h-8 rounded-lg px-2.5 text-xs font-medium transition-colors ${
-                    isDeleting
+                  disabled={isBusy}
+                  className={`flex items-center gap-1.5 h-8 rounded-lg px-2.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+                    isDeleting && !isDeletingNow
                       ? "bg-[var(--danger)] text-white"
                       : "text-[var(--text-muted)] hover:text-[var(--danger)] hover:bg-[var(--danger-soft)]"
                   }`}
-                  onBlur={() => setConfirmDelete(null)}
+                  onBlur={() => { if (!isDeletingNow) setConfirmDelete(null); }}
                 >
-                  <Trash2 size={12} />
-                  {isDeleting ? "Confirmar" : "Remover"}
+                  {isDeletingNow
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <Trash2 size={12} />
+                  }
+                  {isDeletingNow ? "Removendo…" : isDeleting ? "Confirmar" : "Remover"}
                 </button>
               </div>
             </div>

@@ -110,8 +110,8 @@ async function sendWhatsApp(phone: string, message: string, clientId: string): P
       body:    JSON.stringify({ number, text: message }),
     });
     if (res.ok) return;
-    const err = await res.text();
-    console.warn(`[Journey] Falha na instância ${inst.instanceName}: ${err}`);
+    const err = await res.text().catch(() => "(sem corpo)");
+    console.warn(`[Journey] Falha na instância ${inst.instanceName} — status ${res.status}: ${err}`);
   }
 
   throw new Error(`[Journey] Todas as instâncias falharam ao enviar para ${phone}`);
@@ -125,10 +125,11 @@ async function sendWhatsAppMedia(phone: string, mediaUrl: string, caption: strin
     const res = await fetch(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
-      body:    JSON.stringify({ number, mediaUrl, caption, mediatype: "image" }),
+      body:    JSON.stringify({ number, media: mediaUrl, caption, mediatype: "image" }),
     });
     if (res.ok) return;
-    console.warn(`[Journey] Falha de mídia na instância ${inst.instanceName}`);
+    const errBody = await res.text().catch(() => "(sem corpo)");
+    console.warn(`[Journey] Falha de mídia na instância ${inst.instanceName} — status ${res.status}: ${errBody}`);
   }
 
   throw new Error(`[Journey] Todas as instâncias falharam ao enviar mídia para ${phone}`);
@@ -145,7 +146,8 @@ async function sendWhatsAppAudio(phone: string, audioUrl: string, clientId: stri
       body:    JSON.stringify({ number, audio: audioUrl }),
     });
     if (res.ok) return;
-    console.warn(`[Journey] Falha de áudio na instância ${inst.instanceName}`);
+    const errBody = await res.text().catch(() => "(sem corpo)");
+    console.warn(`[Journey] Falha de áudio na instância ${inst.instanceName} — status ${res.status}: ${errBody}`);
   }
 
   throw new Error(`[Journey] Todas as instâncias falharam ao enviar áudio para ${phone}`);

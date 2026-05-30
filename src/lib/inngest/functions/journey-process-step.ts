@@ -286,6 +286,16 @@ export const journeyProcessStep = inngest.createFunction(
               throw new Error(`Resend: ${error.message}`);
             }
 
+            await prisma.leadInteraction.create({
+              data: {
+                leadId,
+                clientId,
+                type:      "NOTE",
+                content:   `[Jornada] E-mail enviado: "${subject}"`,
+                createdBy: `Jornada: ${journey.name}`,
+              },
+            }).catch(() => {});
+
             return { messageId: data?.id };
           });
           nodeResult = "email_sent";
@@ -338,6 +348,16 @@ export const journeyProcessStep = inngest.createFunction(
             } else {
               await sendWhatsApp(lead.customer.phone, message, clientId);
             }
+
+            await prisma.leadInteraction.create({
+              data: {
+                leadId,
+                clientId,
+                type:      "WHATSAPP",
+                content:   `[Jornada] WhatsApp enviado: "${message.slice(0, 120)}${message.length > 120 ? "…" : ""}"`,
+                createdBy: `Jornada: ${journey.name}`,
+              },
+            }).catch(() => {});
           });
           nodeResult = "whatsapp_sent";
         } else {

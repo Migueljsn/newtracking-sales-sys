@@ -33,6 +33,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/inngest") ||
     pathname.startsWith("/api/consultor") ||
+    pathname.startsWith("/api/webhooks") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/consultor")
   ) {

@@ -47,7 +47,6 @@ export const scheduleTimeBasedChecks = inngest.createFunction(
 
     if (!lead) return { skipped: "lead not found" };
 
-    // Coletar audienceIds de jornadas ativas deste cliente
     const activeAudienceIds = await step.run("load-audience-ids", async () => {
       const journeys = await prisma.journey.findMany({
         where:  { clientId, status: "ACTIVE" },
@@ -74,45 +73,48 @@ export const scheduleTimeBasedChecks = inngest.createFunction(
       })
     );
 
-    // Calcular todos os cruzamentos futuros de threshold
-    const now          = Date.now();
-    const lastSaleDate = lead.sales[0]
-      ? new Date(lead.sales[0].soldAt as unknown as string)
-      : null;
-    const capturedAt   = new Date(lead.capturedAt as unknown as string);
+    // Wrapping inside step.run ensures the computed crossing is CACHED by Inngest.
+    // Without this, on re-execution after sleepUntil wakes up, Date.now() would
+    // be past the crossing time → futureCrossings empty → early return fires before
+    // step.sleepUntil replays → step.sendEvent never called → lead never re-evaluated.
+    const nextCrossing = await step.run("find-next-crossing", () => {
+      const now          = Date.now();
+      const lastSaleDate = lead.sales[0]
+        ? new Date(lead.sales[0].soldAt as unknown as string)
+        : null;
+      const capturedAt   = new Date(lead.capturedAt as unknown as string);
 
-    const futureCrossings = new Set<number>();
+      let earliest: number | null = null;
 
-    for (const audience of audiences) {
-      const def        = parseAudienceRules(audience.rules);
-      const thresholds = [
-        ...extractTimeThresholds(def.include),
-        ...(def.exclude ? extractTimeThresholds(def.exclude) : []),
-      ];
+      for (const audience of audiences) {
+        const def        = parseAudienceRules(audience.rules);
+        const thresholds = [
+          ...extractTimeThresholds(def.include),
+          ...(def.exclude ? extractTimeThresholds(def.exclude) : []),
+        ];
 
-      for (const { field, days } of thresholds) {
-        const baseDate = field === "daysSinceLastSale" ? lastSaleDate : capturedAt;
-        if (!baseDate) continue;
+        for (const { field, days } of thresholds) {
+          const baseDate = field === "daysSinceLastSale" ? lastSaleDate : capturedAt;
+          if (!baseDate) continue;
 
-        const crossAt = baseDate.getTime() + days * 86_400_000;
-        if (crossAt > now) futureCrossings.add(crossAt);
+          const crossAt = baseDate.getTime() + days * 86_400_000;
+          if (crossAt > now && (earliest === null || crossAt < earliest)) {
+            earliest = crossAt;
+          }
+        }
       }
-    }
 
-    if (futureCrossings.size === 0) return { scheduled: 0 };
+      return earliest;
+    });
 
-    // Dormir até o próximo cruzamento — ao acordar, re-dispara leadChangedEvent:
-    // • sync-audience-membership avalia e cria membership se qualificou
-    // • uma nova instância desta função agenda o próximo cruzamento restante
-    const nextCrossing = Math.min(...futureCrossings);
-    const wakeAt       = new Date(nextCrossing);
+    if (nextCrossing === null) return { scheduled: 0 };
 
-    await step.sleepUntil("wait-threshold", wakeAt);
+    await step.sleepUntil("wait-threshold", new Date(nextCrossing));
 
     await step.sendEvent("fire-after-threshold",
       leadChangedEvent.create({ leadId, clientId })
     );
 
-    return { scheduled: 1, wakeAt: wakeAt.toISOString() };
+    return { scheduled: 1, wakeAt: new Date(nextCrossing).toISOString() };
   }
 );

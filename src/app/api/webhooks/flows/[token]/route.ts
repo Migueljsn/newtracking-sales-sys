@@ -71,9 +71,19 @@ export async function POST(
 
   try {
     // ── Find existing customer — flows never create new leads ────────────────────
-    const customer = await prisma.customer.findFirst({
+    // Botconversa sends phone as +55XXXXXXXXXX (may lack mobile 9 digit).
+    // normalizePhone strips +55, so we try both the raw normalized form
+    // and the version with 9 inserted after the 2-digit DDD (Brazilian mobile).
+    let customer = await prisma.customer.findFirst({
       where: { clientId, phone },
     });
+
+    if (!customer && phone.length === 10) {
+      const withNine = phone.slice(0, 2) + "9" + phone.slice(2);
+      customer = await prisma.customer.findFirst({
+        where: { clientId, phone: withNine },
+      });
+    }
 
     if (!customer) {
       return NextResponse.json(

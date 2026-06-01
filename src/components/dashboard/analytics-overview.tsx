@@ -819,7 +819,7 @@ function ConsultantRanking({ data }: { data: BarItemFull[] }) {
                     <span className="font-medium text-[var(--text)] truncate">{c.label}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 tabular-nums text-[var(--text-muted)]">
-                    <span>{c.sales} venda{c.sales !== 1 ? "s" : ""}</span>
+                    <span>{fmt(c.sales)} venda{c.sales !== 1 ? "s" : ""}</span>
                     <span className="font-semibold text-[var(--success)]">{brl(c.revenue)}</span>
                   </div>
                 </div>

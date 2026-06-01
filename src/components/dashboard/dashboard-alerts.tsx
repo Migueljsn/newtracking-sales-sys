@@ -45,7 +45,7 @@ export async function DashboardAlerts() {
           </div>
           <div>
             <p className="text-lg font-bold tabular-nums text-[var(--accent)] group-hover:text-white leading-none">
-              {newToday}
+              {newToday.toLocaleString("pt-BR")}
             </p>
             <p className="text-xs text-[var(--accent)] group-hover:text-white opacity-80">
               lead{newToday !== 1 ? "s" : ""} captada{newToday !== 1 ? "s" : ""} hoje
@@ -64,7 +64,7 @@ export async function DashboardAlerts() {
           </div>
           <div>
             <p className="text-lg font-bold tabular-nums text-[var(--warning)] leading-none">
-              {noConsultant}
+              {noConsultant.toLocaleString("pt-BR")}
             </p>
             <p className="text-xs text-[var(--warning)] opacity-80">
               sem consultor atribuído
@@ -83,7 +83,7 @@ export async function DashboardAlerts() {
           </div>
           <div>
             <p className="text-lg font-bold tabular-nums text-[var(--danger)] leading-none">
-              {stagnant}
+              {stagnant.toLocaleString("pt-BR")}
             </p>
             <p className="text-xs text-[var(--danger)] opacity-80">
               paradas no pipeline +30 dias

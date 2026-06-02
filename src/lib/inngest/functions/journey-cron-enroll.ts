@@ -4,7 +4,6 @@ import { prisma }           from "@/lib/db/prisma";
 import { parseAudienceRules } from "@/lib/audiences/types";
 import type { Rule, RuleGroup } from "@/lib/audiences/types";
 
-// Extrai todos os valores de condições daysSinceLastSale/daysSinceCapture de um grupo de regras
 function extractTimeDays(group: RuleGroup): number[] {
   const values: number[] = [];
   for (const r of group.rules) {
@@ -28,10 +27,9 @@ export const journeyCronEnroll = inngest.createFunction(
   {
     id:       "journey-cron-enroll",
     name:     "Verificar leads que cruzaram thresholds de tempo (cron)",
-    triggers: [{ cron: "0 */6 * * *" }], // 4x por dia
+    triggers: [{ cron: "0 */6 * * *" }],
   },
   async ({ step }) => {
-    // 1. Carregar públicos de jornadas ativas
     const journeys = await step.run("load-active-journeys", () =>
       prisma.journey.findMany({
         where:  { status: "ACTIVE" },
@@ -41,7 +39,6 @@ export const journeyCronEnroll = inngest.createFunction(
 
     if (journeys.length === 0) return { fired: 0 };
 
-    // 2. Coletar audienceIds únicos e extrair thresholds de tempo
     const audienceIdSet = new Set<string>();
     for (const j of journeys) {
       const nodes = j.nodes as Array<{ type?: string; data?: { audienceIds?: string[]; audienceId?: string } }>;
@@ -58,7 +55,6 @@ export const journeyCronEnroll = inngest.createFunction(
       })
     );
 
-    // 3. Extrair thresholds únicos de dias
     const thresholds = new Set<number>();
     for (const audience of audiences) {
       const def = parseAudienceRules(audience.rules);
@@ -68,18 +64,20 @@ export const journeyCronEnroll = inngest.createFunction(
 
     if (thresholds.size === 0) return { fired: 0, reason: "no time-based conditions" };
 
-    // 4. Para cada threshold, buscar leads que cruzaram o limite nas últimas 6 horas
-    const INTERVAL_HOURS = 6;
-    const candidateLeadIds = new Set<string>();
-    const leadClientMap: Record<string, string> = {};
+    // Wrap the query inside step.run so the result is CACHED and returned.
+    // Mutating an outer Set inside step.run() does not persist on Inngest
+    // re-execution (the body is skipped for cached steps), so the outer
+    // variable would always be empty and sendEvent would never be reached.
+    const candidates = await step.run("find-threshold-crossings", async () => {
+      const INTERVAL_HOURS = 6;
+      const found: { leadId: string; clientId: string }[] = [];
+      const seen  = new Set<string>();
 
-    await step.run("find-threshold-crossings", async () => {
       for (const days of thresholds) {
         const upperBound = new Date(Date.now() - days * 86_400_000);
         const lowerBound = new Date(upperBound.getTime() - INTERVAL_HOURS * 3_600_000);
 
-        // Leads cuja ÚLTIMA venda cruzou o threshold nas últimas 6 horas
-        const rows = await prisma.$queryRaw<Array<{ id: string; clientId: string }>>`
+        const saleRows = await prisma.$queryRaw<Array<{ id: string; clientId: string }>>`
           SELECT l.id, l."clientId"
           FROM "Lead" l
           WHERE l.status IN ('NEW', 'REGISTERED')
@@ -91,12 +89,10 @@ export const journeyCronEnroll = inngest.createFunction(
             )
         `;
 
-        for (const row of rows) {
-          candidateLeadIds.add(row.id);
-          leadClientMap[row.id] = row.clientId;
+        for (const row of saleRows) {
+          if (!seen.has(row.id)) { seen.add(row.id); found.push({ leadId: row.id, clientId: row.clientId }); }
         }
 
-        // Leads cuja data de captura cruzou o threshold (daysSinceCapture)
         const captureRows = await prisma.$queryRaw<Array<{ id: string; clientId: string }>>`
           SELECT l.id, l."clientId"
           FROM "Lead" l
@@ -105,22 +101,22 @@ export const journeyCronEnroll = inngest.createFunction(
         `;
 
         for (const row of captureRows) {
-          candidateLeadIds.add(row.id);
-          leadClientMap[row.id] = row.clientId;
+          if (!seen.has(row.id)) { seen.add(row.id); found.push({ leadId: row.id, clientId: row.clientId }); }
         }
       }
+
+      return found;
     });
 
-    if (candidateLeadIds.size === 0) return { fired: 0 };
+    if (candidates.length === 0) return { fired: 0 };
 
-    // 5. Disparar leadChangedEvent para cada candidato — sync-audience-membership cuida do resto
     await step.sendEvent(
       "fire-lead-changed",
-      [...candidateLeadIds].map(leadId =>
-        leadChangedEvent.create({ leadId, clientId: leadClientMap[leadId] })
+      candidates.map(({ leadId, clientId }) =>
+        leadChangedEvent.create({ leadId, clientId })
       )
     );
 
-    return { fired: candidateLeadIds.size };
+    return { fired: candidates.length };
   }
 );

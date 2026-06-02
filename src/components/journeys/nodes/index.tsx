@@ -74,12 +74,15 @@ export function EmailNode({ data, selected }: NodeProps) {
 
 export function WhatsAppNode({ data, selected }: NodeProps) {
   const d = data as unknown as WhatsAppData;
+  const summary = d.messageMode === "direct"
+    ? (d.directText ? d.directText.slice(0, 38) + (d.directText.length > 38 ? "…" : "") : "Mensagem direta (vazia)")
+    : (d.templateName ?? "Nenhum template");
   return (
     <BaseNode
       label="WhatsApp"
       color="#10b981"
       icon={<MessageCircle size={13} />}
-      summary={d.templateName ?? "Nenhum template"}
+      summary={summary}
       selected={!!selected}
     />
   );

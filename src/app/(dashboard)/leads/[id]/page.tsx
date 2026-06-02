@@ -20,6 +20,7 @@ import { DeleteSaleButton } from "@/components/leads/delete-sale-button";
 import { ResendEventButton } from "@/components/leads/resend-event-button";
 import { HintTooltip } from "@/components/ui/hint-tooltip";
 import { LeadInteractions } from "@/components/leads/lead-interactions";
+import { AutomationPauseToggle } from "@/components/leads/automation-pause-toggle";
 
 const trackingStatusLabel: Record<string, string> = {
   PENDING: "Pendente",
@@ -107,6 +108,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <AutomationPauseToggle leadId={lead.id} initialPaused={lead.automationPaused} />
           <DeleteLeadButton leadId={lead.id} hasSale={lead.sales.length > 0} />
 
           {(lead.status === "NEW" || lead.status === "REGISTERED") && (

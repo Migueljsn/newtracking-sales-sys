@@ -415,12 +415,14 @@ export const journeyProcessStep = inngest.createFunction(
           await step.sleepUntil("wait-for-send-window", resumeAt);
         }
 
-        if (d.templateId && lead.customer?.phone) {
-          // Calcular delay fora do step para usar step.sleep (não setTimeout em serverless)
+        const isDirectMode = d.messageMode === "direct";
+        const canSend = lead.customer?.phone && (isDirectMode ? !!d.directText : !!d.templateId);
+
+        if (canSend) {
           const unitSec: Record<string, number> = { seconds: 1, minutes: 60, hours: 3600 };
-          const factor  = unitSec[d.delayUnit ?? "seconds"] ?? 1;
-          const minSec  = (d.delayMin ?? 5)  * factor;
-          const maxSec  = (d.delayMax ?? 30) * factor;
+          const factor   = unitSec[d.delayUnit ?? "seconds"] ?? 1;
+          const minSec   = (d.delayMin ?? 5)  * factor;
+          const maxSec   = (d.delayMax ?? 30) * factor;
           const delaySec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
 
           if (delaySec > 0) {
@@ -430,31 +432,46 @@ export const journeyProcessStep = inngest.createFunction(
           await step.run("send-whatsapp", async () => {
             if (!lead.customer) throw new Error("lead.customer ausente");
 
-            const template = await prisma.emailTemplate.findUnique({ where: { id: d.templateId! } });
-            if (!template) throw new Error(`Template ${d.templateId} não encontrado`);
+            const vars = buildLeadVars(lead, lead.customer, client.name);
 
-            const vars    = buildLeadVars(lead, lead.customer, client.name);
-            const message = template.waType === "MEDIA"
-              ? renderTemplate(template.mediaCaption ?? "", vars)
-              : renderTemplate(template.body, vars);
-
-            if (template.waType === "MEDIA" && template.mediaUrl) {
-              await sendWhatsAppMedia(lead.customer.phone, template.mediaUrl, message, clientId);
-            } else if (template.waType === "AUDIO" && template.mediaUrl) {
-              await sendWhatsAppAudio(lead.customer.phone, template.mediaUrl, clientId);
-            } else {
+            if (isDirectMode) {
+              const message = renderTemplate(d.directText!, vars);
               await sendWhatsApp(lead.customer.phone, message, clientId);
-            }
+              await prisma.leadInteraction.create({
+                data: {
+                  leadId,
+                  clientId,
+                  type:      "WHATSAPP",
+                  content:   `[Jornada] WhatsApp enviado: "${message.slice(0, 120)}${message.length > 120 ? "…" : ""}"`,
+                  createdBy: `Jornada: ${journey.name}`,
+                },
+              }).catch(() => {});
+            } else {
+              const template = await prisma.emailTemplate.findUnique({ where: { id: d.templateId! } });
+              if (!template) throw new Error(`Template ${d.templateId} não encontrado`);
 
-            await prisma.leadInteraction.create({
-              data: {
-                leadId,
-                clientId,
-                type:      "WHATSAPP",
-                content:   `[Jornada] WhatsApp enviado: "${message.slice(0, 120)}${message.length > 120 ? "…" : ""}"`,
-                createdBy: `Jornada: ${journey.name}`,
-              },
-            }).catch(() => {});
+              const message = template.waType === "MEDIA"
+                ? renderTemplate(template.mediaCaption ?? "", vars)
+                : renderTemplate(template.body, vars);
+
+              if (template.waType === "MEDIA" && template.mediaUrl) {
+                await sendWhatsAppMedia(lead.customer.phone, template.mediaUrl, message, clientId);
+              } else if (template.waType === "AUDIO" && template.mediaUrl) {
+                await sendWhatsAppAudio(lead.customer.phone, template.mediaUrl, clientId);
+              } else {
+                await sendWhatsApp(lead.customer.phone, message, clientId);
+              }
+
+              await prisma.leadInteraction.create({
+                data: {
+                  leadId,
+                  clientId,
+                  type:      "WHATSAPP",
+                  content:   `[Jornada] WhatsApp enviado: "${message.slice(0, 120)}${message.length > 120 ? "…" : ""}"`,
+                  createdBy: `Jornada: ${journey.name}`,
+                },
+              }).catch(() => {});
+            }
           });
           nodeResult = "whatsapp_sent";
         } else {

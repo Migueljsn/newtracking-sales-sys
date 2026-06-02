@@ -154,113 +154,174 @@ function WhatsAppNodeConfig({
   labelClass:   string;
 }) {
   const [showPreview, setShowPreview] = useState(false);
+  const mode = d.messageMode ?? "template";
 
   return (
     <div className="space-y-4">
-      {/* Template selector */}
+      {/* Modo de envio toggle */}
       <div>
-        <label className={labelClass}>Template WhatsApp</label>
-        <select
-          value={d.templateId ?? ""}
-          onChange={(e) => {
-            const t = waTemplates.find((t) => t.id === e.target.value);
-            onUpdate({ templateId: t?.id ?? null, templateName: t?.name ?? null, waType: t?.waType ?? null });
-          }}
-          className={selectClass}
-        >
-          <option value="">Selecione um template…</option>
-          {waTemplates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+        <label className={labelClass}>Modo de envio</label>
+        <div className="flex gap-2 mt-1">
+          {[
+            { value: "template", label: "Template",        icon: <FileText      size={12} /> },
+            { value: "direct",   label: "Mensagem direta", icon: <MessageSquare size={12} /> },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onUpdate({ messageMode: opt.value as "template" | "direct" })}
+              className={`flex items-center gap-1.5 flex-1 justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
+                mode === opt.value
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              {opt.icon}{opt.label}
+            </button>
           ))}
-        </select>
-        {waTemplates.length === 0 && (
-          <p className="text-xs text-[var(--text-muted)] mt-1">Crie templates em Jornadas → Templates → WhatsApp.</p>
-        )}
+        </div>
       </div>
 
-      {/* Template info + preview toggle */}
-      {tpl && (
-        <>
-          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
-            <div className="flex items-center gap-1.5 text-xs text-[var(--text)]">
-              {tpl.waType && waTypeIcon[tpl.waType]}
-              <span className="font-medium truncate max-w-[130px]">{tpl.name}</span>
-              {tpl.waType && (
-                <span className="text-[10px] bg-[#25D366]/15 text-[#25D366] px-1.5 py-0.5 rounded-full shrink-0">
-                  {tpl.waType}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPreview((v) => !v)}
-              className="flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] hover:underline shrink-0 ml-2"
-            >
-              {showPreview ? <EyeOff size={11} /> : <Eye size={11} />}
-              {showPreview ? "Fechar" : "Prévia"}
-            </button>
-          </div>
-
-          {/* Inline bubble preview */}
-          {showPreview && (
-            <div className="rounded-xl border border-[var(--border)] bg-[#ECE5DD] p-3">
+      {/* ── Modo direto ── */}
+      {mode === "direct" && (
+        <div>
+          <label className={labelClass}>Mensagem</label>
+          <textarea
+            rows={4}
+            value={d.directText ?? ""}
+            onChange={(e) => onUpdate({ directText: e.target.value })}
+            placeholder={"Ex: Olá {nome}, temos uma oferta especial para você!"}
+            className={inputClass + " resize-none"}
+          />
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">
+            Use {"{nome}"}, {"{empresa}"} etc. para personalizar
+          </p>
+          {/* Bubble preview da mensagem direta */}
+          {d.directText && (
+            <div className="mt-2 rounded-xl border border-[var(--border)] bg-[#ECE5DD] p-3">
               <div className="flex justify-end">
-                <div className="max-w-[85%] bg-[#DCF8C6] rounded-2xl rounded-tr-sm shadow-sm overflow-hidden">
-
-                  {tpl.waType === "MEDIA" && (
-                    <div className="bg-[#c5e8a4] flex items-center justify-center min-h-[80px]">
-                      {tpl.mediaUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={tpl.mediaUrl} alt="mídia" className="max-h-36 w-full object-cover"
-                          onError={(e) => { (e.target as HTMLElement).style.display = "none"; }} />
-                      ) : (
-                        <div className="flex flex-col items-center gap-1 py-4 px-6 text-[#128C7E]">
-                          <Image size={22} />
-                          <span className="text-[10px]">Imagem / Vídeo</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {tpl.waType === "AUDIO" && (
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      <div className="w-7 h-7 rounded-full bg-[#128C7E] flex items-center justify-center shrink-0">
-                        <Mic size={12} className="text-white" />
-                      </div>
-                      <div className="flex gap-0.5 items-end h-5">
-                        {[2,4,6,4,2,5,3,5,7,4,2,5,6,3,4].map((h, i) => (
-                          <div key={i} className="w-0.5 bg-[#128C7E] rounded-full" style={{ height: `${h * 2}px` }} />
-                        ))}
-                      </div>
-                      <span className="text-[10px] text-[#667781]">0:12</span>
-                    </div>
-                  )}
-
-                  {(tpl.waType === "TEXT" || tpl.waType === "MEDIA") && (
-                    <div className="px-3 py-2">
-                      {tpl.waType === "TEXT" && (
-                        <p className="text-[12px] text-[#111B21] leading-snug whitespace-pre-wrap">
-                          {renderWA(tpl.body) || <span className="italic text-[#667781]">Mensagem vazia</span>}
-                        </p>
-                      )}
-                      {tpl.waType === "MEDIA" && tpl.mediaCaption && (
-                        <p className="text-[12px] text-[#111B21] leading-snug whitespace-pre-wrap">
-                          {renderWA(tpl.mediaCaption)}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-[#667781] text-right mt-0.5">{now} ✓✓</p>
-                    </div>
-                  )}
-
-                  {tpl.waType === "AUDIO" && (
-                    <div className="px-3 pb-1.5">
-                      <p className="text-[10px] text-[#667781] text-right">{now} ✓✓</p>
-                    </div>
-                  )}
+                <div className="max-w-[85%] bg-[#DCF8C6] rounded-2xl rounded-tr-sm shadow-sm px-3 py-2">
+                  <p className="text-[12px] text-[#111B21] leading-snug whitespace-pre-wrap">
+                    {renderWA(d.directText)}
+                  </p>
+                  <p className="text-[10px] text-[#667781] text-right mt-0.5">{now} ✓✓</p>
                 </div>
               </div>
               <p className="text-[10px] text-[#667781] text-center mt-2">Variáveis substituídas por dados de exemplo</p>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Modo template ── */}
+      {mode === "template" && (
+        <>
+          {/* Template selector */}
+          <div>
+            <label className={labelClass}>Template WhatsApp</label>
+            <select
+              value={d.templateId ?? ""}
+              onChange={(e) => {
+                const t = waTemplates.find((t) => t.id === e.target.value);
+                onUpdate({ templateId: t?.id ?? null, templateName: t?.name ?? null, waType: t?.waType ?? null });
+              }}
+              className={selectClass}
+            >
+              <option value="">Selecione um template…</option>
+              {waTemplates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            {waTemplates.length === 0 && (
+              <p className="text-xs text-[var(--text-muted)] mt-1">Crie templates em Jornadas → Templates → WhatsApp.</p>
+            )}
+          </div>
+
+          {/* Template info + preview toggle */}
+          {tpl && (
+            <>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
+                <div className="flex items-center gap-1.5 text-xs text-[var(--text)]">
+                  {tpl.waType && waTypeIcon[tpl.waType]}
+                  <span className="font-medium truncate max-w-[130px]">{tpl.name}</span>
+                  {tpl.waType && (
+                    <span className="text-[10px] bg-[#25D366]/15 text-[#25D366] px-1.5 py-0.5 rounded-full shrink-0">
+                      {tpl.waType}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPreview((v) => !v)}
+                  className="flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] hover:underline shrink-0 ml-2"
+                >
+                  {showPreview ? <EyeOff size={11} /> : <Eye size={11} />}
+                  {showPreview ? "Fechar" : "Prévia"}
+                </button>
+              </div>
+
+              {/* Inline bubble preview */}
+              {showPreview && (
+                <div className="rounded-xl border border-[var(--border)] bg-[#ECE5DD] p-3">
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] bg-[#DCF8C6] rounded-2xl rounded-tr-sm shadow-sm overflow-hidden">
+
+                      {tpl.waType === "MEDIA" && (
+                        <div className="bg-[#c5e8a4] flex items-center justify-center min-h-[80px]">
+                          {tpl.mediaUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={tpl.mediaUrl} alt="mídia" className="max-h-36 w-full object-cover"
+                              onError={(e) => { (e.target as HTMLElement).style.display = "none"; }} />
+                          ) : (
+                            <div className="flex flex-col items-center gap-1 py-4 px-6 text-[#128C7E]">
+                              <Image size={22} />
+                              <span className="text-[10px]">Imagem / Vídeo</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {tpl.waType === "AUDIO" && (
+                        <div className="flex items-center gap-2 px-3 py-2">
+                          <div className="w-7 h-7 rounded-full bg-[#128C7E] flex items-center justify-center shrink-0">
+                            <Mic size={12} className="text-white" />
+                          </div>
+                          <div className="flex gap-0.5 items-end h-5">
+                            {[2,4,6,4,2,5,3,5,7,4,2,5,6,3,4].map((h, i) => (
+                              <div key={i} className="w-0.5 bg-[#128C7E] rounded-full" style={{ height: `${h * 2}px` }} />
+                            ))}
+                          </div>
+                          <span className="text-[10px] text-[#667781]">0:12</span>
+                        </div>
+                      )}
+
+                      {(tpl.waType === "TEXT" || tpl.waType === "MEDIA") && (
+                        <div className="px-3 py-2">
+                          {tpl.waType === "TEXT" && (
+                            <p className="text-[12px] text-[#111B21] leading-snug whitespace-pre-wrap">
+                              {renderWA(tpl.body) || <span className="italic text-[#667781]">Mensagem vazia</span>}
+                            </p>
+                          )}
+                          {tpl.waType === "MEDIA" && tpl.mediaCaption && (
+                            <p className="text-[12px] text-[#111B21] leading-snug whitespace-pre-wrap">
+                              {renderWA(tpl.mediaCaption)}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-[#667781] text-right mt-0.5">{now} ✓✓</p>
+                        </div>
+                      )}
+
+                      {tpl.waType === "AUDIO" && (
+                        <div className="px-3 pb-1.5">
+                          <p className="text-[10px] text-[#667781] text-right">{now} ✓✓</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[#667781] text-center mt-2">Variáveis substituídas por dados de exemplo</p>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

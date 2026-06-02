@@ -82,13 +82,39 @@ async function resolveWaInstances(clientId: string) {
 
   if (!baseUrl || !apiKey) throw new Error("[Journey] EVO_API_URL ou EVO_API_KEY não configurados nas env vars");
 
-  const instances = await prisma.whatsAppInstance.findMany({
+  const dbInstances = await prisma.whatsAppInstance.findMany({
     where:   { clientId },
     orderBy: { priority: "asc" },
     select:  { instanceName: true },
   });
 
-  if (instances.length === 0) throw new Error(`[Journey] Nenhuma instância WhatsApp conectada para cliente ${clientId}`);
+  if (dbInstances.length === 0) throw new Error(`[Journey] Nenhuma instância WhatsApp configurada para cliente ${clientId}`);
+
+  // Verifica status real-time na Evolution API — pula instâncias não conectadas
+  const instances: { instanceName: string }[] = [];
+  for (const inst of dbInstances) {
+    try {
+      const res = await fetchWithTimeout(
+        `${baseUrl}/instance/fetchInstances?instanceName=${inst.instanceName}`,
+        { headers: { apikey: apiKey } },
+        5_000
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const info = Array.isArray(data) ? data[0] : data;
+        const state = info?.connectionStatus ?? "close";
+        if (state === "open") {
+          instances.push(inst);
+        } else {
+          console.warn(`[Journey:resolveWaInstances] ${inst.instanceName} status=${state} — ignorando`);
+        }
+      }
+    } catch {
+      console.warn(`[Journey:resolveWaInstances] Falha ao checar ${inst.instanceName} — ignorando`);
+    }
+  }
+
+  if (instances.length === 0) throw new Error(`[Journey] Nenhuma instância WhatsApp com connectionStatus=open para cliente ${clientId}`);
 
   return { baseUrl, apiKey, instances };
 }

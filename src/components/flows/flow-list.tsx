@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Plus, Trash2, Copy, GitBranch, Users, MessageSquareMore, Play, Pause, Loader2, Zap, Key } from "lucide-react";
 import { toast } from "sonner";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import {
   createFlowAction, deleteFlowAction, duplicateFlowAction,
   publishFlowAction, pauseFlowAction, archiveFlowAction,
@@ -48,7 +49,7 @@ export function FlowList({ flows }: { flows: FlowRow[] }) {
     if (!name.trim()) return;
     startCreate(async () => {
       try { await createFlowAction(name.trim()); }
-      catch { toast.error("Erro ao criar fluxo"); }
+      catch (e) { if (!isRedirectError(e)) toast.error("Erro ao criar fluxo"); }
     });
   }
 

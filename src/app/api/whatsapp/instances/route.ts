@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const name = instanceName.trim();
 
-  // Criar na EvoAPI
+  // Criar na EvoAPI (ignora se já existe)
   const evoRes = await fetch(`${EVO_URL}/instance/create`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", apikey: EVO_KEY },
@@ -24,8 +24,14 @@ export async function POST(req: NextRequest) {
   });
 
   if (!evoRes.ok) {
-    const err = await evoRes.text();
-    return NextResponse.json({ error: `EvoAPI: ${err}` }, { status: 502 });
+    // Verifica se a instância já existe na EvoAPI — se sim, apenas registra no banco
+    const checkRes = await fetch(`${EVO_URL}/instance/fetchInstances?instanceName=${name}`, {
+      headers: { apikey: EVO_KEY },
+    });
+    if (!checkRes.ok) {
+      const err = await evoRes.text();
+      return NextResponse.json({ error: `EvoAPI: ${err}` }, { status: 502 });
+    }
   }
 
   // Configurar webhook de incoming automaticamente

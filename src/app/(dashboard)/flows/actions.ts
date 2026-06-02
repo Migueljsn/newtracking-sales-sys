@@ -65,6 +65,11 @@ export async function publishFlowAction(id: string) {
   const session  = await getSession();
   const clientId = session.clientId!;
 
+  // Limpa enrollments travados (ACTIVE sem completar) para permitir re-execução
+  await prisma.flowEnrollment.deleteMany({
+    where: { flowId: id, clientId, status: "ACTIVE" },
+  });
+
   await prisma.flow.update({ where: { id, clientId }, data: { status: "ACTIVE" } });
 
   // Dispara enroll-all para qualificar leads diretamente pelas regras do público

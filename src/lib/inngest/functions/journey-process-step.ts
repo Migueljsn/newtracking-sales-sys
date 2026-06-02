@@ -83,7 +83,7 @@ async function resolveWaInstances(clientId: string) {
   if (!baseUrl || !apiKey) throw new Error("[Journey] EVO_API_URL ou EVO_API_KEY não configurados nas env vars");
 
   const instances = await prisma.whatsAppInstance.findMany({
-    where:   { clientId, status: "connected" },
+    where:   { clientId },
     orderBy: { priority: "asc" },
     select:  { instanceName: true },
   });

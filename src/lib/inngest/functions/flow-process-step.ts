@@ -57,11 +57,11 @@ async function resolveWaInstances(clientId: string) {
   if (!baseUrl || !apiKey) throw new Error("[Flow] EVO_API_URL ou EVO_API_KEY ausentes");
 
   const instances = await prisma.whatsAppInstance.findMany({
-    where:   { clientId, status: "connected" },
+    where:   { clientId },
     orderBy: { priority: "asc" },
     select:  { instanceName: true },
   });
-  if (!instances.length) throw new Error(`[Flow] Sem instância conectada para cliente ${clientId}`);
+  if (!instances.length) throw new Error(`[Flow] Nenhuma instância WhatsApp configurada para cliente ${clientId}`);
   return { baseUrl, apiKey, instances };
 }
 

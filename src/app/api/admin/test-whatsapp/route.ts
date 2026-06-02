@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/admin/test-whatsapp
+// Header: Authorization: Bearer <CRON_SECRET>
 // Body: { clientId: string, phone: string, message?: string }
-// Returns full Evolution API response for each instance
 export async function POST(req: NextRequest) {
+  const auth = req.headers.get("authorization");
+  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { clientId, phone, message = "Teste de envio via fluxo" } = await req.json();
 
   const baseUrl = process.env.EVO_API_URL;

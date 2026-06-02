@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse }      from "next/server";
 import { prisma }            from "@/lib/db/prisma";
 import { inngest }           from "@/lib/inngest/client";
-import { whatsappReplyEvent } from "@/lib/inngest/events";
+import { whatsappReplyEvent, flowEnrollEvent } from "@/lib/inngest/events";
 
 // EVO API payload (messages.upsert)
 interface EvoPayload {
@@ -110,10 +110,39 @@ export async function POST(req: Request) {
     },
   });
 
-  // Dispara evento Inngest para o waitForEvent das jornadas
+  const message = text.trim();
+
+  // Dispara evento Inngest para o waitForEvent das jornadas e fluxos
   await inngest.send(
-    whatsappReplyEvent.create({ leadId: lead.id, clientId, message: text.trim(), phone })
+    whatsappReplyEvent.create({ leadId: lead.id, clientId, message, phone })
   );
+
+  // Verifica gatilhos de palavra-chave em fluxos ativos
+  const keywordTriggers = await prisma.flowTrigger.findMany({
+    where: { clientId, type: "KEYWORD", flow: { status: "ACTIVE" } },
+    select: { flowId: true, keyword: true, keywordMatchType: true },
+  });
+
+  const lower = message.toLowerCase();
+  const matchedFlowIds = new Set<string>();
+
+  for (const t of keywordTriggers) {
+    if (!t.keyword || matchedFlowIds.has(t.flowId)) continue;
+    const kw = t.keyword.toLowerCase();
+    const matches =
+      t.keywordMatchType === "EXACT"       ? lower === kw :
+      t.keywordMatchType === "STARTS_WITH" ? lower.startsWith(kw) :
+      lower.includes(kw); // CONTAINS (default)
+    if (matches) matchedFlowIds.add(t.flowId);
+  }
+
+  if (matchedFlowIds.size > 0) {
+    await inngest.send(
+      [...matchedFlowIds].map((flowId) =>
+        flowEnrollEvent.create({ flowId, leadId: lead.id, clientId })
+      )
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -15,20 +15,6 @@ export type WaitData = {
   days?: number
 }
 
-export type BotButton = {
-  id:   string   // "1" | "2" | "3"
-  text: string   // texto exibido no botão
-}
-
-export type WhatsAppBotData = {
-  message:      string
-  questionType: "text" | "buttons"
-  buttons:      BotButton[]           // máx 3, usado quando questionType === "buttons"
-  saveField:    string
-  timeoutValue: number
-  timeoutUnit:  WaitUnit
-}
-
 export type ConditionData = {
   field:    string
   operator: string
@@ -73,7 +59,6 @@ export type NodeData =
   | ConditionData
   | EmailData
   | WhatsAppData
-  | WhatsAppBotData
   | ChangeStatusData
   | AssignData
   | EndData
@@ -84,7 +69,6 @@ export type NodeType =
   | "condition"
   | "email"
   | "whatsapp"
-  | "whatsappBot"
   | "changeStatus"
   | "assign"
   | "end"
@@ -148,13 +132,6 @@ export const NODE_DEFS: NodeDef[] = [
     description: "Atribuir consultor ao lead",
     color:       "#06b6d4",
     defaultData: { consultant: "" },
-  },
-  {
-    type:        "whatsappBot",
-    label:       "Pergunta Bot",
-    description: "Enviar pergunta e aguardar resposta do lead via WhatsApp",
-    color:       "#0ea5e9",
-    defaultData: { message: "", questionType: "text", buttons: [], saveField: "cnpj", timeoutValue: 30, timeoutUnit: "minutes" },
   },
   {
     type:        "end",

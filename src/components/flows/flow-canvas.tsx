@@ -12,7 +12,7 @@ import {
   Zap, MessageCircle, HelpCircle, GitBranch, ArrowRightLeft,
   UserCheck, UserPlus, ExternalLink, Square, Save, Loader2,
   Play, Pause, ChevronLeft, Copy, Trash2, RotateCcw, RotateCw,
-  Pencil, Check, X, MousePointer2, Hand, Type,
+  Pencil, Check, X, MousePointer2, Hand,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -65,6 +65,7 @@ export function FlowCanvas({
   const [selectedNode,      setSelectedNode]      = useState<Node | null>(null);
   const [panMode,           setPanMode]           = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [status,    setStatus]    = useState(flowStatus);
   const [isSaving,  startSave]    = useTransition();
   const [isPublish, startPublish] = useTransition();
   const [isRename,  startRename]  = useTransition();
@@ -172,12 +173,14 @@ export function FlowCanvas({
   function handleToggleStatus() {
     startPublish(async () => {
       try {
-        if (flowStatus === "ACTIVE") {
+        if (status === "ACTIVE") {
           await pauseFlowAction(flowId);
+          setStatus("PAUSED");
           toast.success("Fluxo pausado");
         } else {
           await updateFlowAction(flowId, { nodes: latestNodes.current, edges: latestEdges.current });
           await publishFlowAction(flowId);
+          setStatus("ACTIVE");
           toast.success("Fluxo ativado");
         }
       } catch { toast.error("Erro ao alterar status"); }
@@ -306,11 +309,11 @@ export function FlowCanvas({
 
               {/* Status badge */}
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                flowStatus === "ACTIVE" ? "bg-[#10b981]/15 text-[#10b981]"
-                : flowStatus === "PAUSED" ? "bg-[#f59e0b]/15 text-[#f59e0b]"
+                status === "ACTIVE" ? "bg-[#10b981]/15 text-[#10b981]"
+                : status === "PAUSED" ? "bg-[#f59e0b]/15 text-[#f59e0b]"
                 : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
               }`}>
-                {flowStatus === "ACTIVE" ? "Ativo" : flowStatus === "PAUSED" ? "Pausado" : "Rascunho"}
+                {status === "ACTIVE" ? "Ativo" : status === "PAUSED" ? "Pausado" : "Rascunho"}
               </span>
 
               <div className="h-4 w-px bg-[var(--border)] mx-1" />
@@ -347,12 +350,12 @@ export function FlowCanvas({
               {/* Activate / Pause */}
               <button onClick={handleToggleStatus} disabled={isPublish}
                 className={`flex items-center gap-1.5 h-7 rounded-lg px-2.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-                  flowStatus === "ACTIVE"
+                  status === "ACTIVE"
                     ? "text-[#f59e0b] hover:bg-[#f59e0b]/10 border border-[#f59e0b]/30"
                     : "text-[#10b981] hover:bg-[#10b981]/10 border border-[#10b981]/30"
                 }`}>
-                {isPublish ? <Loader2 size={12} className="animate-spin" /> : flowStatus === "ACTIVE" ? <Pause size={12} /> : <Play size={12} />}
-                {flowStatus === "ACTIVE" ? "Pausar" : "Ativar"}
+                {isPublish ? <Loader2 size={12} className="animate-spin" /> : status === "ACTIVE" ? <Pause size={12} /> : <Play size={12} />}
+                {status === "ACTIVE" ? "Pausar" : "Ativar"}
               </button>
             </div>
           </Panel>

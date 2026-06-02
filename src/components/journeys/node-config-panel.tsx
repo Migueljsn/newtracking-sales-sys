@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Node } from "@xyflow/react";
-import { X, Trash2, Copy, Eye, EyeOff, Plus, MessageSquare, FileText, Image, Mic, AlertTriangle, CheckCircle, MousePointerClick, Type } from "lucide-react";
+import { X, Trash2, Copy, Eye, EyeOff, Plus, MessageSquare, FileText, Image, Mic } from "lucide-react";
 import {
   TriggerData, WaitData, ConditionData, EmailData,
-  WhatsAppData, WhatsAppBotData, BotButton, ChangeStatusData, AssignData, NodeType,
+  WhatsAppData, ChangeStatusData, AssignData, NodeType,
 } from "@/lib/journeys/types";
 import { FIELD_DEFS, OPERATORS_BY_TYPE, getFieldDef, defaultOperator, defaultValue } from "@/lib/audiences/fields";
 
@@ -507,158 +507,6 @@ export function NodeConfigPanel({
                   <option value="hours">hora(s)</option>
                   <option value="days">dia(s)</option>
                 </select>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ── WhatsApp Bot ── */}
-        {type === "whatsappBot" && (() => {
-          const d        = data as unknown as WhatsAppBotData;
-          const qType    = d.questionType ?? "text";
-          const buttons  = (d.buttons ?? []) as BotButton[];
-          const maxReached = buttons.length >= 3;
-
-          function updateButton(idx: number, text: string) {
-            const next = buttons.map((b, i) => i === idx ? { ...b, text } : b);
-            set("buttons", next);
-          }
-
-          function addButton() {
-            if (maxReached) return;
-            const next = [...buttons, { id: String(buttons.length + 1), text: "" }];
-            set("buttons", next);
-          }
-
-          function removeButton(idx: number) {
-            const next = buttons
-              .filter((_, i) => i !== idx)
-              .map((b, i) => ({ ...b, id: String(i + 1) }));
-            set("buttons", next);
-          }
-
-          return (
-            <div className="space-y-4">
-              {/* Mensagem */}
-              <div>
-                <label className={labelClass}>Mensagem / Pergunta</label>
-                <textarea
-                  rows={3}
-                  value={d.message}
-                  onChange={(e) => set("message", e.target.value)}
-                  placeholder="Ex: Olá {nome}! Me informe seu CNPJ:"
-                  className={inputClass + " resize-none"}
-                />
-                <p className="text-[10px] text-[var(--text-muted)] mt-1">Use {"{nome}"} para personalizar</p>
-              </div>
-
-              {/* Tipo de resposta */}
-              <div>
-                <label className={labelClass}>Tipo de resposta</label>
-                <div className="flex gap-2 mt-1">
-                  {[
-                    { value: "text",    label: "Texto livre", icon: <Type size={12} /> },
-                    { value: "buttons", label: "Botões",      icon: <MousePointerClick size={12} /> },
-                  ].map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => { set("questionType", opt.value); if (opt.value === "text") set("buttons", []); }}
-                      className={`flex items-center gap-1.5 flex-1 justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
-                        qType === opt.value
-                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                          : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                      }`}
-                    >
-                      {opt.icon}{opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Editor de botões */}
-              {qType === "buttons" && (
-                <div className="space-y-2">
-                  <label className={labelClass}>Opções ({buttons.length}/3)</label>
-
-                  {buttons.map((btn, idx) => (
-                    <div key={btn.id} className="flex items-center gap-2">
-                      <span className="shrink-0 flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--surface-muted)] text-[10px] font-bold text-[var(--text-muted)]">
-                        {idx + 1}
-                      </span>
-                      <input
-                        value={btn.text}
-                        onChange={(e) => updateButton(idx, e.target.value)}
-                        placeholder={`Opção ${idx + 1}`}
-                        maxLength={24}
-                        className={inputClass + " flex-1"}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeButton(idx)}
-                        className="shrink-0 text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors"
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={addButton}
-                    disabled={maxReached}
-                    className={`flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2 text-xs font-semibold transition-all ${
-                      maxReached
-                        ? "cursor-not-allowed border-[var(--border)] text-[var(--text-muted)] opacity-30"
-                        : "border-[var(--accent)]/50 text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
-                    }`}
-                  >
-                    <Plus size={12} />
-                    {maxReached ? "Máximo de 3 botões" : "Adicionar botão"}
-                  </button>
-                  <p className="text-[10px] text-[var(--text-muted)]">Máx. 24 caracteres por botão</p>
-                </div>
-              )}
-
-              {/* Campo para salvar */}
-              <div>
-                <label className={labelClass}>Salvar resposta no campo</label>
-                <select
-                  value={d.saveField}
-                  onChange={(e) => set("saveField", e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="cnpj">CNPJ</option>
-                  <option value="cep">CEP</option>
-                  <option value="notes">Observações</option>
-                </select>
-              </div>
-
-              {/* Timeout */}
-              <div>
-                <label className={labelClass}>Aguardar resposta por</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number" min={1} value={d.timeoutValue}
-                    onChange={(e) => set("timeoutValue", Math.max(1, parseInt(e.target.value) || 1))}
-                    className={inputClass + " w-24"}
-                  />
-                  <select
-                    value={d.timeoutUnit}
-                    onChange={(e) => set("timeoutUnit", e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="minutes">minuto(s)</option>
-                    <option value="hours">hora(s)</option>
-                    <option value="days">dia(s)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Info saídas */}
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs text-[var(--text-muted)] space-y-1">
-                <p>• Saída <strong className="text-[#10b981]">respondeu</strong> → lead respondeu dentro do prazo</p>
-                <p>• Saída <strong className="text-[#f97316]">timeout</strong> → prazo expirou sem resposta</p>
               </div>
             </div>
           );

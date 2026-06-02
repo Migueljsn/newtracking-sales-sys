@@ -10,10 +10,8 @@ import type { RuleGroup } from "@/lib/audiences/types";
 import type { Node, Edge } from "@xyflow/react";
 import type {
   WaitData, ConditionData, EmailData,
-  WhatsAppData, WhatsAppBotData, ChangeStatusData, AssignData,
+  WhatsAppData, ChangeStatusData, AssignData,
 } from "@/lib/journeys/types";
-import { whatsappReplyEvent } from "@/lib/inngest/events";
-
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Graph helpers ─────────────────────────────────────────────────────────────
@@ -154,38 +152,6 @@ async function sendWhatsAppAudio(phone: string, audioUrl: string, clientId: stri
   throw new Error(`[Journey] Todas as instâncias falharam ao enviar áudio para ${phone}`);
 }
 
-async function sendWhatsAppButtons(
-  phone:   string,
-  message: string,
-  buttons: { id: string; text: string }[],
-  clientId: string,
-): Promise<void> {
-  const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
-  const number = formatWaNumber(phone);
-
-  const payload = {
-    number,
-    title:       message,
-    description: "",
-    footer:      "",
-    buttons:     buttons.map(b => ({ type: "reply", displayText: b.text, id: b.id })),
-  };
-
-  for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendButtons/${inst.instanceName}`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", apikey: apiKey },
-      body:    JSON.stringify(payload),
-    });
-    if (res.ok) return;
-    const errBody = await res.text().catch(() => "(sem corpo)");
-    console.warn(`[Journey] Falha de botões na instância ${inst.instanceName} — ${res.status}: ${errBody}`);
-  }
-
-  // fallback: se botões não funcionarem, envia como texto com as opções numeradas
-  const fallbackText = `${message}\n\n${buttons.map((b, i) => `${i + 1}. ${b.text}`).join("\n")}`;
-  await sendWhatsApp(phone, fallbackText, clientId);
-}
 
 // ─── Main function ─────────────────────────────────────────────────────────────
 
@@ -274,65 +240,6 @@ export const journeyProcessStep = inngest.createFunction(
         const unitMap: Record<string, string> = { minutes: "m", hours: "h", days: "d" };
         await step.sleep("wait-step", `${amount}${unitMap[unit] ?? "d"}`);
         nextNodeId = getNextNodeId(edges, nodeId);
-        break;
-      }
-
-      case "whatsappBot": {
-        const d = node.data as unknown as WhatsAppBotData;
-
-        // Pausa se automação estiver pausada para este lead
-        const paused = await step.run("check-paused", () =>
-          prisma.lead.findUnique({ where: { id: leadId }, select: { automationPaused: true } })
-            .then(l => l?.automationPaused ?? false)
-        );
-        if (paused) { nodeResult = "bot_paused"; nextNodeId = null; break; }
-
-        // 1. Envia a pergunta (texto simples ou botões interativos)
-        await step.run("send-bot-question", async () => {
-          const useButtons = d.questionType === "buttons" && d.buttons?.length > 0;
-          if (useButtons) {
-            await sendWhatsAppButtons(lead.customer.phone, d.message, d.buttons, clientId);
-          } else {
-            await sendWhatsApp(lead.customer.phone, d.message, clientId);
-          }
-          const logContent = useButtons
-            ? `${d.message}\n${d.buttons.map(b => `• ${b.text}`).join("\n")}`
-            : d.message;
-          await prisma.leadInteraction.create({
-            data: { leadId, clientId, type: "WHATSAPP", content: logContent },
-          });
-        });
-
-        // 2. Aguarda resposta do lead
-        const unitMap: Record<string, string> = { minutes: "m", hours: "h", days: "d" };
-        const timeoutStr = `${d.timeoutValue}${unitMap[d.timeoutUnit] ?? "m"}`;
-
-        const reply = await step.waitForEvent("await-bot-reply", {
-          event:   whatsappReplyEvent.name,
-          match:   "data.leadId",
-          timeout: timeoutStr,
-        });
-
-        // 3. Se respondeu — salva no customFields e segue caminho "answered"
-        if (reply) {
-          await step.run("save-bot-answer", () =>
-            prisma.lead.update({
-              where: { id: leadId },
-              data:  {
-                customFields: {
-                  ...(lead.customFields as Record<string, unknown> ?? {}),
-                  [d.saveField]: reply.data.message,
-                },
-              },
-            })
-          );
-          nodeResult = "bot_answered";
-          nextNodeId = getNextNodeId(edges, nodeId, "answered");
-        } else {
-          // 4. Timeout — segue caminho "timeout"
-          nodeResult = "bot_timeout";
-          nextNodeId = getNextNodeId(edges, nodeId, "timeout");
-        }
         break;
       }
 

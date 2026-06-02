@@ -1,11 +1,11 @@
 "use client";
 
 import { NodeProps } from "@xyflow/react";
-import { Zap, Clock, GitBranch, Mail, MessageCircle, ArrowRightLeft, UserCheck, Square, BotMessageSquare } from "lucide-react";
+import { Zap, Clock, GitBranch, Mail, MessageCircle, ArrowRightLeft, UserCheck, Square } from "lucide-react";
 import { BaseNode } from "./base-node";
 import {
   TriggerData, WaitData, ConditionData, EmailData,
-  WhatsAppData, WhatsAppBotData, ChangeStatusData, AssignData,
+  WhatsAppData, ChangeStatusData, AssignData,
 } from "@/lib/journeys/types";
 import { FIELD_DEFS } from "@/lib/audiences/fields";
 
@@ -115,31 +115,6 @@ export function AssignNode({ data, selected }: NodeProps) {
   );
 }
 
-export function WhatsAppBotNode({ data, selected }: NodeProps) {
-  const d = data as unknown as WhatsAppBotData;
-  const fieldLabel: Record<string, string> = { cnpj: "CNPJ", cep: "CEP", notes: "Observações" };
-  const timeoutLabel = `${d.timeoutValue}${d.timeoutUnit === "minutes" ? "min" : d.timeoutUnit === "hours" ? "h" : "d"}`;
-  const modeLabel = d.questionType === "buttons" && d.buttons?.length
-    ? `${d.buttons.length} botão${d.buttons.length > 1 ? "ões" : ""}`
-    : "texto livre";
-  const summary = d.message
-    ? `${modeLabel} → ${fieldLabel[d.saveField] ?? d.saveField} · ${timeoutLabel}`
-    : "Não configurado";
-  return (
-    <BaseNode
-      label="Pergunta Bot"
-      color="#0ea5e9"
-      icon={<BotMessageSquare size={13} />}
-      summary={summary}
-      selected={!!selected}
-      dualOutputs={[
-        { id: "answered", label: "respondeu", color: "#10b981", left: "30%" },
-        { id: "timeout",  label: "timeout",   color: "#f97316", left: "70%" },
-      ]}
-    />
-  );
-}
-
 export function EndNode({ selected }: NodeProps) {
   return (
     <BaseNode
@@ -159,7 +134,6 @@ export const nodeTypes = {
   condition:    ConditionNode,
   email:        EmailNode,
   whatsapp:     WhatsAppNode,
-  whatsappBot:  WhatsAppBotNode,
   changeStatus: ChangeStatusNode,
   assign:       AssignNode,
   end:          EndNode,

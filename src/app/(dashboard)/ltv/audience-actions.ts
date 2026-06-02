@@ -96,6 +96,7 @@ export async function createAudienceAction(data: {
 
   revalidatePath("/ltv");
   revalidatePath("/journeys");
+  revalidatePath("/publicos");
 }
 
 export async function updateAudienceAction(id: string, data: {
@@ -118,6 +119,7 @@ export async function updateAudienceAction(id: string, data: {
 
   revalidatePath("/ltv");
   revalidatePath("/journeys");
+  revalidatePath("/publicos");
 }
 
 export async function deleteAudienceAction(id: string) {
@@ -126,6 +128,7 @@ export async function deleteAudienceAction(id: string) {
 
   await prisma.audience.delete({ where: { id, clientId } });
   revalidatePath("/ltv");
+  revalidatePath("/publicos");
 }
 
 export async function bulkDeleteAudiencesAction(ids: string[]) {
@@ -134,6 +137,7 @@ export async function bulkDeleteAudiencesAction(ids: string[]) {
 
   await prisma.audience.deleteMany({ where: { id: { in: ids }, clientId } });
   revalidatePath("/ltv");
+  revalidatePath("/publicos");
 }
 
 export async function bulkDuplicateAudiencesAction(ids: string[]) {
@@ -152,6 +156,7 @@ export async function bulkDuplicateAudiencesAction(ids: string[]) {
   });
 
   revalidatePath("/ltv");
+  revalidatePath("/publicos");
 }
 
 export async function duplicateAudienceAction(id: string) {
@@ -170,4 +175,5 @@ export async function duplicateAudienceAction(id: string) {
   });
 
   revalidatePath("/ltv");
+  revalidatePath("/publicos");
 }

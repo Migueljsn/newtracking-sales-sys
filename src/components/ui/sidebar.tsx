@@ -4,19 +4,19 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LayoutDashboard, LogOut, Menu, MessageSquareMore, Radio, Settings, ShoppingBag, Users, X, Zap } from "lucide-react";
+import { Bell, Filter, LayoutDashboard, LogOut, Menu, MessageSquareMore, Settings, ShoppingBag, Users, X, Zap } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { signOutAction } from "@/lib/auth/actions";
 
 const nav = [
-  { href: "/",              label: "Dashboard",     icon: LayoutDashboard, badge: false },
-  { href: "/leads",         label: "Leads",         icon: Users,           badge: false },
-  { href: "/sales",         label: "Vendas",        icon: ShoppingBag,     badge: false },
-  { href: "/journeys",      label: "Jornadas",       icon: Zap,               badge: false },
-  { href: "/flows",         label: "Fluxos",         icon: MessageSquareMore, badge: false },
-  { href: "/comunicacoes",  label: "Comunicações",  icon: Radio,             badge: false },
-  { href: "/notifications", label: "Notificações",  icon: Bell,  badge: true  },
-  { href: "/settings",      label: "Configurações", icon: Settings,        badge: false },
+  { href: "/",              label: "Dashboard",     icon: LayoutDashboard,  badge: false },
+  { href: "/leads",         label: "Leads",         icon: Users,            badge: false },
+  { href: "/sales",         label: "Vendas",        icon: ShoppingBag,      badge: false },
+  { href: "/publicos",      label: "Públicos",      icon: Filter,           badge: false },
+  { href: "/journeys",      label: "Jornadas",      icon: Zap,              badge: false },
+  { href: "/flows",         label: "Fluxos",        icon: MessageSquareMore, badge: false },
+  { href: "/notifications", label: "Notificações",  icon: Bell,             badge: true  },
+  { href: "/settings",      label: "Configurações", icon: Settings,         badge: false },
 ];
 
 interface SidebarProps {

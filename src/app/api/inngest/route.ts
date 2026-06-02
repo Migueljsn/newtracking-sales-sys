@@ -7,6 +7,7 @@ import { journeyCronEnroll }           from "@/lib/inngest/functions/journey-cro
 import { syncAudienceMembership }      from "@/lib/inngest/functions/sync-audience-membership";
 import { scheduleTimeBasedChecks }     from "@/lib/inngest/functions/schedule-time-based-checks";
 import { flowProcessStep, flowEnroll } from "@/lib/inngest/functions/flow-process-step";
+import { flowCheckEnrollment }         from "@/lib/inngest/functions/flow-check-enrollment";
 
 export const { GET, POST, PUT } = serve({
   client:    inngest,
@@ -19,5 +20,6 @@ export const { GET, POST, PUT } = serve({
     scheduleTimeBasedChecks,
     flowProcessStep,
     flowEnroll,
+    flowCheckEnrollment,
   ],
 });

@@ -325,7 +325,7 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
 
       {/* QR Code Modal */}
       {qrInstance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="relative w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-xl">
             <button
               type="button"

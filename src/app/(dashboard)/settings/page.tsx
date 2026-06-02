@@ -10,7 +10,6 @@ import { PipelineStages } from "@/components/settings/pipeline-stages";
 import { ConsultantAccess } from "@/components/settings/consultant-access";
 import { WebhookConfig } from "@/components/settings/webhook-config";
 import { WhatsAppInstances } from "@/components/settings/whatsapp-instances";
-import { BotconversaConfig } from "@/components/settings/botconversa-config";
 
 const TABS = [
   { key: "geral",     label: "Geral"      },
@@ -143,13 +142,8 @@ export default async function SettingsPage({
           <div className="card p-5">
             <WhatsAppInstances initialInstances={whatsappInstances} />
           </div>
-          <div className="card p-5">
-            <BotconversaConfig
-              currentApiKey={settings?.botconversaApiKey ?? null}
-              currentFlowId={settings?.botconversaFlowId ?? null}
-              currentFlowName={settings?.botconversaFlowName ?? null}
-              currentEnabled={settings?.botconversaEnabled ?? false}
-            />
+          <div className="rounded-xl border border-dashed border-[var(--border)] px-5 py-4 flex items-center gap-3 opacity-50">
+            <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Integração Botconversa — em standby</span>
           </div>
         </div>
       )}

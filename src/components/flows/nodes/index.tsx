@@ -1,8 +1,9 @@
 "use client";
 
-import { NodeProps } from "@xyflow/react";
+import { useRef, useLayoutEffect, useState } from "react";
+import { Handle, Position, NodeProps } from "@xyflow/react";
 import {
-  Zap, MessageCircle, HelpCircle, GitBranch,
+  Zap, HelpCircle, GitBranch,
   ArrowRightLeft, UserCheck, UserPlus, ExternalLink, Square,
   FileText, Image, FileArchive, Type, MousePointerClick,
 } from "lucide-react";
@@ -47,49 +48,117 @@ export function FlowMessageNode({ data, selected }: NodeProps) {
 }
 
 // ── Question ──────────────────────────────────────────────────────────────────
+type QuestionOutput = { id: string; label: string; color: string };
+
 export function FlowQuestionNode({ data, selected }: NodeProps) {
   const d       = data as unknown as FlowQuestionData;
   const buttons = d.buttons ?? [];
 
-  if (d.mode === "choice") {
-    // saídas: btn_1, btn_2, ..., timeout
-    const totalOutputs = buttons.length + 1; // +1 para timeout
-    const handles = [
-      ...buttons.map((b, i) => ({
-        id:    `btn_${b.id}`,
-        label: b.text || `Botão ${i + 1}`,
-        color: "#10b981",
-        left:  totalOutputs <= 2
-          ? `${33 + i * 34}%`
-          : `${15 + i * (70 / Math.max(buttons.length, 1))}%`,
-      })),
-      { id: "timeout", label: "timeout", color: "#f97316", left: "85%" },
-    ];
-    const modeLabel = buttons.length ? `${buttons.length} botão${buttons.length > 1 ? "ões" : ""}` : "Escolha (sem botões)";
-    const summary   = d.questionText
-      ? `${modeLabel} — ${d.questionText.slice(0, 30)}${d.questionText.length > 30 ? "…" : ""}`
-      : "Pergunta não configurada";
-    return (
-      <BaseNode label="Pergunta" color="#0ea5e9" icon={<MousePointerClick size={13} />}
-        summary={summary} selected={!!selected} dualOutputs={handles} />
-    );
-  }
+  const outputs: QuestionOutput[] = d.mode === "choice"
+    ? [
+        ...buttons.map((b, i) => ({
+          id:    `btn_${b.id}`,
+          label: b.text || `Botão ${i + 1}`,
+          color: "#10b981",
+        })),
+        { id: "timeout", label: "Timeout", color: "#f97316" },
+      ]
+    : [
+        { id: "valid",   label: "Válido",   color: "#10b981" },
+        { id: "invalid", label: "Inválido", color: "#ef4444" },
+        { id: "timeout", label: "Timeout",  color: "#f97316" },
+      ];
 
-  // modo texto: saídas válido / inválido / timeout
-  const fieldLabel = FIELD_DEFS.find((f) => f.value === d.saveField)?.label ?? d.saveField;
-  const valLabel   = d.validation !== "none" ? ` · valida ${d.validation.toUpperCase()}` : "";
-  const summary    = d.questionText
-    ? `${fieldLabel}${valLabel}`
+  const summary = d.questionText
+    ? d.questionText.slice(0, 48) + (d.questionText.length > 48 ? "…" : "")
     : "Pergunta não configurada";
+
+  const icon = d.mode === "choice"
+    ? <MousePointerClick size={13} />
+    : <Type size={13} />;
+
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [tops, setTops] = useState<number[]>([]);
+
+  useLayoutEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    const nodeTop = node.getBoundingClientRect().top;
+    const next = rowRefs.current.slice(0, outputs.length).map((row) => {
+      if (!row) return 0;
+      const r = row.getBoundingClientRect();
+      return Math.round(r.top - nodeTop + r.height / 2);
+    });
+    setTops((prev) =>
+      prev.length === next.length && prev.every((v, i) => v === next[i]) ? prev : next
+    );
+  }, [outputs.length]);
+
   return (
-    <BaseNode label="Pergunta" color="#0ea5e9" icon={<Type size={13} />}
-      summary={summary} selected={!!selected}
-      dualOutputs={[
-        { id: "valid",   label: "válido",  color: "#10b981", left: "25%" },
-        { id: "invalid", label: "inválido", color: "#ef4444", left: "50%" },
-        { id: "timeout", label: "timeout",  color: "#f97316", left: "75%" },
-      ]}
-    />
+    <div
+      ref={nodeRef}
+      className={`min-w-[200px] max-w-[240px] rounded-2xl border-2 bg-[var(--surface)] shadow-sm transition-all ${
+        selected
+          ? "border-[var(--accent)] shadow-[var(--shadow-accent)]"
+          : "border-[var(--border)]"
+      }`}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!w-3 !h-3 !border-2 !border-[var(--border)] !bg-[var(--surface)]"
+      />
+
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 rounded-t-xl px-3 py-2"
+        style={{ backgroundColor: "#0ea5e918" }}
+      >
+        <span style={{ color: "#0ea5e9" }} className="shrink-0">{icon}</span>
+        <span className="text-xs font-semibold" style={{ color: "#0ea5e9" }}>Pergunta</span>
+      </div>
+
+      {/* Summary */}
+      <div className="px-3 py-2 border-b border-[var(--border)]">
+        <p className="text-xs text-[var(--text-muted)] leading-relaxed">{summary}</p>
+      </div>
+
+      {/* Output rows — each labeled, handle on the right */}
+      <div>
+        {outputs.map((o, i) => (
+          <div
+            key={o.id}
+            ref={(el) => { rowRefs.current[i] = el; }}
+            className={`flex items-center gap-2 px-3 py-1.5 pr-6 ${
+              i < outputs.length - 1 ? "border-b border-[var(--border)]" : ""
+            }`}
+          >
+            <div
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: o.color }}
+            />
+            <span
+              className="text-[11px] font-medium truncate flex-1"
+              style={{ color: o.color }}
+            >
+              {o.label}
+            </span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id={o.id}
+              style={{
+                top: tops[i] ?? undefined,
+                borderColor: o.color,
+                backgroundColor: o.color,
+              }}
+              className="!w-3 !h-3 !border-2"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

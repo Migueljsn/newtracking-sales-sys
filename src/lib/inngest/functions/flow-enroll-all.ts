@@ -60,6 +60,8 @@ export const flowEnrollAll = inngest.createFunction(
       )
     );
 
+    console.log(`[flowEnrollAll] flowId=${flowId} totalLeads=${leads.length} qualifying=${qualifying.length}`);
+
     if (qualifying.length === 0) return { enrolled: 0 };
 
     // Upsert memberships e coletar leads sem enrollment existente
@@ -80,6 +82,8 @@ export const flowEnrollAll = inngest.createFunction(
       }
       return ids;
     });
+
+    console.log(`[flowEnrollAll] toEnroll=${toEnroll.length} (sem enrollment existente)`);
 
     if (toEnroll.length > 0) {
       await step.sendEvent(

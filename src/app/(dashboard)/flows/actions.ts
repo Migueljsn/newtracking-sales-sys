@@ -65,8 +65,10 @@ export async function publishFlowAction(id: string) {
   const session  = await getSession();
   const clientId = session.clientId!;
 
+  // Apaga enrollments bloqueantes para permitir re-execução ao reativar
+  // Mantém apenas COMPLETED (histórico de quem concluiu o fluxo)
   await prisma.flowEnrollment.deleteMany({
-    where: { flowId: id, clientId, status: "ACTIVE" },
+    where: { flowId: id, clientId, status: { in: ["ACTIVE", "FAILED", "EXITED"] } },
   });
 
   await prisma.flow.update({ where: { id, clientId }, data: { status: "ACTIVE" } });

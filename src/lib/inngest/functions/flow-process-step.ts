@@ -87,14 +87,24 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 1
 async function sendText(phone: string, text: string, clientId: string) {
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = fmtNumber(phone);
+  console.log(`[Flow:sendText] number=${number} instances=${instances.map(i => i.instanceName).join(",")}`);
   for (const inst of instances) {
-    const res = await fetchWithTimeout(`${baseUrl}/message/sendText/${inst.instanceName}`, {
-      method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ number, text }),
-    });
-    if (res.ok) return;
+    try {
+      const res = await fetchWithTimeout(`${baseUrl}/message/sendText/${inst.instanceName}`, {
+        method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
+        body: JSON.stringify({ number, text }),
+      });
+      if (res.ok) {
+        console.log(`[Flow:sendText] OK via ${inst.instanceName}`);
+        return;
+      }
+      const body = await res.text().catch(() => "");
+      console.error(`[Flow:sendText] FAIL ${inst.instanceName}: ${res.status} ${body}`);
+    } catch (err) {
+      console.error(`[Flow:sendText] ERROR ${inst.instanceName}:`, err);
+    }
   }
-  throw new Error(`[Flow] Falha ao enviar texto para ${phone}`);
+  throw new Error(`[Flow] Falha ao enviar texto para ${number} — todas instâncias falharam`);
 }
 
 async function sendDocument(phone: string, url: string, fileName: string, caption: string, clientId: string) {
@@ -130,14 +140,25 @@ async function sendButtons(phone: string, message: string, buttons: { id: string
     number, title: message, description: "", footer: "",
     buttons: buttons.map(b => ({ type: "reply", displayText: b.text, id: b.id })),
   };
+  console.log(`[Flow:sendButtons] number=${number} buttons=${buttons.length}`);
   for (const inst of instances) {
-    const res = await fetchWithTimeout(`${baseUrl}/message/sendButtons/${inst.instanceName}`, {
-      method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) return;
+    try {
+      const res = await fetchWithTimeout(`${baseUrl}/message/sendButtons/${inst.instanceName}`, {
+        method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        console.log(`[Flow:sendButtons] OK via ${inst.instanceName}`);
+        return;
+      }
+      const body = await res.text().catch(() => "");
+      console.error(`[Flow:sendButtons] FAIL ${inst.instanceName}: ${res.status} ${body}`);
+    } catch (err) {
+      console.error(`[Flow:sendButtons] ERROR ${inst.instanceName}:`, err);
+    }
   }
   // fallback texto numerado
+  console.log(`[Flow:sendButtons] fallback para texto numerado`);
   const fallback = `${message}\n\n${buttons.map((b, i) => `${i + 1}. ${b.text}`).join("\n")}`;
   await sendText(phone, fallback, clientId);
 }

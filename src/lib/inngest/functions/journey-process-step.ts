@@ -98,12 +98,22 @@ function formatWaNumber(phone: string) {
   return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 10_000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function sendWhatsApp(phone: string, message: string, clientId: string): Promise<void> {
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = formatWaNumber(phone);
 
   for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendText/${inst.instanceName}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/message/sendText/${inst.instanceName}`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body:    JSON.stringify({ number, text: message }),
@@ -121,7 +131,7 @@ async function sendWhatsAppMedia(phone: string, mediaUrl: string, caption: strin
   const number = formatWaNumber(phone);
 
   for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body:    JSON.stringify({ number, media: mediaUrl, caption, mediatype: "image" }),
@@ -139,7 +149,7 @@ async function sendWhatsAppAudio(phone: string, audioUrl: string, clientId: stri
   const number = formatWaNumber(phone);
 
   for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendWhatsAppAudio/${inst.instanceName}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/message/sendWhatsAppAudio/${inst.instanceName}`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body:    JSON.stringify({ number, audio: audioUrl }),

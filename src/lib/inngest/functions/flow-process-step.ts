@@ -74,11 +74,21 @@ function renderTemplate(text: string, vars: Record<string, string>) {
   return text.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 10_000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function sendText(phone: string, text: string, clientId: string) {
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = fmtNumber(phone);
   for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendText/${inst.instanceName}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/message/sendText/${inst.instanceName}`, {
       method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify({ number, text }),
     });
@@ -91,7 +101,7 @@ async function sendDocument(phone: string, url: string, fileName: string, captio
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = fmtNumber(phone);
   for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
       method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify({ number, media: url, caption, mediatype: "document", fileName }),
     });
@@ -104,7 +114,7 @@ async function sendMedia(phone: string, url: string, caption: string, clientId: 
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = fmtNumber(phone);
   for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
       method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify({ number, media: url, caption, mediatype: "image" }),
     });
@@ -121,7 +131,7 @@ async function sendButtons(phone: string, message: string, buttons: { id: string
     buttons: buttons.map(b => ({ type: "reply", displayText: b.text, id: b.id })),
   };
   for (const inst of instances) {
-    const res = await fetch(`${baseUrl}/message/sendButtons/${inst.instanceName}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/message/sendButtons/${inst.instanceName}`, {
       method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify(payload),
     });

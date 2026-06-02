@@ -380,6 +380,45 @@ button {
   color: var(--accent-strong);
 }
 
+/* ─── ReactFlow ──────────────────────────────── */
+
+.react-flow__controls {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-md) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  fill: var(--text-muted) !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--surface-muted) !important;
+  color: var(--text) !important;
+  fill: var(--text) !important;
+}
+
+.react-flow__controls-button svg {
+  fill: inherit !important;
+}
+
+.react-flow__minimap {
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.react-flow__minimap-mask {
+  fill: var(--surface-muted) !important;
+  opacity: 0.6;
+}
+
 /* ─── Print (analytics PDF) ─────────────────── */
 /* Nota: handleExport() remove a classe .dark do <html> antes de imprimir
    e restaura depois via evento afterprint — então o @media print trabalha

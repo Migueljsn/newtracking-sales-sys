@@ -618,6 +618,7 @@ enum InteractionType {
   NOTE
   CALL
   WHATSAPP
+  WHATSAPP_INBOUND
   MEETING
   EMAIL
   OTHER

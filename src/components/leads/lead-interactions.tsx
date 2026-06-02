@@ -4,11 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare, Phone, MessageCircle, Calendar,
-  Mail, Tag, Plus, Trash2, ChevronDown,
-  ArrowRight, DollarSign, Flag,
+  Mail, Tag, Plus, Trash2,
+  ArrowRight, DollarSign, Flag, MessageCircleMore,
 } from "lucide-react";
 
-type InteractionType = "NOTE" | "CALL" | "WHATSAPP" | "MEETING" | "EMAIL" | "OTHER";
+type InteractionType = "NOTE" | "CALL" | "WHATSAPP" | "WHATSAPP_INBOUND" | "MEETING" | "EMAIL" | "OTHER";
+
+// Tipos que o usuário pode registrar manualmente no formulário
+const MANUAL_TYPES: InteractionType[] = ["NOTE", "CALL", "WHATSAPP", "MEETING", "EMAIL", "OTHER"];
 
 interface Interaction {
   id:        string;
@@ -42,12 +45,13 @@ interface Props {
 }
 
 const typeConfig: Record<InteractionType, { label: string; icon: React.ReactNode; color: string }> = {
-  NOTE:     { label: "Anotação",    icon: <MessageSquare size={13} />, color: "var(--text-muted)" },
-  CALL:     { label: "Ligação",     icon: <Phone size={13} />,         color: "var(--accent)" },
-  WHATSAPP: { label: "WhatsApp",    icon: <MessageCircle size={13} />, color: "#25d366" },
-  MEETING:  { label: "Reunião",     icon: <Calendar size={13} />,      color: "var(--warning)" },
-  EMAIL:    { label: "E-mail",      icon: <Mail size={13} />,          color: "var(--accent-strong)" },
-  OTHER:    { label: "Outro",       icon: <Tag size={13} />,           color: "var(--text-muted)" },
+  NOTE:             { label: "Anotação",          icon: <MessageSquare size={13} />,    color: "var(--text-muted)" },
+  CALL:             { label: "Ligação",            icon: <Phone size={13} />,            color: "var(--accent)" },
+  WHATSAPP:         { label: "WhatsApp",           icon: <MessageCircle size={13} />,    color: "#25d366" },
+  WHATSAPP_INBOUND: { label: "Resposta WhatsApp",  icon: <MessageCircleMore size={13} />, color: "#128c7e" },
+  MEETING:          { label: "Reunião",            icon: <Calendar size={13} />,         color: "var(--warning)" },
+  EMAIL:            { label: "E-mail",             icon: <Mail size={13} />,             color: "var(--accent-strong)" },
+  OTHER:            { label: "Outro",              icon: <Tag size={13} />,              color: "var(--text-muted)" },
 };
 
 type TimelineEvent =
@@ -139,7 +143,7 @@ export function LeadInteractions({ leadId, interactions, statusHistory, sales, c
       {open && (
         <form onSubmit={handleSubmit} className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 space-y-3 animate-scale-in">
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(typeConfig) as InteractionType[]).map(t => {
+            {MANUAL_TYPES.map(t => {
               const cfg = typeConfig[t];
               const active = type === t;
               return (
@@ -202,7 +206,7 @@ export function LeadInteractions({ leadId, interactions, statusHistory, sales, c
                 key={`${event.kind}-${idx}`}
                 event={event}
                 isLast={idx === timeline.length - 1}
-                onDelete={event.kind === "interaction" ? () => handleDelete(event.data.id) : undefined}
+                onDelete={event.kind === "interaction" && event.data.type !== "WHATSAPP_INBOUND" ? () => handleDelete(event.data.id) : undefined}
                 isDeleting={event.kind === "interaction" && deletingId === event.data.id}
               />
             ))}

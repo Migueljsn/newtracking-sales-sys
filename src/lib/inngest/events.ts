@@ -21,3 +21,7 @@ export const leadChangedEvent = eventType("lead/changed", {
 export const audienceMemberEnteredEvent = eventType("audience/member-entered", {
   schema: staticSchema<{ audienceId: string; leadId: string; clientId: string }>(),
 });
+
+export const whatsappReplyEvent = eventType("whatsapp/reply", {
+  schema: staticSchema<{ leadId: string; clientId: string; message: string; phone: string }>(),
+});

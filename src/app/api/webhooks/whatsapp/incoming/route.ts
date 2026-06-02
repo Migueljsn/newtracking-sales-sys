@@ -16,8 +16,18 @@ interface EvoPayload {
       id:        string;
     };
     message?: {
-      conversation?:       string;
+      conversation?:        string;
       extendedTextMessage?: { text: string };
+      // resposta a botões interativos
+      buttonsResponseMessage?: {
+        selectedButtonId:   string;
+        selectedDisplayText: string;
+      };
+      // resposta a lista interativa (fallback)
+      listResponseMessage?: {
+        singleSelectReply?: { selectedRowId: string };
+        title?:             string;
+      };
     };
     messageType:      string;
     messageTimestamp: number;
@@ -26,7 +36,6 @@ interface EvoPayload {
 }
 
 function extractPhone(remoteJid: string): string {
-  // "5511999999999@s.whatsapp.net" → "11999999999"
   const raw = remoteJid.replace(/@.+$/, "").replace(/\D/g, "");
   return raw.startsWith("55") ? raw.slice(2) : raw;
 }
@@ -35,6 +44,8 @@ function extractText(data: EvoPayload["data"]): string | null {
   return (
     data.message?.conversation ??
     data.message?.extendedTextMessage?.text ??
+    data.message?.buttonsResponseMessage?.selectedDisplayText ??
+    data.message?.listResponseMessage?.title ??
     null
   );
 }

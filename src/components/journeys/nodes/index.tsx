@@ -115,8 +115,12 @@ export function AssignNode({ data, selected }: NodeProps) {
 export function WhatsAppBotNode({ data, selected }: NodeProps) {
   const d = data as unknown as WhatsAppBotData;
   const fieldLabel: Record<string, string> = { cnpj: "CNPJ", cep: "CEP", notes: "Observações" };
+  const timeoutLabel = `${d.timeoutValue}${d.timeoutUnit === "minutes" ? "min" : d.timeoutUnit === "hours" ? "h" : "d"}`;
+  const modeLabel = d.questionType === "buttons" && d.buttons?.length
+    ? `${d.buttons.length} botão${d.buttons.length > 1 ? "ões" : ""}`
+    : "texto livre";
   const summary = d.message
-    ? `→ salvar ${fieldLabel[d.saveField] ?? d.saveField} · ${d.timeoutValue}${d.timeoutUnit === "minutes" ? "min" : d.timeoutUnit === "hours" ? "h" : "d"}`
+    ? `${modeLabel} → ${fieldLabel[d.saveField] ?? d.saveField} · ${timeoutLabel}`
     : "Não configurado";
   return (
     <BaseNode

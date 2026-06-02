@@ -15,9 +15,16 @@ export type WaitData = {
   days?: number
 }
 
+export type BotButton = {
+  id:   string   // "1" | "2" | "3"
+  text: string   // texto exibido no botão
+}
+
 export type WhatsAppBotData = {
   message:      string
-  saveField:    string        // campo do lead onde salvar a resposta (ex: "cnpj", "cep")
+  questionType: "text" | "buttons"
+  buttons:      BotButton[]           // máx 3, usado quando questionType === "buttons"
+  saveField:    string
   timeoutValue: number
   timeoutUnit:  WaitUnit
 }
@@ -143,7 +150,7 @@ export const NODE_DEFS: NodeDef[] = [
     label:       "Pergunta Bot",
     description: "Enviar pergunta e aguardar resposta do lead via WhatsApp",
     color:       "#0ea5e9",
-    defaultData: { message: "", saveField: "cnpj", timeoutValue: 30, timeoutUnit: "minutes" },
+    defaultData: { message: "", questionType: "text", buttons: [], saveField: "cnpj", timeoutValue: 30, timeoutUnit: "minutes" },
   },
   {
     type:        "end",

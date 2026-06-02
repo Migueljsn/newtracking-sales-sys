@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect }       from "next/navigation";
 import { getSession }     from "@/lib/auth/session";
 import { prisma }         from "@/lib/db/prisma";
+import { inngest }        from "@/lib/inngest/client";
+import { flowEnrollEvent } from "@/lib/inngest/events";
 
 export async function createFlowAction(name: string) {
   const session  = await getSession();
@@ -62,7 +64,27 @@ export async function updateFlowAction(
 export async function publishFlowAction(id: string) {
   const session  = await getSession();
   const clientId = session.clientId!;
+
   await prisma.flow.update({ where: { id, clientId }, data: { status: "ACTIVE" } });
+
+  // Se tem gatilho de público, inscreve imediatamente os leads já membros
+  const audienceTrigger = await prisma.flowTrigger.findFirst({
+    where: { flowId: id, clientId, type: "AUDIENCE" },
+    select: { audienceId: true },
+  });
+
+  if (audienceTrigger?.audienceId) {
+    const members = await prisma.audienceMembership.findMany({
+      where:  { audienceId: audienceTrigger.audienceId, clientId },
+      select: { leadId: true },
+    });
+    if (members.length > 0) {
+      await inngest.send(
+        members.map(m => flowEnrollEvent.create({ flowId: id, leadId: m.leadId, clientId }))
+      );
+    }
+  }
+
   revalidatePath("/flows");
   revalidatePath(`/flows/${id}`);
 }

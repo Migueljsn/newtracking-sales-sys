@@ -25,20 +25,30 @@ export const syncAudienceMembership = inngest.createFunction(
 
     if (!lead) return { skipped: "lead not found" };
 
-    // Carregar só públicos vinculados a jornadas ativas deste cliente
+    // Carregar públicos vinculados a jornadas ativas E a fluxos ativos
     const activeAudienceIds = await step.run("load-active-audience-ids", async () => {
+      const ids = new Set<string>();
+
+      // Jornadas ativas
       const journeys = await prisma.journey.findMany({
         where:  { clientId, status: "ACTIVE" },
         select: { nodes: true },
       });
-
-      const ids = new Set<string>();
       for (const j of journeys) {
         const nodes = j.nodes as Array<{ type?: string; data?: { audienceIds?: string[]; audienceId?: string } }>;
         const trigger = nodes.find(n => n.type === "trigger");
         if (!trigger?.data) continue;
         if (trigger.data.audienceIds?.length) trigger.data.audienceIds.forEach(id => ids.add(id));
         if (trigger.data.audienceId)          ids.add(trigger.data.audienceId);
+      }
+
+      // Fluxos ativos com gatilho de público
+      const flowTriggers = await prisma.flowTrigger.findMany({
+        where:  { clientId, type: "AUDIENCE", flow: { status: "ACTIVE" } },
+        select: { audienceId: true },
+      });
+      for (const ft of flowTriggers) {
+        if (ft.audienceId) ids.add(ft.audienceId);
       }
 
       return [...ids];

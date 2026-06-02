@@ -77,18 +77,14 @@ export function FlowQuestionNode({ data, selected }: NodeProps) {
     ? <MousePointerClick size={13} />
     : <Type size={13} />;
 
-  const nodeRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [tops, setTops] = useState<number[]>([]);
 
   useLayoutEffect(() => {
-    const node = nodeRef.current;
-    if (!node) return;
-    const nodeTop = node.getBoundingClientRect().top;
+    // offsetTop usa coordenadas CSS locais — independente do zoom do canvas
     const next = rowRefs.current.slice(0, outputs.length).map((row) => {
       if (!row) return 0;
-      const r = row.getBoundingClientRect();
-      return Math.round(r.top - nodeTop + r.height / 2);
+      return Math.round(row.offsetTop + row.offsetHeight / 2);
     });
     setTops((prev) =>
       prev.length === next.length && prev.every((v, i) => v === next[i]) ? prev : next
@@ -97,8 +93,7 @@ export function FlowQuestionNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      ref={nodeRef}
-      className={`min-w-[200px] max-w-[240px] rounded-2xl border-2 bg-[var(--surface)] shadow-sm transition-all ${
+      className={`relative min-w-[210px] max-w-[250px] rounded-2xl border-2 bg-[var(--surface)] shadow-sm transition-all ${
         selected
           ? "border-[var(--accent)] shadow-[var(--shadow-accent)]"
           : "border-[var(--border)]"
@@ -124,32 +119,27 @@ export function FlowQuestionNode({ data, selected }: NodeProps) {
         <p className="text-xs text-[var(--text-muted)] leading-relaxed">{summary}</p>
       </div>
 
-      {/* Output rows — each labeled, handle on the right */}
-      <div>
+      {/* Output rows — labeled, handle na borda direita */}
+      <div className="py-1">
         {outputs.map((o, i) => (
           <div
             key={o.id}
             ref={(el) => { rowRefs.current[i] = el; }}
-            className={`flex items-center gap-2 px-3 py-1.5 pr-6 ${
-              i < outputs.length - 1 ? "border-b border-[var(--border)]" : ""
-            }`}
+            className="flex items-center gap-1.5 px-3 py-1 pr-5"
           >
-            <div
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: o.color }}
-            />
             <span
-              className="text-[11px] font-medium truncate flex-1"
+              className="text-[11px] font-semibold truncate flex-1"
               style={{ color: o.color }}
             >
               {o.label}
             </span>
+            <span className="text-[10px] shrink-0" style={{ color: o.color }}>→</span>
             <Handle
               type="source"
               position={Position.Right}
               id={o.id}
               style={{
-                top: tops[i] ?? undefined,
+                top: tops[i] !== undefined ? tops[i] : undefined,
                 borderColor: o.color,
                 backgroundColor: o.color,
               }}

@@ -220,7 +220,11 @@ export function FlowNodeConfigPanel({
                     { value: "choice", label: "Botões",      icon: <MousePointerClick size={12} /> },
                   ].map((opt) => (
                     <button key={opt.value} type="button"
-                      onClick={() => { set("mode", opt.value); if (opt.value === "text") set("buttons", []); }}
+                      onClick={() => onUpdate(node.id, {
+                        ...data,
+                        mode: opt.value,
+                        ...(opt.value === "text" ? { buttons: [] } : {}),
+                      })}
                       className={`flex items-center gap-1.5 flex-1 justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
                         mode === opt.value
                           ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"

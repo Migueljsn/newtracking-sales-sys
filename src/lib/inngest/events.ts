@@ -39,3 +39,7 @@ export const flowStepEvent = eventType("flow/step", {
 export const flowEnrollEvent = eventType("flow/enroll", {
   schema: staticSchema<{ flowId: string; leadId: string; clientId: string }>(),
 });
+
+export const flowEnrollAllEvent = eventType("flow/enroll-all", {
+  schema: staticSchema<{ flowId: string; clientId: string }>(),
+});

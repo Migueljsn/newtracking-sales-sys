@@ -39,8 +39,11 @@ model Client {
   pipelineStages    PipelineStage[]
   audiences         Audience[]
   journeys          Journey[]
+  flows             Flow[]
   leadInteractions  LeadInteraction[]
   journeyNodeLogs   JourneyNodeLog[]
+  flowEnrollments   FlowEnrollment[]
+  flowNodeLogs      FlowNodeLog[]
   webhookToken        WebhookToken?
   webhookLogs         WebhookInboundLog[]
   whatsappInstances   WhatsAppInstance[]
@@ -222,6 +225,7 @@ model Lead {
   statusHistory       LeadStatusHistory[]
   trackingEvents      TrackingEvent[]
   journeyEnrollments  JourneyEnrollment[]
+  flowEnrollments     FlowEnrollment[]
   checklists          LeadChecklist[]
 
   interactions        LeadInteraction[]
@@ -318,6 +322,7 @@ model Audience {
 
   client      Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   journeys    Journey[]
+  flowTriggers FlowTrigger[]
   memberships AudienceMembership[]
 
   @@index([clientId])
@@ -648,6 +653,111 @@ model WhatsAppInstance {
 
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  @@index([clientId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FLOW — fluxos de atendimento conversacional via WhatsApp
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Flow {
+  id          String      @id @default(cuid())
+  clientId    String
+  name        String
+  description String?
+  status      FlowStatus  @default(DRAFT)
+  nodes       Json        @default("[]")
+  edges       Json        @default("[]")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  triggers    FlowTrigger[]
+  enrollments FlowEnrollment[]
+  nodeLogs    FlowNodeLog[]
+
+  @@index([clientId])
+}
+
+enum FlowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+model FlowTrigger {
+  id               String           @id @default(cuid())
+  flowId           String
+  clientId         String
+  type             FlowTriggerType
+  // para tipo AUDIENCE
+  audienceId       String?
+  // para tipo KEYWORD
+  keyword          String?
+  keywordMatchType KeywordMatchType @default(CONTAINS)
+  createdAt        DateTime         @default(now())
+
+  flow      Flow      @relation(fields: [flowId],     references: [id], onDelete: Cascade)
+  audience  Audience? @relation(fields: [audienceId], references: [id], onDelete: Cascade)
+
+  @@index([flowId])
+  @@index([clientId])
+  @@index([audienceId])
+}
+
+enum FlowTriggerType {
+  AUDIENCE  // lead entra num público → inicia o fluxo
+  KEYWORD   // lead manda mensagem com palavra-chave → inicia o fluxo
+}
+
+enum KeywordMatchType {
+  EXACT       // mensagem == keyword
+  CONTAINS    // mensagem contém keyword
+  STARTS_WITH // mensagem começa com keyword
+}
+
+model FlowEnrollment {
+  id          String           @id @default(cuid())
+  flowId      String
+  leadId      String
+  clientId    String
+  currentNode String
+  status      EnrollmentStatus @default(ACTIVE)
+  // contexto interno do executor (tentativas, dados coletados entre steps)
+  context     Json             @default("{}")
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  flow     Flow          @relation(fields: [flowId],   references: [id], onDelete: Cascade)
+  lead     Lead          @relation(fields: [leadId],   references: [id], onDelete: Cascade)
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  nodeLogs FlowNodeLog[]
+
+  @@unique([flowId, leadId])
+  @@index([flowId])
+  @@index([leadId])
+  @@index([clientId])
+}
+
+model FlowNodeLog {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  flowId       String
+  leadId       String
+  clientId     String
+  nodeId       String
+  nodeType     String
+  result       String?
+  executedAt   DateTime @default(now())
+
+  enrollment FlowEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  flow       Flow           @relation(fields: [flowId],       references: [id], onDelete: Cascade)
+  client     Client         @relation(fields: [clientId],     references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@index([flowId])
+  @@index([leadId])
   @@index([clientId])
 }
 

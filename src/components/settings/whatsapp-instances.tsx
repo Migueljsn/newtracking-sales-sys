@@ -32,7 +32,8 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
   const [qrLoading,    setQrLoading]    = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const syncedRef   = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
@@ -42,15 +43,14 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
     const res  = await fetch(`/api/whatsapp/instances/${instanceName}/status`);
     const data = await res.json();
 
-    if (data.connected) {
-      setInstances((prev) => prev.map((i) =>
-        i.instanceName === instanceName
-          ? { ...i, status: "connected", phone: data.phone, profileName: data.profileName }
-          : i
-      ));
-      return true;
-    }
-    return false;
+    setInstances((prev) => prev.map((i) => {
+      if (i.instanceName !== instanceName) return i;
+      return data.connected
+        ? { ...i, status: "connected",    phone: data.phone, profileName: data.profileName }
+        : { ...i, status: "disconnected", phone: null,       profileName: null };
+    }));
+
+    return !!data.connected;
   }, []);
 
   const openQr = useCallback(async (instanceName: string) => {
@@ -88,6 +88,13 @@ export function WhatsAppInstances({ initialInstances }: WhatsAppInstancesProps) 
     setQrInstance(null);
     setQrBase64(null);
   }, [stopPolling]);
+
+  // Sincroniza status real de todas as instâncias ao montar
+  useEffect(() => {
+    if (syncedRef.current || instances.length === 0) return;
+    syncedRef.current = true;
+    instances.forEach(inst => checkStatus(inst.instanceName));
+  }, [instances, checkStatus]);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 

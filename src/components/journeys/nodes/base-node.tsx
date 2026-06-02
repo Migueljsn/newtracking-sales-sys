@@ -12,14 +12,17 @@ interface BaseNodeProps {
   hasTrueOutput?:  boolean
   hasFalseOutput?: boolean
   hasOutput?: boolean
+  dualOutputs?: { id: string; label: string; color: string; left: string }[]
 }
 
 export function BaseNode({
   label, color, icon, summary, selected,
   hasInput = true, hasOutput = true,
   hasTrueOutput = false, hasFalseOutput = false,
+  dualOutputs,
 }: BaseNodeProps) {
   const isCondition = hasTrueOutput || hasFalseOutput
+  const isDual = !!dualOutputs?.length
 
   return (
     <div
@@ -50,7 +53,7 @@ export function BaseNode({
         />
       )}
 
-      {hasOutput && !isCondition && (
+      {hasOutput && !isCondition && !isDual && (
         <Handle
           type="source"
           position={Position.Bottom}
@@ -76,6 +79,17 @@ export function BaseNode({
           />
         </>
       )}
+
+      {isDual && dualOutputs!.map((o) => (
+        <Handle
+          key={o.id}
+          type="source"
+          position={Position.Bottom}
+          id={o.id}
+          style={{ left: o.left, borderColor: o.color, backgroundColor: o.color }}
+          className="!w-3 !h-3 !border-2"
+        />
+      ))}
     </div>
   )
 }

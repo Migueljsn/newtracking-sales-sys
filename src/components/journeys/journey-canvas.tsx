@@ -10,7 +10,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  Zap, Clock, GitBranch, Mail, MessageCircle,
+  Zap, Clock, GitBranch, Mail, MessageCircle, BotMessageSquare,
   ArrowRightLeft, UserCheck, Square, Save, Loader2,
   Play, Pause, ChevronLeft, Copy, Trash2,
   RotateCcw, RotateCw, Pencil, Check, X,
@@ -48,6 +48,7 @@ const ICON_MAP: Record<NodeType, React.ReactNode> = {
   condition:    <GitBranch size={13} />,
   email:        <Mail size={13} />,
   whatsapp:     <MessageCircle size={13} />,
+  whatsappBot:  <BotMessageSquare size={13} />,
   changeStatus: <ArrowRightLeft size={13} />,
   assign:       <UserCheck size={13} />,
   end:          <Square size={13} />,

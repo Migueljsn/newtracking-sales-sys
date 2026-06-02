@@ -1,11 +1,11 @@
 "use client";
 
 import { NodeProps } from "@xyflow/react";
-import { Zap, Clock, GitBranch, Mail, MessageCircle, ArrowRightLeft, UserCheck, Square } from "lucide-react";
+import { Zap, Clock, GitBranch, Mail, MessageCircle, ArrowRightLeft, UserCheck, Square, BotMessageSquare } from "lucide-react";
 import { BaseNode } from "./base-node";
 import {
   TriggerData, WaitData, ConditionData, EmailData,
-  WhatsAppData, ChangeStatusData, AssignData,
+  WhatsAppData, WhatsAppBotData, ChangeStatusData, AssignData,
 } from "@/lib/journeys/types";
 import { FIELD_DEFS } from "@/lib/audiences/fields";
 
@@ -29,12 +29,15 @@ export function TriggerNode({ data, selected }: NodeProps) {
 
 export function WaitNode({ data, selected }: NodeProps) {
   const d = data as unknown as WaitData;
+  const amount = d.amount ?? d.days ?? 1;
+  const unit   = d.unit ?? "days";
+  const unitLabel: Record<string, string> = { minutes: "min", hours: "h", days: amount === 1 ? "dia" : "dias" };
   return (
     <BaseNode
       label="Aguardar"
       color="#f59e0b"
       icon={<Clock size={13} />}
-      summary={d.days === 1 ? "1 dia" : `${d.days} dias`}
+      summary={`${amount} ${unitLabel[unit] ?? "dias"}`}
       selected={!!selected}
     />
   );
@@ -109,6 +112,27 @@ export function AssignNode({ data, selected }: NodeProps) {
   );
 }
 
+export function WhatsAppBotNode({ data, selected }: NodeProps) {
+  const d = data as unknown as WhatsAppBotData;
+  const fieldLabel: Record<string, string> = { cnpj: "CNPJ", cep: "CEP", notes: "Observações" };
+  const summary = d.message
+    ? `→ salvar ${fieldLabel[d.saveField] ?? d.saveField} · ${d.timeoutValue}${d.timeoutUnit === "minutes" ? "min" : d.timeoutUnit === "hours" ? "h" : "d"}`
+    : "Não configurado";
+  return (
+    <BaseNode
+      label="Pergunta Bot"
+      color="#0ea5e9"
+      icon={<BotMessageSquare size={13} />}
+      summary={summary}
+      selected={!!selected}
+      dualOutputs={[
+        { id: "answered", label: "respondeu", color: "#10b981", left: "30%" },
+        { id: "timeout",  label: "timeout",   color: "#f97316", left: "70%" },
+      ]}
+    />
+  );
+}
+
 export function EndNode({ selected }: NodeProps) {
   return (
     <BaseNode
@@ -128,6 +152,7 @@ export const nodeTypes = {
   condition:    ConditionNode,
   email:        EmailNode,
   whatsapp:     WhatsAppNode,
+  whatsappBot:  WhatsAppBotNode,
   changeStatus: ChangeStatusNode,
   assign:       AssignNode,
   end:          EndNode,

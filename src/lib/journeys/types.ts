@@ -5,8 +5,21 @@ export type TriggerData = {
   audienceNames: string[]
 }
 
+export type WaitUnit = "minutes" | "hours" | "days"
+
 export type WaitData = {
-  days: number
+  // novo formato
+  amount?: number
+  unit?:   WaitUnit
+  // legado — mantido para jornadas já salvas
+  days?: number
+}
+
+export type WhatsAppBotData = {
+  message:      string
+  saveField:    string        // campo do lead onde salvar a resposta (ex: "cnpj", "cep")
+  timeoutValue: number
+  timeoutUnit:  WaitUnit
 }
 
 export type ConditionData = {
@@ -49,6 +62,7 @@ export type NodeData =
   | ConditionData
   | EmailData
   | WhatsAppData
+  | WhatsAppBotData
   | ChangeStatusData
   | AssignData
   | EndData
@@ -59,6 +73,7 @@ export type NodeType =
   | "condition"
   | "email"
   | "whatsapp"
+  | "whatsappBot"
   | "changeStatus"
   | "assign"
   | "end"
@@ -84,9 +99,9 @@ export const NODE_DEFS: NodeDef[] = [
   {
     type:        "wait",
     label:       "Aguardar",
-    description: "Esperar X dias antes de continuar",
+    description: "Esperar antes de continuar (minutos, horas ou dias)",
     color:       "#f59e0b",
-    defaultData: { days: 1 },
+    defaultData: { amount: 1, unit: "days" },
   },
   {
     type:        "condition",
@@ -122,6 +137,13 @@ export const NODE_DEFS: NodeDef[] = [
     description: "Atribuir consultor ao lead",
     color:       "#06b6d4",
     defaultData: { consultant: "" },
+  },
+  {
+    type:        "whatsappBot",
+    label:       "Pergunta Bot",
+    description: "Enviar pergunta e aguardar resposta do lead via WhatsApp",
+    color:       "#0ea5e9",
+    defaultData: { message: "", saveField: "cnpj", timeoutValue: 30, timeoutUnit: "minutes" },
   },
   {
     type:        "end",

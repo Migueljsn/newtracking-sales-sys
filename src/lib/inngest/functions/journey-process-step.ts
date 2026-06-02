@@ -10,8 +10,9 @@ import type { RuleGroup } from "@/lib/audiences/types";
 import type { Node, Edge } from "@xyflow/react";
 import type {
   WaitData, ConditionData, EmailData,
-  WhatsAppData, ChangeStatusData, AssignData,
+  WhatsAppData, WhatsAppBotData, ChangeStatusData, AssignData,
 } from "@/lib/journeys/types";
+import { whatsappReplyEvent } from "@/lib/inngest/events";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -20,7 +21,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 function getNextNodeId(
   edges: Edge[],
   currentNodeId: string,
-  branch?: "true" | "false"
+  branch?: string
 ): string | null {
   const out = edges.filter((e) => {
     if (e.source !== currentNodeId) return false;
@@ -234,8 +235,63 @@ export const journeyProcessStep = inngest.createFunction(
 
       case "wait": {
         const d = node.data as unknown as WaitData;
-        await step.sleep("wait-step", `${d.days}d`);
+        // suporta formato legado { days } e novo formato { amount, unit }
+        const amount = d.amount ?? d.days ?? 1;
+        const unit   = d.unit ?? "days";
+        const unitMap: Record<string, string> = { minutes: "m", hours: "h", days: "d" };
+        await step.sleep("wait-step", `${amount}${unitMap[unit] ?? "d"}`);
         nextNodeId = getNextNodeId(edges, nodeId);
+        break;
+      }
+
+      case "whatsappBot": {
+        const d = node.data as unknown as WhatsAppBotData;
+
+        // Pausa se automação estiver pausada para este lead
+        const paused = await step.run("check-paused", () =>
+          prisma.lead.findUnique({ where: { id: leadId }, select: { automationPaused: true } })
+            .then(l => l?.automationPaused ?? false)
+        );
+        if (paused) { nodeResult = "bot_paused"; nextNodeId = null; break; }
+
+        // 1. Envia a pergunta pelo WhatsApp
+        await step.run("send-bot-question", async () => {
+          await sendWhatsApp(lead.customer.phone, d.message, clientId);
+          await prisma.leadInteraction.create({
+            data: { leadId, clientId, type: "WHATSAPP", content: d.message },
+          });
+        });
+
+        // 2. Aguarda resposta do lead
+        const unitMap: Record<string, string> = { minutes: "m", hours: "h", days: "d" };
+        const timeoutStr = `${d.timeoutValue}${unitMap[d.timeoutUnit] ?? "m"}`;
+
+        const reply = await step.waitForEvent("await-bot-reply", {
+          event:   whatsappReplyEvent.name,
+          match:   "data.leadId",
+          timeout: timeoutStr,
+        });
+
+        // 3. Se respondeu — salva no customFields e segue caminho "answered"
+        if (reply) {
+          await step.run("save-bot-answer", () =>
+            prisma.lead.update({
+              where: { id: leadId },
+              data:  {
+                customFields: {
+                  ...(lead.customFields as Record<string, unknown> ?? {}),
+                  [d.saveField]: reply.data.message,
+                },
+              },
+            })
+          );
+          nodeResult = "bot_answered";
+          nextNodeId = getNextNodeId(edges, nodeId, "answered");
+        } else {
+          // 4. Timeout — segue caminho "timeout"
+          nodeResult = "bot_timeout";
+          nextNodeId = getNextNodeId(edges, nodeId, "timeout");
+        }
         break;
       }
 

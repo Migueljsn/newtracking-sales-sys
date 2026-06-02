@@ -207,6 +207,8 @@ model Lead {
 
   consultant     String?     // nome do consultor/vendedor responsável
   notes          String?
+  customFields   Json?       // dados coletados pelo bot (ex: { cnpj, cep })
+  automationPaused Boolean   @default(false)
   capturedAt     DateTime    @default(now()) // pode ser sobrescrito em importações
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

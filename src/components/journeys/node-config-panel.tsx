@@ -5,7 +5,7 @@ import { Node } from "@xyflow/react";
 import { X, Trash2, Copy, Eye, EyeOff, Plus, MessageSquare, FileText, Image, Mic, AlertTriangle, CheckCircle } from "lucide-react";
 import {
   TriggerData, WaitData, ConditionData, EmailData,
-  WhatsAppData, ChangeStatusData, AssignData, NodeType,
+  WhatsAppData, WhatsAppBotData, ChangeStatusData, AssignData, NodeType,
 } from "@/lib/journeys/types";
 import { FIELD_DEFS, OPERATORS_BY_TYPE, getFieldDef, defaultOperator, defaultValue } from "@/lib/audiences/fields";
 
@@ -426,14 +426,82 @@ export function NodeConfigPanel({
         {/* ── Wait ── */}
         {type === "wait" && (() => {
           const d = data as unknown as WaitData;
+          const amount = d.amount ?? d.days ?? 1;
+          const unit   = d.unit ?? "days";
           return (
-            <div>
-              <label className={labelClass}>Aguardar quantos dias</label>
-              <input
-                type="number" min={1} value={d.days}
-                onChange={(e) => set("days", Math.max(1, parseInt(e.target.value) || 1))}
-                className={inputClass}
-              />
+            <div className="space-y-3">
+              <label className={labelClass}>Aguardar</label>
+              <div className="flex gap-2">
+                <input
+                  type="number" min={1} value={amount}
+                  onChange={(e) => set("amount", Math.max(1, parseInt(e.target.value) || 1))}
+                  className={inputClass + " w-24"}
+                />
+                <select
+                  value={unit}
+                  onChange={(e) => set("unit", e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="minutes">minuto(s)</option>
+                  <option value="hours">hora(s)</option>
+                  <option value="days">dia(s)</option>
+                </select>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── WhatsApp Bot ── */}
+        {type === "whatsappBot" && (() => {
+          const d = data as unknown as WhatsAppBotData;
+          return (
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Mensagem / Pergunta</label>
+                <textarea
+                  rows={4}
+                  value={d.message}
+                  onChange={(e) => set("message", e.target.value)}
+                  placeholder="Ex: Olá {nome}! Para continuar, me informe seu CNPJ:"
+                  className={inputClass + " resize-none"}
+                />
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">Use {"{nome}"} para personalizar</p>
+              </div>
+              <div>
+                <label className={labelClass}>Salvar resposta no campo</label>
+                <select
+                  value={d.saveField}
+                  onChange={(e) => set("saveField", e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="cnpj">CNPJ</option>
+                  <option value="cep">CEP</option>
+                  <option value="notes">Observações</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Aguardar resposta por</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number" min={1} value={d.timeoutValue}
+                    onChange={(e) => set("timeoutValue", Math.max(1, parseInt(e.target.value) || 1))}
+                    className={inputClass + " w-24"}
+                  />
+                  <select
+                    value={d.timeoutUnit}
+                    onChange={(e) => set("timeoutUnit", e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="minutes">minuto(s)</option>
+                    <option value="hours">hora(s)</option>
+                    <option value="days">dia(s)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs text-[var(--text-muted)] space-y-1">
+                <p>• Saída <strong>respondeu</strong> → lead enviou uma mensagem dentro do prazo</p>
+                <p>• Saída <strong>timeout</strong> → prazo expirou sem resposta</p>
+              </div>
             </div>
           );
         })()}

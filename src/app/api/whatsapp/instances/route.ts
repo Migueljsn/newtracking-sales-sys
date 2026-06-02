@@ -28,6 +28,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `EvoAPI: ${err}` }, { status: 502 });
   }
 
+  // Configurar webhook de incoming automaticamente
+  const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://newtracking-sales-sys.vercel.app"}/api/webhooks/whatsapp/incoming`;
+  await fetch(`${EVO_URL}/webhook/set/${name}`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", apikey: EVO_KEY },
+    body:    JSON.stringify({
+      webhook: {
+        enabled:         true,
+        url:             webhookUrl,
+        webhookByEvents: false,
+        webhookBase64:   false,
+        events:          ["MESSAGES_UPSERT"],
+      },
+    }),
+  }).catch(() => {}); // silencia falha — pode configurar manualmente depois
+
   // Salvar no banco
   const instance = await prisma.whatsAppInstance.create({
     data: { clientId, instanceName: name, priority: 0 },

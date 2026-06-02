@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { UserPlus, Trash2, KeyRound, ToggleLeft, ToggleRight, Loader2, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Trash2, KeyRound, ToggleLeft, ToggleRight, Loader2, Eye, EyeOff, Pencil, Check, X } from "lucide-react";
 import {
   createConsultantAction,
+  updateConsultantAction,
   toggleConsultantAction,
   deleteConsultantAction,
   resetConsultantPasswordAction,
@@ -19,11 +20,14 @@ interface Consultant {
 }
 
 export function ConsultantAccess({ consultants }: { consultants: Consultant[] }) {
-  const [list,          setList]          = useState<Consultant[]>(consultants);
-  const [showForm,      setShowForm]      = useState(false);
-  const [loading,       setLoading]       = useState<string | null>(null);
-  const [resetId,       setResetId]       = useState<string | null>(null);
-  const [newPass,       setNewPass]       = useState("");
+  const [list,           setList]           = useState<Consultant[]>(consultants);
+  const [showForm,       setShowForm]       = useState(false);
+  const [loading,        setLoading]        = useState<string | null>(null);
+  const [resetId,        setResetId]        = useState<string | null>(null);
+  const [editId,         setEditId]         = useState<string | null>(null);
+  const [editName,       setEditName]       = useState("");
+  const [editEmail,      setEditEmail]      = useState("");
+  const [newPass,        setNewPass]        = useState("");
   const [showCreatePass, setShowCreatePass] = useState(false);
   const [showResetPass,  setShowResetPass]  = useState(false);
 
@@ -37,10 +41,34 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
       toast.success("Consultor criado com sucesso!");
       setShowForm(false);
       (e.target as HTMLFormElement).reset();
-      // reload list from server — simple approach: force page reload
       window.location.reload();
     } catch (err: unknown) {
       toast.error((err as Error).message || "Erro ao criar consultor");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  // Edit
+  function startEdit(c: Consultant) {
+    setEditId(c.id);
+    setEditName(c.name);
+    setEditEmail(c.email);
+    setResetId(null);
+  }
+
+  async function handleEdit(id: string) {
+    setLoading(id + "-edit");
+    const fd = new FormData();
+    fd.set("name", editName);
+    fd.set("email", editEmail);
+    try {
+      await updateConsultantAction(id, fd);
+      setList(prev => prev.map(x => x.id === id ? { ...x, name: editName, email: editEmail } : x));
+      setEditId(null);
+      toast.success("Consultor atualizado");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Erro ao atualizar consultor");
     } finally {
       setLoading(null);
     }
@@ -151,31 +179,119 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
       ) : (
         <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)]">
           {list.map((c) => (
-            <div key={c.id} className="flex items-center gap-4 px-5 py-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-[var(--text)] truncate">{c.name}</p>
-                <p className="text-xs text-[var(--text-muted)] truncate">{c.email}</p>
+            <div key={c.id} className="px-5 py-4 space-y-3">
+              {/* Main row */}
+              <div className="flex items-center gap-4">
+                {editId === c.id ? (
+                  /* ── Edit mode ── */
+                  <div className="flex flex-1 items-center gap-2 min-w-0">
+                    <input
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      placeholder="Nome"
+                      className="input h-8 flex-1 text-sm min-w-0"
+                    />
+                    <input
+                      value={editEmail}
+                      onChange={e => setEditEmail(e.target.value)}
+                      type="email"
+                      placeholder="E-mail"
+                      className="input h-8 flex-1 text-sm min-w-0"
+                    />
+                    <button
+                      onClick={() => handleEdit(c.id)}
+                      disabled={loading === c.id + "-edit"}
+                      title="Salvar"
+                      className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-50"
+                    >
+                      {loading === c.id + "-edit" ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} />}
+                    </button>
+                    <button
+                      onClick={() => setEditId(null)}
+                      title="Cancelar"
+                      className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  /* ── View mode ── */
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[var(--text)] truncate">{c.name}</p>
+                    <p className="text-xs text-[var(--text-muted)] truncate">{c.email}</p>
+                  </div>
+                )}
+
+                {editId !== c.id && (
+                  <>
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                      c.active
+                        ? "bg-[var(--success-soft)] text-[var(--success)]"
+                        : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
+                    }`}>
+                      {c.active ? "Ativo" : "Inativo"}
+                    </span>
+
+                    {/* Edit */}
+                    <button
+                      onClick={() => startEdit(c)}
+                      title="Editar nome/e-mail"
+                      className="shrink-0 flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                    >
+                      <Pencil size={12} /> Editar
+                    </button>
+
+                    {/* Reset password toggle */}
+                    <button
+                      onClick={() => { setResetId(resetId === c.id ? null : c.id); setNewPass(""); setEditId(null); }}
+                      title="Redefinir senha"
+                      className="shrink-0 flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                    >
+                      <KeyRound size={13} /> Senha
+                    </button>
+
+                    {/* Toggle active */}
+                    <button
+                      onClick={() => handleToggle(c)}
+                      disabled={loading === c.id + "-toggle"}
+                      title={c.active ? "Desativar acesso" : "Ativar acesso"}
+                      className="shrink-0 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+                    >
+                      {loading === c.id + "-toggle"
+                        ? <Loader2 size={18} className="animate-spin" />
+                        : c.active
+                        ? <ToggleRight size={22} className="text-[var(--success)]" />
+                        : <ToggleLeft  size={22} />
+                      }
+                    </button>
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => handleDelete(c.id, c.name)}
+                      disabled={loading === c.id + "-delete"}
+                      title="Excluir consultor"
+                      className="shrink-0 text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors disabled:opacity-50"
+                    >
+                      {loading === c.id + "-delete"
+                        ? <Loader2 size={15} className="animate-spin" />
+                        : <Trash2 size={15} />
+                      }
+                    </button>
+                  </>
+                )}
               </div>
 
-              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                c.active
-                  ? "bg-[var(--success-soft)] text-[var(--success)]"
-                  : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
-              }`}>
-                {c.active ? "Ativo" : "Inativo"}
-              </span>
-
               {/* Reset password inline */}
-              {resetId === c.id ? (
-                <div className="flex items-center gap-2">
+              {resetId === c.id && editId !== c.id && (
+                <div className="flex items-center gap-2 pl-0">
                   <div className="relative">
                     <input
                       type={showResetPass ? "text" : "password"}
                       value={newPass}
                       onChange={e => setNewPass(e.target.value)}
-                      placeholder="Nova senha"
+                      placeholder="Nova senha (mín. 6 caracteres)"
                       minLength={6}
-                      className="input h-8 w-36 text-xs pr-8"
+                      className="input h-8 w-56 text-xs pr-8"
                     />
                     <button type="button" onClick={() => setShowResetPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
                       {showResetPass ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -186,47 +302,13 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
                     disabled={loading === c.id + "-reset"}
                     className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                   >
-                    {loading === c.id + "-reset" ? <Loader2 size={12} className="animate-spin" /> : "Salvar"}
+                    {loading === c.id + "-reset" ? <Loader2 size={12} className="animate-spin" /> : "Salvar senha"}
                   </button>
                   <button onClick={() => { setResetId(null); setNewPass(""); setShowResetPass(false); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]">
                     Cancelar
                   </button>
                 </div>
-              ) : (
-                <button
-                  onClick={() => { setResetId(c.id); setNewPass(""); }}
-                  title="Redefinir senha"
-                  className="shrink-0 flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-                >
-                  <KeyRound size={13} /> Senha
-                </button>
               )}
-
-              <button
-                onClick={() => handleToggle(c)}
-                disabled={loading === c.id + "-toggle"}
-                title={c.active ? "Desativar acesso" : "Ativar acesso"}
-                className="shrink-0 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
-              >
-                {loading === c.id + "-toggle"
-                  ? <Loader2 size={18} className="animate-spin" />
-                  : c.active
-                  ? <ToggleRight size={22} className="text-[var(--success)]" />
-                  : <ToggleLeft  size={22} />
-                }
-              </button>
-
-              <button
-                onClick={() => handleDelete(c.id, c.name)}
-                disabled={loading === c.id + "-delete"}
-                title="Excluir consultor"
-                className="shrink-0 text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors disabled:opacity-50"
-              >
-                {loading === c.id + "-delete"
-                  ? <Loader2 size={15} className="animate-spin" />
-                  : <Trash2 size={15} />
-                }
-              </button>
             </div>
           ))}
         </div>

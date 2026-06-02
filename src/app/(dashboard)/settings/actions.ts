@@ -266,10 +266,31 @@ export async function createConsultantAction(formData: FormData) {
   if (!name || !email || !password) throw new Error("Todos os campos são obrigatórios");
   if (password.length < 6) throw new Error("Senha deve ter pelo menos 6 caracteres");
 
-
   try {
     await prisma.consultantUser.create({
       data: { clientId, name, email, passwordHash: hashPassword(password) },
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === "P2002") throw new Error("Já existe um consultor com este e-mail.");
+    throw err;
+  }
+
+  revalidatePath("/settings?tab=acessos");
+}
+
+export async function updateConsultantAction(id: string, formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const name  = (formData.get("name")  as string).trim();
+  const email = (formData.get("email") as string).trim().toLowerCase();
+
+  if (!name || !email) throw new Error("Nome e e-mail são obrigatórios");
+
+  try {
+    await prisma.consultantUser.update({
+      where: { id, clientId },
+      data:  { name, email },
     });
   } catch (err: unknown) {
     if ((err as { code?: string }).code === "P2002") throw new Error("Já existe um consultor com este e-mail.");

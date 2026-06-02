@@ -6,11 +6,19 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET() {
   const session  = await getSession();
-  const settings = await prisma.clientSettings.findUnique({
-    where:  { clientId: session.clientId! },
-    select: { consultants: true },
-  });
-  return NextResponse.json({ consultants: settings?.consultants ?? [] });
+  const clientId = session.clientId!;
+
+  const [settings, consultantUsers] = await Promise.all([
+    prisma.clientSettings.findUnique({ where: { clientId }, select: { consultants: true } }),
+    prisma.consultantUser.findMany({ where: { clientId, active: true }, select: { name: true }, orderBy: { name: "asc" } }),
+  ]);
+
+  // Merge ConsultantUser names (active) with legacy string array, deduplicated
+  const fromUsers   = consultantUsers.map(u => u.name);
+  const fromLegacy  = settings?.consultants ?? [];
+  const merged      = [...new Set([...fromUsers, ...fromLegacy])].sort();
+
+  return NextResponse.json({ consultants: merged });
 }
 
 export async function POST(req: Request) {

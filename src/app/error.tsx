@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button }    from "@/components/ui/button";
 
 export default function RootError({
   error,
@@ -23,9 +22,12 @@ export default function RootError({
       {error.digest && (
         <p className="text-xs text-muted-foreground/60">Código: {error.digest}</p>
       )}
-      <Button onClick={reset} variant="outline">
+      <button
+        onClick={reset}
+        className="px-4 py-2 text-sm border rounded-md hover:bg-muted transition-colors"
+      >
         Tentar novamente
-      </Button>
+      </button>
     </div>
   );
 }

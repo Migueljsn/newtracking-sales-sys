@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import Link          from "next/link";
-import { Button }    from "@/components/ui/button";
 
 export default function FlowEditorError({
   error,
@@ -22,12 +21,18 @@ export default function FlowEditorError({
         {error.message || "Ocorreu um erro inesperado ao carregar o editor."}
       </p>
       <div className="flex gap-2">
-        <Button onClick={reset} variant="outline">
+        <button
+          onClick={reset}
+          className="px-4 py-2 text-sm border rounded-md hover:bg-muted transition-colors"
+        >
           Tentar novamente
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href="/flows">Voltar para fluxos</Link>
-        </Button>
+        </button>
+        <Link
+          href="/flows"
+          className="px-4 py-2 text-sm rounded-md hover:bg-muted transition-colors"
+        >
+          Voltar para fluxos
+        </Link>
       </div>
     </div>
   );

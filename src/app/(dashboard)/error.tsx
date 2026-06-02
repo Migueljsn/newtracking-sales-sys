@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button }    from "@/components/ui/button";
 
 export default function DashboardError({
   error,
@@ -20,9 +19,12 @@ export default function DashboardError({
       <p className="text-sm text-muted-foreground max-w-md">
         {error.message || "Ocorreu um erro inesperado. Tente novamente."}
       </p>
-      <Button onClick={reset} variant="outline">
+      <button
+        onClick={reset}
+        className="px-4 py-2 text-sm border rounded-md hover:bg-muted transition-colors"
+      >
         Tentar novamente
-      </Button>
+      </button>
     </div>
   );
 }

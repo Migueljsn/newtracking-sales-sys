@@ -31,16 +31,27 @@ export function FlowTriggerNode({ data, selected }: NodeProps) {
 
 // ── Message ───────────────────────────────────────────────────────────────────
 export function FlowMessageNode({ data, selected }: NodeProps) {
-  const d = data as unknown as FlowMessageData;
-  const icon =
-    d.messageType === "document" ? <FileArchive size={13} /> :
-    d.messageType === "media"    ? <Image       size={13} /> :
-                                   <FileText    size={13} />;
-  const summary = d.text
-    ? d.text.slice(0, 40) + (d.text.length > 40 ? "…" : "")
-    : d.messageType === "document" ? "Documento não configurado"
-    : d.messageType === "media"    ? "Mídia não configurada"
+  const d    = data as unknown as FlowMessageData;
+  const msgs = d.messages?.length
+    ? d.messages
+    : [{ messageType: d.messageType ?? "text", text: d.text ?? "" }];
+
+  const first = msgs[0];
+  const icon  =
+    first.messageType === "document" ? <FileArchive size={13} /> :
+    first.messageType === "media"    ? <Image       size={13} /> :
+                                       <FileText    size={13} />;
+
+  const preview = first.text
+    ? first.text.slice(0, 40) + (first.text.length > 40 ? "…" : "")
+    : first.messageType === "document" ? "Documento não configurado"
+    : first.messageType === "media"    ? "Mídia não configurada"
     : "Mensagem não configurada";
+
+  const summary = msgs.length > 1
+    ? `${preview} (+${msgs.length - 1} mensagem${msgs.length - 1 > 1 ? "s" : ""})`
+    : preview;
+
   return (
     <BaseNode label="Mensagem" color="#10b981" icon={icon}
       summary={summary} selected={!!selected} />

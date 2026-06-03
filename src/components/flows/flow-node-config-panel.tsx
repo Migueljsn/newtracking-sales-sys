@@ -6,7 +6,7 @@ import { X, Trash2, Copy, Plus, Type, MousePointerClick } from "lucide-react";
 import type {
   FlowNodeType, FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
-  FlowAddToAudienceData, FlowStartFlowData, FlowButton,
+  FlowAddToAudienceData, FlowStartFlowData, FlowButton, FlowMessageItem,
 } from "@/lib/flows/types";
 import { FIELD_DEFS, OPERATORS_BY_TYPE, getFieldDef, defaultOperator, defaultValue } from "@/lib/audiences/fields";
 
@@ -146,47 +146,146 @@ export function FlowNodeConfigPanel({
         {/* ── Message ──────────────────────────────────────────────────────── */}
         {type === "message" && (() => {
           const d = data as unknown as FlowMessageData;
+
+          // Migração on-the-fly: fluxos antigos com campo único
+          const msgs: FlowMessageItem[] = d.messages?.length
+            ? d.messages
+            : [{ messageType: d.messageType ?? "text", text: d.text ?? "", mediaUrl: d.mediaUrl ?? null, fileName: d.fileName ?? null, delaySeconds: 0 }];
+
+          function setMsg(idx: number, patch: Partial<FlowMessageItem>) {
+            const next = msgs.map((m, i) => i === idx ? { ...m, ...patch } : m);
+            set("messages", next);
+          }
+          function addMsg() {
+            set("messages", [...msgs, { messageType: "text", text: "", mediaUrl: null, fileName: null, delaySeconds: 3 }]);
+          }
+          function removeMsg(idx: number) {
+            if (msgs.length === 1) return;
+            set("messages", msgs.filter((_, i) => i !== idx));
+          }
+
+          const DELAY_OPTIONS = [
+            { value: 0,   label: "Sem delay" },
+            { value: 1,   label: "1 segundo" },
+            { value: 2,   label: "2 segundos" },
+            { value: 3,   label: "3 segundos" },
+            { value: 5,   label: "5 segundos" },
+            { value: 10,  label: "10 segundos" },
+            { value: 15,  label: "15 segundos" },
+            { value: 30,  label: "30 segundos" },
+            { value: 60,  label: "1 minuto" },
+            { value: 120, label: "2 minutos" },
+            { value: 300, label: "5 minutos" },
+          ];
+
           return (
-            <div className="space-y-4">
-              <div>
-                <label className={labelClass}>Tipo de mensagem</label>
-                <select value={d.messageType} onChange={(e) => set("messageType", e.target.value)} className={selectClass}>
-                  <option value="text">Texto</option>
-                  <option value="media">Imagem / Vídeo</option>
-                  <option value="document">Documento (PDF, etc.)</option>
-                </select>
-              </div>
-
-              {d.messageType === "text" && (
-                <div>
-                  <label className={labelClass}>Mensagem</label>
-                  <textarea rows={4} value={d.text} onChange={(e) => set("text", e.target.value)}
-                    placeholder="Olá {nome}, temos uma novidade para você!" className={taClass} />
-                  <p className="text-[10px] text-[var(--text-muted)] mt-1">Use {"{nome}"}, {"{empresa}"} etc. para personalizar</p>
-                </div>
-              )}
-
-              {(d.messageType === "media" || d.messageType === "document") && (
-                <>
-                  <div>
-                    <label className={labelClass}>URL do arquivo</label>
-                    <input type="url" value={d.mediaUrl ?? ""} onChange={(e) => set("mediaUrl", e.target.value)}
-                      placeholder="https://..." className={inputClass} />
+            <div className="space-y-3">
+              {msgs.map((msg, idx) => (
+                <div key={idx} className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[var(--text-muted)]">
+                      Mensagem {idx + 1}
+                    </span>
+                    {msgs.length > 1 && (
+                      <button onClick={() => removeMsg(idx)} className="text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
-                  {d.messageType === "document" && (
+
+                  {/* Delay (apenas a partir da 2ª mensagem) */}
+                  {idx > 0 && (
                     <div>
-                      <label className={labelClass}>Nome do arquivo</label>
-                      <input type="text" value={d.fileName ?? ""} onChange={(e) => set("fileName", e.target.value)}
-                        placeholder="catalogo.pdf" className={inputClass} />
+                      <label className={labelClass}>Aguardar antes de enviar</label>
+                      <select
+                        value={msg.delaySeconds}
+                        onChange={(e) => setMsg(idx, { delaySeconds: Number(e.target.value) })}
+                        className={selectClass}
+                      >
+                        {DELAY_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
+
+                  {/* Tipo */}
                   <div>
-                    <label className={labelClass}>{d.messageType === "document" ? "Mensagem / legenda" : "Legenda"}</label>
-                    <textarea rows={2} value={d.text} onChange={(e) => set("text", e.target.value)}
-                      placeholder="Opcional" className={taClass} />
+                    <label className={labelClass}>Tipo</label>
+                    <select
+                      value={msg.messageType}
+                      onChange={(e) => setMsg(idx, { messageType: e.target.value as FlowMessageItem["messageType"] })}
+                      className={selectClass}
+                    >
+                      <option value="text">Texto</option>
+                      <option value="media">Imagem / Vídeo</option>
+                      <option value="document">Documento (PDF, etc.)</option>
+                    </select>
                   </div>
-                </>
-              )}
+
+                  {/* Conteúdo */}
+                  {msg.messageType === "text" && (
+                    <div>
+                      <label className={labelClass}>Mensagem</label>
+                      <textarea
+                        rows={3}
+                        value={msg.text}
+                        onChange={(e) => setMsg(idx, { text: e.target.value })}
+                        placeholder="Olá {nome}!"
+                        className={taClass}
+                      />
+                    </div>
+                  )}
+
+                  {(msg.messageType === "media" || msg.messageType === "document") && (
+                    <>
+                      <div>
+                        <label className={labelClass}>URL do arquivo</label>
+                        <input
+                          type="url"
+                          value={msg.mediaUrl ?? ""}
+                          onChange={(e) => setMsg(idx, { mediaUrl: e.target.value })}
+                          placeholder="https://..."
+                          className={inputClass}
+                        />
+                      </div>
+                      {msg.messageType === "document" && (
+                        <div>
+                          <label className={labelClass}>Nome do arquivo</label>
+                          <input
+                            type="text"
+                            value={msg.fileName ?? ""}
+                            onChange={(e) => setMsg(idx, { fileName: e.target.value })}
+                            placeholder="catalogo.pdf"
+                            className={inputClass}
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className={labelClass}>{msg.messageType === "document" ? "Legenda" : "Legenda"}</label>
+                        <textarea
+                          rows={2}
+                          value={msg.text}
+                          onChange={(e) => setMsg(idx, { text: e.target.value })}
+                          placeholder="Opcional"
+                          className={taClass}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+
+              <button
+                onClick={addMsg}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] py-2.5 text-xs font-semibold text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+              >
+                <Plus size={13} /> Adicionar mensagem
+              </button>
+
+              <p className="text-[10px] text-[var(--text-muted)]">
+                Use {"{nome}"}, {"{nome_completo}"}, {"{telefone}"} para personalizar.
+              </p>
             </div>
           );
         })()}

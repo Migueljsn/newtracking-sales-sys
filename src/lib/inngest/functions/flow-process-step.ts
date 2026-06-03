@@ -297,19 +297,33 @@ export const flowProcessStep = inngest.createFunction(
       // ── message ───────────────────────────────────────────────────────────
       case "message": {
         const d = node.data as unknown as FlowMessageData;
-        await step.run("send-message", async () => {
-          const text = renderTemplate(d.text, vars);
-          if (d.messageType === "document" && d.mediaUrl) {
-            await sendDocument(phone, d.mediaUrl, d.fileName ?? "arquivo.pdf", text, clientId);
-          } else if (d.messageType === "media" && d.mediaUrl) {
-            await sendMedia(phone, d.mediaUrl, text, clientId);
-          } else {
-            await sendText(phone, text, clientId);
+
+        // Suporta novo formato (messages[]) e legado (messageType/text direto)
+        const msgs: import("@/lib/flows/types").FlowMessageItem[] =
+          d.messages?.length
+            ? d.messages
+            : [{ messageType: d.messageType ?? "text", text: d.text ?? "", mediaUrl: d.mediaUrl ?? null, fileName: d.fileName ?? null, delaySeconds: 0 }];
+
+        for (let i = 0; i < msgs.length; i++) {
+          const msg = msgs[i];
+          if (i > 0 && msg.delaySeconds > 0) {
+            await step.sleep(`delay-msg-${nodeId}-${i}`, `${msg.delaySeconds}s`);
           }
-          await prisma.leadInteraction.create({
-            data: { leadId, clientId, type: "WHATSAPP", content: `[Fluxo] ${text.slice(0, 120)}` },
-          }).catch(() => {});
-        });
+          await step.run(`send-message-${nodeId}-${i}`, async () => {
+            const text = renderTemplate(msg.text, vars);
+            if (msg.messageType === "document" && msg.mediaUrl) {
+              await sendDocument(phone, msg.mediaUrl, msg.fileName ?? "arquivo.pdf", text, clientId);
+            } else if (msg.messageType === "media" && msg.mediaUrl) {
+              await sendMedia(phone, msg.mediaUrl, text, clientId);
+            } else {
+              await sendText(phone, text, clientId);
+            }
+            await prisma.leadInteraction.create({
+              data: { leadId, clientId, type: "WHATSAPP", content: `[Fluxo] ${text.slice(0, 120)}` },
+            }).catch(() => {});
+          });
+        }
+
         nextNodeId = getNextNodeId(edges, nodeId);
         break;
       }

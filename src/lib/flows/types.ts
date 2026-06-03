@@ -25,11 +25,21 @@ export type FlowTriggerData = {
 
 export type MessageType = "text" | "media" | "document"
 
-export type FlowMessageData = {
+export type FlowMessageItem = {
   messageType:  MessageType
-  text:         string          // usado em text e como legenda em media/document
-  mediaUrl:     string | null   // URL do arquivo (media ou document)
-  fileName:     string | null   // nome exibido do arquivo (document)
+  text:         string
+  mediaUrl:     string | null
+  fileName:     string | null
+  delaySeconds: number          // delay antes de enviar esta mensagem (0 = sem delay)
+}
+
+export type FlowMessageData = {
+  messages:     FlowMessageItem[]
+  // legacy — mantido para compatibilidade com fluxos antigos
+  messageType?: MessageType
+  text?:        string
+  mediaUrl?:    string | null
+  fileName?:    string | null
 }
 
 // ── Question ──────────────────────────────────────────────────────────────────
@@ -140,7 +150,9 @@ export const FLOW_NODE_DEFS: FlowNodeDef[] = [
     label:       "Mensagem",
     description: "Envia texto, imagem ou documento",
     color:       "#10b981",
-    defaultData: { messageType: "text", text: "", mediaUrl: null, fileName: null },
+    defaultData: {
+      messages: [{ messageType: "text", text: "", mediaUrl: null, fileName: null, delaySeconds: 0 }],
+    },
   },
   {
     type:        "question",

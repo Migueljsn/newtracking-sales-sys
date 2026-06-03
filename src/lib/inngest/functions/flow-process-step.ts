@@ -160,33 +160,41 @@ async function sendMedia(phone: string, url: string, caption: string, clientId: 
 }
 
 async function sendButtons(phone: string, message: string, buttons: { id: string; text: string }[], clientId: string) {
-  const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
-  const number  = fmtNumber(phone);
-  const payload = {
-    number, title: message, description: "", footer: "",
-    buttons: buttons.map(b => ({ type: "reply", displayText: b.text, id: b.id })),
-  };
-  console.log(`[Flow:sendButtons] number=${number} buttons=${buttons.length}`);
-  for (const inst of instances) {
-    try {
-      const res = await fetchWithTimeout(`${baseUrl}/message/sendButtons/${inst.instanceName}`, {
-        method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        console.log(`[Flow:sendButtons] OK via ${inst.instanceName}`);
-        return;
-      }
-      const body = await res.text().catch(() => "");
-      console.error(`[Flow:sendButtons] FAIL ${inst.instanceName}: ${res.status} ${body}`);
-    } catch (err) {
-      console.error(`[Flow:sendButtons] ERROR ${inst.instanceName}:`, err);
+  const text = `${message}\n\n${buttons.map((b, i) => `${i + 1}. ${b.text}`).join("\n")}`;
+  await sendText(phone, text, clientId);
+}
+
+// Aceita: número ("1"), número com pontuação ("1.", "1)"),
+// texto exato, resposta que contém o texto da opção, ou texto que contém a resposta curta
+function matchButton(
+  reply: string,
+  buttons: { id: string; text: string }[]
+): { id: string; text: string } | undefined {
+  const r = reply.trim().toLowerCase();
+
+  // 1. Começa com o número da opção
+  for (let i = 0; i < buttons.length; i++) {
+    const n = String(i + 1);
+    if (r === n || r.startsWith(`${n} `) || r.startsWith(`${n}.`) || r.startsWith(`${n})`)) {
+      return buttons[i];
     }
   }
-  // fallback texto numerado
-  console.log(`[Flow:sendButtons] fallback para texto numerado`);
-  const fallback = `${message}\n\n${buttons.map((b, i) => `${i + 1}. ${b.text}`).join("\n")}`;
-  await sendText(phone, fallback, clientId);
+
+  // 2. Texto exato
+  const exact = buttons.find(b => b.text.toLowerCase() === r);
+  if (exact) return exact;
+
+  // 3. Resposta contém o texto da opção
+  const contains = buttons.find(b => r.includes(b.text.toLowerCase()));
+  if (contains) return contains;
+
+  // 4. Texto da opção contém a resposta (respostas curtas, mín 2 chars)
+  if (r.length >= 2) {
+    const reverse = buttons.find(b => b.text.toLowerCase().includes(r));
+    if (reverse) return reverse;
+  }
+
+  return undefined;
 }
 
 // ─── Enrolador de fluxo ───────────────────────────────────────────────────────
@@ -324,14 +332,10 @@ export const flowProcessStep = inngest.createFunction(
           });
 
           if (reply) {
-            // descobre qual botão foi pressionado pelo texto
-            const pressed = d.buttons.find(
-              (b) => b.text.toLowerCase() === reply.data.message.toLowerCase()
-                  || b.id === reply.data.message
-            );
+            const pressed  = matchButton(reply.data.message, d.buttons);
             const outHandle = pressed ? `btn_${pressed.id}` : "btn_1";
-            nodeResult = `choice_${pressed?.id ?? "unknown"}`;
-            nextNodeId = getNextNodeId(edges, nodeId, outHandle);
+            nodeResult  = `choice_${pressed?.id ?? "unknown"}`;
+            nextNodeId  = getNextNodeId(edges, nodeId, outHandle);
           } else {
             // timeout → envia mensagem de recuperação e aguarda mais
             await step.run("send-timeout-msg", async () => {
@@ -342,13 +346,10 @@ export const flowProcessStep = inngest.createFunction(
               event: whatsappReplyEvent.name, match: "data.leadId", timeout: timeout2,
             });
             if (reply2) {
-              const pressed = d.buttons.find(
-                (b) => b.text.toLowerCase() === reply2.data.message.toLowerCase()
-                    || b.id === reply2.data.message
-              );
+              const pressed  = matchButton(reply2.data.message, d.buttons);
               const outHandle = pressed ? `btn_${pressed.id}` : "btn_1";
-              nodeResult = `choice_${pressed?.id ?? "unknown"}`;
-              nextNodeId = getNextNodeId(edges, nodeId, outHandle);
+              nodeResult  = `choice_${pressed?.id ?? "unknown"}`;
+              nextNodeId  = getNextNodeId(edges, nodeId, outHandle);
             } else {
               nodeResult = "timeout";
               nextNodeId = getNextNodeId(edges, nodeId, "timeout");

@@ -254,6 +254,27 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
+      {/* Dados coletados pelo bot */}
+      {lead.customFields && Object.keys(lead.customFields as object).length > 0 && (() => {
+        const LABELS: Record<string, string> = {
+          name: "Nome", email: "E-mail", notes: "Observações",
+          cnpj: "CNPJ", cep: "CEP", company: "Empresa", city: "Cidade", state: "Estado",
+        };
+        return (
+          <div className="card p-5">
+            <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Dados coletados pelo bot</h2>
+            <dl className="space-y-3">
+              {Object.entries(lead.customFields as Record<string, string>).map(([key, value]) => (
+                <div key={key} className="flex justify-between text-sm">
+                  <dt className="text-[var(--text-muted)]">{LABELS[key] ?? key}</dt>
+                  <dd className="text-right text-[var(--text)] font-medium max-w-[60%] break-all">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        );
+      })()}
+
       {/* Histórico de vendas */}
       {lead.sales.length > 0 && (
         <div className="card p-5">

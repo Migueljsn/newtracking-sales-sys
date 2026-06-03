@@ -10,6 +10,8 @@ import type {
   FlowStartFlowData,
 } from "@/lib/flows/types";
 
+const NATIVE_LEAD_FIELDS = new Set(["name", "email", "notes"]);
+
 // ─── Validadores ──────────────────────────────────────────────────────────────
 
 function validateField(value: string, type: string): boolean {
@@ -416,7 +418,9 @@ export const flowProcessStep = inngest.createFunction(
             await step.run("save-field-recovery", () =>
               prisma.lead.update({
                 where: { id: leadId },
-                data:  { customFields: { ...(lead.customFields as object ?? {}), [d.saveField]: answer } },
+                data:  NATIVE_LEAD_FIELDS.has(d.saveField)
+                  ? { [d.saveField]: answer }
+                  : { customFields: { ...(lead.customFields as object ?? {}), [d.saveField]: answer } },
               })
             );
             nodeResult = "valid";
@@ -435,7 +439,9 @@ export const flowProcessStep = inngest.createFunction(
           await step.run("save-field", () =>
             prisma.lead.update({
               where: { id: leadId },
-              data:  { customFields: { ...(lead.customFields as Record<string, string> ?? {}), [d.saveField]: answer } as object },
+              data:  NATIVE_LEAD_FIELDS.has(d.saveField)
+                ? { [d.saveField]: answer }
+                : { customFields: { ...(lead.customFields as object ?? {}), [d.saveField]: answer } as object },
             })
           );
           nodeResult = "valid";

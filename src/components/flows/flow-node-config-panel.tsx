@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Node }     from "@xyflow/react";
-import { X, Trash2, Copy, Plus, Type, MousePointerClick, Timer, ChevronUp, ChevronDown } from "lucide-react";
+import { X, Trash2, Copy, Plus, Type, MousePointerClick, Timer, ChevronUp, ChevronDown, FileText, Image, FileArchive } from "lucide-react";
 import type {
   FlowNodeType, FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
@@ -189,8 +189,11 @@ export function FlowNodeConfigPanel({
             [next[idx], next[target]] = [next[target], next[idx]];
             setSeq(next);
           }
+          function addMsg(messageType: "text" | "media" | "document") {
+            setSeq([...seq, { kind: "message", messageType, text: "", mediaUrl: null, fileName: null }]);
+          }
 
-          const msgCount   = seq.filter(i => i.kind === "message").length;
+          const typeLabel: Record<string, string> = { text: "Texto", media: "Imagem", document: "Documento" };
           const canRemove  = seq.length > 1;
 
           return (
@@ -202,7 +205,7 @@ export function FlowNodeConfigPanel({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--warning)]">
                           <Timer size={13} />
-                          Temporizador — {item.seconds}s
+                          Atraso — {item.seconds}s
                         </div>
                         <div className="flex items-center gap-0.5">
                           <button onClick={() => moveItem(idx, -1)} disabled={idx === 0}
@@ -239,6 +242,7 @@ export function FlowNodeConfigPanel({
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-[var(--text-muted)]">
                         Mensagem {msgIdx + 1}
+                        <span className="font-normal"> — {typeLabel[item.messageType]}</span>
                       </span>
                       <div className="flex items-center gap-0.5">
                         <button onClick={() => moveItem(idx, -1)} disabled={idx === 0}
@@ -255,19 +259,6 @@ export function FlowNodeConfigPanel({
                           </button>
                         )}
                       </div>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Tipo</label>
-                      <select
-                        value={item.messageType}
-                        onChange={(e) => patchMessage(idx, { messageType: e.target.value as FlowSeqMessage["messageType"] })}
-                        className={selectClass}
-                      >
-                        <option value="text">Texto</option>
-                        <option value="media">Imagem / Vídeo</option>
-                        <option value="document">Documento (PDF, etc.)</option>
-                      </select>
                     </div>
 
                     {item.messageType === "text" && (
@@ -323,20 +314,23 @@ export function FlowNodeConfigPanel({
                 );
               })}
 
-              {/* Botões de adicionar */}
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={addMessage}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--border)] py-2.5 text-xs font-semibold text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
-                >
-                  <Plus size={13} /> Mensagem
-                </button>
-                <button
-                  onClick={addDelay}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--warning)] py-2.5 text-xs font-semibold text-[var(--warning)] hover:bg-[var(--warning-soft)] transition-colors"
-                >
-                  <Timer size={13} /> Temporizador
-                </button>
+              {/* Grade de adição */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {([
+                  { label: "Texto",     icon: <FileText    size={12} />, action: () => addMsg("text"),     warn: false },
+                  { label: "Imagem",    icon: <Image       size={12} />, action: () => addMsg("media"),    warn: false },
+                  { label: "Documento", icon: <FileArchive size={12} />, action: () => addMsg("document"), warn: false },
+                  { label: "Atraso",    icon: <Timer       size={12} />, action: addDelay,                 warn: true  },
+                ] as const).map(({ label, icon, action, warn }) => (
+                  <button key={label} type="button" onClick={action}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-xs font-semibold transition-colors ${
+                      warn
+                        ? "border-[var(--warning)] text-[var(--warning)] hover:bg-[var(--warning-soft)]"
+                        : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    }`}>
+                    {icon} {label}
+                  </button>
+                ))}
               </div>
 
               <p className="text-[10px] text-[var(--text-muted)]">
@@ -406,11 +400,21 @@ export function FlowNodeConfigPanel({
                 <>
                   <div>
                     <label className={labelClass}>Salvar resposta no campo</label>
-                    <input type="text" value={d.saveField}
-                      onChange={(e) => set("saveField", e.target.value)}
-                      placeholder="cnpj, cep, notes, email…"
-                      className={inputClass} />
-                    <p className="text-[10px] text-[var(--text-muted)] mt-1">Campo onde a resposta será salva no lead</p>
+                    <select value={d.saveField} onChange={(e) => set("saveField", e.target.value)} className={selectClass}>
+                      <optgroup label="Campos do lead">
+                        <option value="name">Nome</option>
+                        <option value="email">E-mail</option>
+                        <option value="notes">Observações</option>
+                      </optgroup>
+                      <optgroup label="Dados coletados">
+                        <option value="cnpj">CNPJ</option>
+                        <option value="cep">CEP</option>
+                        <option value="company">Empresa</option>
+                        <option value="city">Cidade</option>
+                        <option value="state">Estado (UF)</option>
+                      </optgroup>
+                    </select>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">Campos do lead atualizam o cadastro; dados coletados aparecem na seção de bot</p>
                   </div>
                   <div>
                     <label className={labelClass}>Validação</label>

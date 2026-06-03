@@ -126,7 +126,7 @@ export async function consultantMoveToStageWithChecklistAction(
 
   fireLeadChanged(leadId, clientId);
 
-  await invalidate(cacheKeys.leads(clientId));
+  await invalidate(cacheKeys.leads(clientId), cacheKeys.leadDetail(leadId));
   revalidatePath("/consultor");
 }
 

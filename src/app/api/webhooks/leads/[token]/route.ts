@@ -59,6 +59,33 @@ export async function POST(
   const pipelineStageName = pick(body, "pipeline_stage", "estagio", "etapa");
   const consultantName    = pick(body, "consultant", "consultor", "vendedor");
 
+  // ── Observações: campo explícito + campos não reconhecidos ───────────────────
+  const KNOWN_FIELDS = new Set([
+    "phone", "telefone", "whatsapp", "fone", "celular",
+    "name", "nome", "nome_completo",
+    "email",
+    "document", "documento", "cnpj", "cpf",
+    "city", "cidade",
+    "state", "estado", "uf",
+    "zip_code", "zipCode", "cep",
+    "pipeline_stage", "estagio", "etapa",
+    "consultant", "consultor", "vendedor",
+    "notes", "observacoes", "observacao",
+    "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+    "fbc", "fbp", "gclid",
+    "event_source_url", "eventSourceUrl",
+    "event_id", "eventId",
+    "meta_campaign_id", "meta_adset_id", "meta_ad_id",
+  ]);
+
+  const explicitNotes = pick(body, "notes", "observacoes", "observacao");
+  const extraLines = Object.entries(body)
+    .filter(([k]) => !KNOWN_FIELDS.has(k))
+    .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+    .map(([k, v]) => `${k}: ${String(v).trim()}`);
+
+  const notes = [explicitNotes, ...extraLines].filter(Boolean).join("\n") || undefined;
+
   let action     = "enriched";
   let customerId = "";
   let leadId     = "";
@@ -95,6 +122,7 @@ export async function POST(
         const updates: Record<string, unknown> = {};
 
         if (consultantName) updates.consultant = consultantName;
+        if (notes)          updates.notes      = notes;
 
         if (pipelineStageName) {
           const stage = await prisma.pipelineStage.findFirst({
@@ -117,14 +145,15 @@ export async function POST(
       const { lead, duplicate } = await createLead({
         clientId,
         name,
-        phone:     rawPhone,
-        email:     email    || undefined,
-        document:  document || undefined,
-        city:      city     || undefined,
-        state:     state    || undefined,
-        zipCode:   zipCode  || undefined,
+        phone:      rawPhone,
+        email:      email    || undefined,
+        document:   document || undefined,
+        city:       city     || undefined,
+        state:      state    || undefined,
+        zipCode:    zipCode  || undefined,
+        notes:      notes    || undefined,
         consultant: consultantName || undefined,
-        source:    "FORM",
+        source:     "FORM",
       });
 
       customerId = lead.customerId;

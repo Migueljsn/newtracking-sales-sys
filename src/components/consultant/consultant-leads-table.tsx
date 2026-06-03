@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Search, ChevronLeft, ChevronRight, Loader2,
   ChevronDown, DollarSign, X, Plus, Minus, Users,
-  ArrowDown, ArrowUp, ChevronsUpDown, CheckSquare, Square, ListChecks,
+  ArrowDown, ArrowUp, ChevronsUpDown, CheckSquare, Square, ListChecks, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
@@ -563,6 +563,13 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                               <DollarSign size={13} />
                             </button>
                           )}
+                          <a
+                            href={`/consultor/leads/${lead.id}`}
+                            title="Ver detalhes"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                          >
+                            <Eye size={13} />
+                          </a>
                         </div>
                       </td>
                     </tr>

@@ -14,6 +14,7 @@ interface CreateLeadInput {
   zipCode?: string;
   city?: string;
   state?: string;
+  notes?: string;
   source?: LeadSource;
   consultant?: string;
   utmSource?: string;
@@ -77,6 +78,7 @@ export async function createLead(input: CreateLeadInput) {
       clientId:      input.clientId,
       customerId:    customer.id,
       source:        input.source ?? LeadSource.FORM,
+      notes:         input.notes || null,
       consultant:    input.consultant || null,
       utmSource:     input.utmSource,
       utmMedium:     input.utmMedium,

@@ -159,8 +159,11 @@ async function sendMedia(phone: string, url: string, caption: string, clientId: 
   throw new Error(`[Flow] Falha ao enviar mídia para ${phone}`);
 }
 
+const EMOJI_NUMS = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
+
 async function sendButtons(phone: string, message: string, buttons: { id: string; text: string }[], clientId: string) {
-  const text = `${message}\n\n${buttons.map((b, i) => `${i + 1}. ${b.text}`).join("\n")}`;
+  const lines = buttons.map((b, i) => `${EMOJI_NUMS[i] ?? `${i + 1}.`} ${b.text}`);
+  const text  = `${message}\n\n${lines.join("\n")}`;
   await sendText(phone, text, clientId);
 }
 

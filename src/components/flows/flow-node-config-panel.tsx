@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Node }     from "@xyflow/react";
-import { X, Trash2, Copy, Plus, Type, MousePointerClick, Timer } from "lucide-react";
+import { X, Trash2, Copy, Plus, Type, MousePointerClick, Timer, ChevronUp, ChevronDown } from "lucide-react";
 import type {
   FlowNodeType, FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
@@ -182,6 +182,13 @@ export function FlowNodeConfigPanel({
           function patchDelay(idx: number, seconds: number) {
             setSeq(seq.map((item, i) => i === idx ? { kind: "delay", seconds } : item));
           }
+          function moveItem(idx: number, dir: -1 | 1) {
+            const next = [...seq];
+            const target = idx + dir;
+            if (target < 0 || target >= next.length) return;
+            [next[idx], next[target]] = [next[target], next[idx]];
+            setSeq(next);
+          }
 
           const msgCount   = seq.filter(i => i.kind === "message").length;
           const canRemove  = seq.length > 1;
@@ -197,9 +204,19 @@ export function FlowNodeConfigPanel({
                           <Timer size={13} />
                           Temporizador — {item.seconds}s
                         </div>
-                        <button onClick={() => removeItem(idx)} className="text-[var(--warning)] hover:text-[var(--danger)] transition-colors">
-                          <Trash2 size={13} />
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          <button onClick={() => moveItem(idx, -1)} disabled={idx === 0}
+                            className="text-[var(--warning)] hover:text-[var(--text)] disabled:opacity-20 transition-colors p-0.5">
+                            <ChevronUp size={13} />
+                          </button>
+                          <button onClick={() => moveItem(idx, 1)} disabled={idx === seq.length - 1}
+                            className="text-[var(--warning)] hover:text-[var(--text)] disabled:opacity-20 transition-colors p-0.5">
+                            <ChevronDown size={13} />
+                          </button>
+                          <button onClick={() => removeItem(idx)} className="text-[var(--warning)] hover:text-[var(--danger)] transition-colors p-0.5 ml-1">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-[10px] text-[var(--warning)] w-4 shrink-0">1s</span>
@@ -223,11 +240,21 @@ export function FlowNodeConfigPanel({
                       <span className="text-xs font-semibold text-[var(--text-muted)]">
                         Mensagem {msgIdx + 1}
                       </span>
-                      {canRemove && (
-                        <button onClick={() => removeItem(idx)} className="text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors">
-                          <Trash2 size={13} />
+                      <div className="flex items-center gap-0.5">
+                        <button onClick={() => moveItem(idx, -1)} disabled={idx === 0}
+                          className="text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-20 transition-colors p-0.5">
+                          <ChevronUp size={13} />
                         </button>
-                      )}
+                        <button onClick={() => moveItem(idx, 1)} disabled={idx === seq.length - 1}
+                          className="text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-20 transition-colors p-0.5">
+                          <ChevronDown size={13} />
+                        </button>
+                        {canRemove && (
+                          <button onClick={() => removeItem(idx)} className="text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors p-0.5 ml-1">
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div>

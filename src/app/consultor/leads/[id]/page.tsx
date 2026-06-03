@@ -151,6 +151,14 @@ export default async function ConsultantLeadDetailPage({
               ) : null
             )}
           </dl>
+          {lead.notes && (
+            <div className="text-sm">
+              <p className="text-xs font-medium text-[var(--text-muted)] mb-1">Observações</p>
+              <p className="whitespace-pre-line rounded-lg bg-[var(--bg)] p-3 text-xs text-[var(--text)]">
+                {lead.notes}
+              </p>
+            </div>
+          )}
           {customer.phone && (
             <WhatsAppButton
               phone={customer.phone}

@@ -48,7 +48,10 @@ export default async function ConsultantLeadDetailPage({
     prisma.pipelineStage.findMany({
       where:   { clientId },
       orderBy: { position: "asc" },
-      select:  { id: true, name: true, color: true },
+      select:  {
+        id: true, name: true, color: true,
+        requirements: { orderBy: { position: "asc" }, select: { id: true, text: true } },
+      },
     }),
   ]);
 
@@ -169,6 +172,72 @@ export default async function ConsultantLeadDetailPage({
             />
           )}
         </div>
+
+        {/* Funil informativo */}
+        {pipelineStages.length > 0 && (() => {
+          const currentIdx = pipelineStages.findIndex(s => s.id === lead.pipelineStageId);
+          return (
+            <div className="card p-5">
+              <h2 className="text-sm font-semibold text-[var(--text)] mb-4">Funil de vendas</h2>
+              <div className="relative space-y-0">
+                {pipelineStages.map((stage, idx) => {
+                  const isCurrent = stage.id === lead.pipelineStageId;
+                  const isPast    = currentIdx !== -1 && idx < currentIdx;
+                  const isLast    = idx === pipelineStages.length - 1;
+
+                  return (
+                    <div key={stage.id} className="relative flex items-start gap-3 pb-5">
+                      {/* vertical connector */}
+                      {!isLast && (
+                        <div className="absolute left-[6px] top-4 bottom-0 w-px bg-[var(--border)]" />
+                      )}
+
+                      {/* dot */}
+                      <div
+                        className="relative mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors"
+                        style={
+                          isCurrent
+                            ? { borderColor: stage.color, backgroundColor: stage.color }
+                            : isPast
+                            ? { borderColor: "var(--success)", backgroundColor: "var(--success)" }
+                            : { borderColor: "var(--border)", backgroundColor: "var(--surface)" }
+                        }
+                      />
+
+                      {/* content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-sm font-semibold ${isCurrent ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
+                            {idx + 1}. {stage.name}
+                          </span>
+                          {isCurrent && (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ backgroundColor: `${stage.color}22`, color: stage.color }}
+                            >
+                              etapa atual
+                            </span>
+                          )}
+                        </div>
+
+                        {stage.requirements.length > 0 && (
+                          <ul className="mt-1.5 space-y-1">
+                            {stage.requirements.map(req => (
+                              <li key={req.id} className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+                                <span className="mt-px shrink-0 opacity-50">·</span>
+                                <span>{req.text}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Actions (client component) */}
         <ConsultantLeadDetailActions

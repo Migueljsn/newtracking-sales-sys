@@ -298,30 +298,36 @@ export const flowProcessStep = inngest.createFunction(
       case "message": {
         const d = node.data as unknown as FlowMessageData;
 
-        // Suporta novo formato (messages[]) e legado (messageType/text direto)
-        const msgs: import("@/lib/flows/types").FlowMessageItem[] =
-          d.messages?.length
-            ? d.messages
-            : [{ messageType: d.messageType ?? "text", text: d.text ?? "", mediaUrl: d.mediaUrl ?? null, fileName: d.fileName ?? null, delaySeconds: 0 }];
+        // Normaliza para sequence[], com compatibilidade para formatos legados
+        type SeqItem = import("@/lib/flows/types").FlowSequenceItem;
+        const sequence: SeqItem[] = d.sequence?.length
+          ? d.sequence
+          : d.messages?.length
+            ? d.messages.flatMap((m, i): SeqItem[] => [
+                ...(i > 0 && m.delaySeconds > 0 ? [{ kind: "delay" as const, seconds: m.delaySeconds }] : []),
+                { kind: "message" as const, messageType: m.messageType, text: m.text, mediaUrl: m.mediaUrl, fileName: m.fileName },
+              ])
+            : [{ kind: "message" as const, messageType: d.messageType ?? "text", text: d.text ?? "", mediaUrl: d.mediaUrl ?? null, fileName: d.fileName ?? null }];
 
-        for (let i = 0; i < msgs.length; i++) {
-          const msg = msgs[i];
-          if (i > 0 && msg.delaySeconds > 0) {
-            await step.sleep(`delay-msg-${nodeId}-${i}`, `${msg.delaySeconds}s`);
+        for (let i = 0; i < sequence.length; i++) {
+          const item = sequence[i];
+          if (item.kind === "delay") {
+            await step.sleep(`delay-${nodeId}-${i}`, `${item.seconds}s`);
+          } else {
+            await step.run(`send-msg-${nodeId}-${i}`, async () => {
+              const text = renderTemplate(item.text, vars);
+              if (item.messageType === "document" && item.mediaUrl) {
+                await sendDocument(phone, item.mediaUrl, item.fileName ?? "arquivo.pdf", text, clientId);
+              } else if (item.messageType === "media" && item.mediaUrl) {
+                await sendMedia(phone, item.mediaUrl, text, clientId);
+              } else {
+                await sendText(phone, text, clientId);
+              }
+              await prisma.leadInteraction.create({
+                data: { leadId, clientId, type: "WHATSAPP", content: `[Fluxo] ${text.slice(0, 120)}` },
+              }).catch(() => {});
+            });
           }
-          await step.run(`send-message-${nodeId}-${i}`, async () => {
-            const text = renderTemplate(msg.text, vars);
-            if (msg.messageType === "document" && msg.mediaUrl) {
-              await sendDocument(phone, msg.mediaUrl, msg.fileName ?? "arquivo.pdf", text, clientId);
-            } else if (msg.messageType === "media" && msg.mediaUrl) {
-              await sendMedia(phone, msg.mediaUrl, text, clientId);
-            } else {
-              await sendText(phone, text, clientId);
-            }
-            await prisma.leadInteraction.create({
-              data: { leadId, clientId, type: "WHATSAPP", content: `[Fluxo] ${text.slice(0, 120)}` },
-            }).catch(() => {});
-          });
         }
 
         nextNodeId = getNextNodeId(edges, nodeId);

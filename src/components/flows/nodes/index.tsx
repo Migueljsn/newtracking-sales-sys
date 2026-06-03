@@ -31,26 +31,29 @@ export function FlowTriggerNode({ data, selected }: NodeProps) {
 
 // ── Message ───────────────────────────────────────────────────────────────────
 export function FlowMessageNode({ data, selected }: NodeProps) {
-  const d    = data as unknown as FlowMessageData;
-  const msgs = d.messages?.length
-    ? d.messages
-    : [{ messageType: d.messageType ?? "text", text: d.text ?? "" }];
+  const d   = data as unknown as FlowMessageData;
+  const seq = d.sequence?.length
+    ? d.sequence
+    : [{ kind: "message" as const, messageType: d.messageType ?? "text", text: d.text ?? "" }];
 
-  const first = msgs[0];
-  const icon  =
-    first.messageType === "document" ? <FileArchive size={13} /> :
-    first.messageType === "media"    ? <Image       size={13} /> :
-                                       <FileText    size={13} />;
+  const firstMsg = seq.find(i => i.kind === "message") as { kind: "message"; messageType: string; text: string } | undefined;
+  const msgCount  = seq.filter(i => i.kind === "message").length;
+  const hasDelay  = seq.some(i => i.kind === "delay");
 
-  const preview = first.text
-    ? first.text.slice(0, 40) + (first.text.length > 40 ? "…" : "")
-    : first.messageType === "document" ? "Documento não configurado"
-    : first.messageType === "media"    ? "Mídia não configurada"
+  const icon =
+    firstMsg?.messageType === "document" ? <FileArchive size={13} /> :
+    firstMsg?.messageType === "media"    ? <Image       size={13} /> :
+                                           <FileText    size={13} />;
+
+  const preview = firstMsg?.text
+    ? firstMsg.text.slice(0, 38) + (firstMsg.text.length > 38 ? "…" : "")
     : "Mensagem não configurada";
 
-  const summary = msgs.length > 1
-    ? `${preview} (+${msgs.length - 1} mensagem${msgs.length - 1 > 1 ? "s" : ""})`
-    : preview;
+  const extras: string[] = [];
+  if (msgCount > 1)  extras.push(`+${msgCount - 1} msg`);
+  if (hasDelay)      extras.push("⏱");
+
+  const summary = extras.length ? `${preview} (${extras.join(" ")})` : preview;
 
   return (
     <BaseNode label="Mensagem" color="#10b981" icon={icon}

@@ -157,7 +157,7 @@ export default async function ConsultantLeadDetailPage({
           {lead.notes && (
             <div className="text-sm">
               <p className="text-xs font-medium text-[var(--text-muted)] mb-1">Observações</p>
-              <p className="whitespace-pre-line rounded-lg bg-[var(--bg)] p-3 text-xs text-[var(--text)]">
+              <p className="whitespace-pre-wrap break-words rounded-lg bg-[var(--bg)] p-3 text-xs text-[var(--text)]">
                 {lead.notes}
               </p>
             </div>
@@ -315,7 +315,7 @@ export default async function ConsultantLeadDetailPage({
                     {new Date(sale.soldAt).toLocaleDateString("pt-BR")}
                   </p>
                   {sale.notes && (
-                    <p className="text-xs text-[var(--text)] bg-[var(--bg)] rounded-lg px-3 py-2 mt-2">
+                    <p className="text-xs text-[var(--text)] bg-[var(--bg)] rounded-lg px-3 py-2 mt-2 whitespace-pre-wrap break-words">
                       {sale.notes}
                     </p>
                   )}

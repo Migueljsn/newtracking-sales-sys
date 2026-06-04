@@ -199,7 +199,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           {lead.notes && (
             <div className="text-sm">
               <p className="text-xs font-medium text-[var(--text-muted)] mb-1">Observações</p>
-              <p className="rounded-lg bg-[var(--bg)] p-3 text-xs text-[var(--text)]">{lead.notes}</p>
+              <p className="rounded-lg bg-[var(--bg)] p-3 text-xs text-[var(--text)] whitespace-pre-wrap break-words">{lead.notes}</p>
             </div>
           )}
 
@@ -312,7 +312,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                       {new Date(sale.soldAt).toLocaleDateString("pt-BR")}
                     </p>
                     {sale.notes && (
-                      <p className="text-xs text-[var(--text)] bg-[var(--bg)] rounded-lg px-3 py-2">{sale.notes}</p>
+                      <p className="text-xs text-[var(--text)] bg-[var(--bg)] rounded-lg px-3 py-2 whitespace-pre-wrap break-words">{sale.notes}</p>
                     )}
                     {sale.items.length > 0 && (
                       <div className="space-y-1 pt-1">

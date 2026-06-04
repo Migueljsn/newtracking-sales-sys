@@ -28,8 +28,11 @@ function VarsDropdown({
 
   useEffect(() => {
     if (anchorRef.current) {
-      const r = anchorRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+      const r           = anchorRef.current.getBoundingClientRect();
+      const dropWidth   = 192;
+      const overflowsRight = r.left + dropWidth > window.innerWidth - 8;
+      const left        = overflowsRight ? r.right - dropWidth : r.left;
+      setPos({ top: r.bottom + 4, left: Math.max(8, left), width: r.width });
     }
   }, [anchorRef]);
 

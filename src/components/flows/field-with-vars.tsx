@@ -28,10 +28,9 @@ function VarsDropdown({
 
   useEffect(() => {
     if (anchorRef.current) {
-      const r           = anchorRef.current.getBoundingClientRect();
-      const dropWidth   = 192;
-      const overflowsRight = r.left + dropWidth > window.innerWidth - 8;
-      const left        = overflowsRight ? r.right - dropWidth : r.left;
+      const r         = anchorRef.current.getBoundingClientRect();
+      const dropWidth = 210;
+      const left      = Math.min(r.left, window.innerWidth - dropWidth - 8);
       setPos({ top: r.bottom + 4, left: Math.max(8, left), width: r.width });
     }
   }, [anchorRef]);
@@ -50,7 +49,7 @@ function VarsDropdown({
   return createPortal(
     <div
       ref={dropRef}
-      style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: Math.max(pos.width, 192) }}
+      style={{ position: "fixed", top: pos.top, left: pos.left, width: 210 }}
       className="z-[9999] rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg py-1"
     >
       {VARS.map((v) => (

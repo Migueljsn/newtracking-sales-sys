@@ -71,6 +71,14 @@ function AutoFitView() {
   return null;
 }
 
+type PositionFn = (screen: { x: number; y: number }) => { x: number; y: number };
+
+function ViewportHelper({ posRef }: { posRef: React.MutableRefObject<PositionFn | null> }) {
+  const { screenToFlowPosition } = useReactFlow();
+  useEffect(() => { posRef.current = screenToFlowPosition; }, [screenToFlowPosition, posRef]);
+  return null;
+}
+
 let nodeIdCounter = Date.now();
 function newId() { return `node-${++nodeIdCounter}`; }
 
@@ -133,7 +141,8 @@ export function FlowCanvas({
     setCanRedo(redoStack.current.length > 0);
   }
 
-  const edgeTypes = { default: FlowEdge };
+  const edgeTypes   = { default: FlowEdge };
+  const screenToFlowRef = useRef<PositionFn | null>(null);
 
   const onConnect: OnConnect = useCallback((conn: Connection) => {
     pushUndo();
@@ -141,13 +150,22 @@ export function FlowCanvas({
   }, [setEdges]);
 
   function addNode(type: FlowNodeType) {
-    const def  = FLOW_NODE_DEFS.find((d) => d.type === type)!;
-    const node: Node = {
-      id:       newId(),
-      type,
-      position: { x: 300 + Math.random() * 80, y: 150 + Math.random() * 80 },
-      data:     { ...def.defaultData },
-    };
+    const def = FLOW_NODE_DEFS.find((d) => d.type === type)!;
+
+    let position = { x: 300 + Math.random() * 80, y: 150 + Math.random() * 80 };
+    if (screenToFlowRef.current) {
+      const canvas = document.querySelector(".react-flow");
+      if (canvas) {
+        const r = canvas.getBoundingClientRect();
+        const center = screenToFlowRef.current({
+          x: r.left + r.width  / 2,
+          y: r.top  + r.height / 2,
+        });
+        position = { x: center.x + (Math.random() * 40 - 20), y: center.y + (Math.random() * 40 - 20) };
+      }
+    }
+
+    const node: Node = { id: newId(), type, position, data: { ...def.defaultData } };
     pushUndo();
     setNodes((ns) => [...ns, node]);
   }
@@ -297,6 +315,7 @@ export function FlowCanvas({
           deleteKeyCode={null}
         >
           <AutoFitView />
+          <ViewportHelper posRef={screenToFlowRef} />
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls />
           <MiniMap

@@ -287,6 +287,7 @@ export function FlowCanvas({
           }}
           onNodeContextMenu={(e, node) => {
             e.preventDefault();
+            if (node.type === "trigger") return;
             setContextMenu({ x: e.clientX, y: e.clientY, node });
             setConfirmCtxDelete(false);
           }}
@@ -421,22 +422,26 @@ export function FlowCanvas({
             className="fixed z-50 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg py-1 min-w-[160px]"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
-            <button onClick={() => { duplicateNode(contextMenu.node); setContextMenu(null); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-muted)] transition-colors">
-              <Copy size={13} /> Duplicar
-            </button>
-            <button
-              onClick={() => {
-                if (!confirmCtxDelete) { setConfirmCtxDelete(true); return; }
-                deleteNode(contextMenu.node.id);
-                setContextMenu(null);
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
-                confirmCtxDelete ? "bg-[var(--danger)] text-white" : "text-[var(--danger)] hover:bg-[var(--danger-soft)]"
-              }`}>
-              <Trash2 size={13} />
-              {confirmCtxDelete ? "Confirmar" : "Remover"}
-            </button>
+            {contextMenu.node.type !== "trigger" && (
+              <>
+                <button onClick={() => { duplicateNode(contextMenu.node); setContextMenu(null); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-muted)] transition-colors">
+                  <Copy size={13} /> Duplicar
+                </button>
+                <button
+                  onClick={() => {
+                    if (!confirmCtxDelete) { setConfirmCtxDelete(true); return; }
+                    deleteNode(contextMenu.node.id);
+                    setContextMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                    confirmCtxDelete ? "bg-[var(--danger)] text-white" : "text-[var(--danger)] hover:bg-[var(--danger-soft)]"
+                  }`}>
+                  <Trash2 size={13} />
+                  {confirmCtxDelete ? "Confirmar" : "Remover"}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

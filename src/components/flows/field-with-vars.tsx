@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Braces } from "lucide-react";
 
 const VARS = [
@@ -14,26 +15,40 @@ const VARS = [
 ];
 
 function VarsDropdown({
+  anchorRef,
   onSelect,
   onClose,
 }: {
-  onSelect: (key: string) => void;
-  onClose:  () => void;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onSelect:  (key: string) => void;
+  onClose:   () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (anchorRef.current) {
+      const r = anchorRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+  }, [anchorRef]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (
+        dropRef.current && !dropRef.current.contains(e.target as Node) &&
+        anchorRef.current && !anchorRef.current.contains(e.target as Node)
+      ) onClose();
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
-  return (
+  return createPortal(
     <div
-      ref={ref}
-      className="absolute right-0 bottom-full mb-1 z-50 w-48 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg py-1"
+      ref={dropRef}
+      style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: Math.max(pos.width, 192) }}
+      className="z-[9999] rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg py-1"
     >
       {VARS.map((v) => (
         <button
@@ -46,7 +61,8 @@ function VarsDropdown({
           <span className="text-[var(--text-muted)]">{v.label}</span>
         </button>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -61,7 +77,8 @@ interface TextareaProps {
 }
 
 export function TextareaWithVars({ value, onChange, rows = 3, placeholder, className }: TextareaProps) {
-  const taRef        = useRef<HTMLTextAreaElement>(null);
+  const taRef     = useRef<HTMLTextAreaElement>(null);
+  const btnRef    = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
 
   function insert(key: string) {
@@ -89,18 +106,17 @@ export function TextareaWithVars({ value, onChange, rows = 3, placeholder, class
         className={className}
       />
       <div className="flex justify-end mt-1">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            className="flex items-center gap-1 text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors px-1.5 py-0.5 rounded-lg border border-[var(--border)] hover:border-[var(--accent)]"
-          >
-            <Braces size={11} />
-            Variáveis
-          </button>
-          {open && <VarsDropdown onSelect={insert} onClose={() => setOpen(false)} />}
-        </div>
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-1 text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors px-1.5 py-0.5 rounded-lg border border-[var(--border)] hover:border-[var(--accent)]"
+        >
+          <Braces size={11} />
+          Variáveis
+        </button>
       </div>
+      {open && <VarsDropdown anchorRef={btnRef} onSelect={insert} onClose={() => setOpen(false)} />}
     </div>
   );
 }
@@ -115,7 +131,8 @@ interface InputProps {
 }
 
 export function InputWithVars({ value, onChange, placeholder, className }: InputProps) {
-  const inputRef     = useRef<HTMLInputElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
+  const btnRef    = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
 
   function insert(key: string) {
@@ -142,17 +159,16 @@ export function InputWithVars({ value, onChange, placeholder, className }: Input
         placeholder={placeholder}
         className={className + " flex-1"}
       />
-      <div className="relative shrink-0">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          title="Inserir variável"
-          className="flex items-center justify-center h-9 w-9 rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
-        >
-          <Braces size={14} />
-        </button>
-        {open && <VarsDropdown onSelect={insert} onClose={() => setOpen(false)} />}
-      </div>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        title="Inserir variável"
+        className="flex items-center justify-center h-9 w-9 rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors shrink-0"
+      >
+        <Braces size={14} />
+      </button>
+      {open && <VarsDropdown anchorRef={btnRef} onSelect={insert} onClose={() => setOpen(false)} />}
     </div>
   );
 }

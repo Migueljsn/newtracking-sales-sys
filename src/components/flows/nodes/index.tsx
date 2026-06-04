@@ -4,14 +4,14 @@ import { useRef, useLayoutEffect, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import {
   Zap, HelpCircle, GitBranch,
-  ArrowRightLeft, UserCheck, UserPlus, ExternalLink, Square,
-  FileText, Image, FileArchive, Type, MousePointerClick,
+  ArrowRightLeft, UserCheck, UserPlus, ExternalLink,
+  FileText, Image, FileArchive, Type, MousePointerClick, Clock,
 } from "lucide-react";
 import { BaseNode } from "@/components/journeys/nodes/base-node";
 import type {
   FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
-  FlowAddToAudienceData, FlowStartFlowData,
+  FlowAddToAudienceData, FlowStartFlowData, FlowWaitData,
 } from "@/lib/flows/types";
 import { FIELD_DEFS } from "@/lib/audiences/fields";
 
@@ -25,7 +25,7 @@ export function FlowTriggerNode({ data, selected }: NodeProps) {
     "Não configurado";
   return (
     <BaseNode label="Gatilho" color="#6366f1" icon={<Zap size={13} />}
-      summary={summary} selected={!!selected} hasInput={false} />
+      summary={summary} selected={!!selected} hasInput={false} horizontal />
   );
 }
 
@@ -57,7 +57,7 @@ export function FlowMessageNode({ data, selected }: NodeProps) {
 
   return (
     <BaseNode label="Mensagem" color="#10b981" icon={icon}
-      summary={summary} selected={!!selected} />
+      summary={summary} selected={!!selected} horizontal />
   );
 }
 
@@ -115,7 +115,7 @@ export function FlowQuestionNode({ data, selected }: NodeProps) {
     >
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         className="!w-3 !h-3 !border-2 !border-[var(--border)] !bg-[var(--surface)]"
       />
 
@@ -173,7 +173,7 @@ export function FlowConditionNode({ data, selected }: NodeProps) {
   return (
     <BaseNode label="Condição" color="#8b5cf6" icon={<GitBranch size={13} />}
       summary={`${fieldLabel} ${d.operator} ${d.value}`}
-      selected={!!selected} hasTrueOutput hasFalseOutput />
+      selected={!!selected} hasTrueOutput hasFalseOutput horizontal />
   );
 }
 
@@ -183,7 +183,7 @@ export function FlowChangeStatusNode({ data, selected }: NodeProps) {
   const summary = d.action === "lost" ? "Marcar como perdida" : (d.stageName ?? "Etapa não selecionada");
   return (
     <BaseNode label="Mover etapa" color="#f97316" icon={<ArrowRightLeft size={13} />}
-      summary={summary} selected={!!selected} />
+      summary={summary} selected={!!selected} horizontal />
   );
 }
 
@@ -192,7 +192,7 @@ export function FlowAssignNode({ data, selected }: NodeProps) {
   const d = data as unknown as FlowAssignData;
   return (
     <BaseNode label="Atribuir" color="#06b6d4" icon={<UserCheck size={13} />}
-      summary={d.consultant || "Consultor não definido"} selected={!!selected} />
+      summary={d.consultant || "Consultor não definido"} selected={!!selected} horizontal />
   );
 }
 
@@ -201,7 +201,7 @@ export function FlowAddToAudienceNode({ data, selected }: NodeProps) {
   const d = data as unknown as FlowAddToAudienceData;
   return (
     <BaseNode label="Adicionar ao público" color="#a855f7" icon={<UserPlus size={13} />}
-      summary={d.audienceName ?? "Público não selecionado"} selected={!!selected} />
+      summary={d.audienceName ?? "Público não selecionado"} selected={!!selected} horizontal />
   );
 }
 
@@ -210,15 +210,22 @@ export function FlowStartFlowNode({ data, selected }: NodeProps) {
   const d = data as unknown as FlowStartFlowData;
   return (
     <BaseNode label="Iniciar outro fluxo" color="#ec4899" icon={<ExternalLink size={13} />}
-      summary={d.targetFlowName ?? "Fluxo não selecionado"} selected={!!selected} hasOutput={false} />
+      summary={d.targetFlowName ?? "Fluxo não selecionado"} selected={!!selected} hasOutput={false} horizontal />
   );
 }
 
-// ── End ───────────────────────────────────────────────────────────────────────
-export function FlowEndNode({ selected }: NodeProps) {
+// ── Wait ──────────────────────────────────────────────────────────────────────
+export function FlowWaitNode({ data, selected }: NodeProps) {
+  const d = data as unknown as FlowWaitData;
+  const summary = d.mode === "datetime"
+    ? (d.datetime ? `Até ${d.datetime.replace("T", " às ")}` : "Data não definida")
+    : (() => {
+        const labels: Record<string, string> = { minutes: "min", hours: "h", days: "dia(s)" };
+        return `Aguardar ${d.value} ${labels[d.unit] ?? d.unit}`;
+      })();
   return (
-    <BaseNode label="Encerrar" color="#ef4444" icon={<Square size={13} />}
-      summary="Finaliza o fluxo" selected={!!selected} hasOutput={false} />
+    <BaseNode label="Atraso inteligente" color="#f59e0b" icon={<Clock size={13} />}
+      summary={summary} selected={!!selected} horizontal />
   );
 }
 
@@ -226,7 +233,7 @@ export function FlowEndNode({ selected }: NodeProps) {
 export function FlowUnknownNode({ selected }: NodeProps) {
   return (
     <BaseNode label="Desconhecido" color="#9ca3af" icon={<HelpCircle size={13} />}
-      summary="Tipo de nó não reconhecido" selected={!!selected} />
+      summary="Tipo de nó não reconhecido" selected={!!selected} horizontal />
   );
 }
 
@@ -239,5 +246,5 @@ export const flowNodeTypes = {
   assign:        FlowAssignNode,
   addToAudience: FlowAddToAudienceNode,
   startFlow:     FlowStartFlowNode,
-  end:           FlowEndNode,
+  wait:          FlowWaitNode,
 };

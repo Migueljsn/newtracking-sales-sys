@@ -7,7 +7,7 @@ import type { Node, Edge }    from "@xyflow/react";
 import type {
   FlowMessageData, FlowQuestionData, FlowConditionData,
   FlowChangeStatusData, FlowAssignData, FlowAddToAudienceData,
-  FlowStartFlowData,
+  FlowStartFlowData, FlowWaitData,
 } from "@/lib/flows/types";
 
 const NATIVE_LEAD_FIELDS = new Set(["name", "email", "notes"]);
@@ -148,6 +148,22 @@ async function sendDocument(phone: string, url: string, fileName: string, captio
   throw new Error(`[Flow] Falha ao enviar documento para ${phone}`);
 }
 
+async function sendTyping(phone: string, durationMs: number, clientId: string) {
+  const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
+  const number = fmtNumber(phone);
+  for (const inst of instances) {
+    try {
+      const res = await fetchWithTimeout(`${baseUrl}/chat/sendPresence/${inst.instanceName}`, {
+        method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey },
+        body: JSON.stringify({ number, presence: "composing", delay: durationMs }),
+      });
+      if (res.ok) return;
+    } catch {
+      // typing é best-effort — não interrompe o fluxo se falhar
+    }
+  }
+}
+
 async function sendMedia(phone: string, url: string, caption: string, clientId: string) {
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = fmtNumber(phone);
@@ -255,7 +271,7 @@ export const flowProcessStep = inngest.createFunction(
         prisma.lead.findUniqueOrThrow({
           where:   { id: leadId },
           include: {
-            customer: { select: { name: true, phone: true, email: true, state: true, city: true } },
+            customer: { select: { name: true, phone: true, email: true, state: true, city: true, document: true } },
             sales:    { select: { value: true, soldAt: true } },
           },
         }),
@@ -280,7 +296,10 @@ export const flowProcessStep = inngest.createFunction(
       nome:          lead.customer.name.split(" ")[0],
       nome_completo: lead.customer.name,
       telefone:      phone,
-      email:         lead.customer.email ?? "",
+      email:         lead.customer.email    ?? "",
+      cidade:        lead.customer.city     ?? "",
+      estado:        lead.customer.state    ?? "",
+      documento:     lead.customer.document ?? "",
     };
 
     const ctx = enrollment.context as Record<string, unknown>;
@@ -306,7 +325,7 @@ export const flowProcessStep = inngest.createFunction(
           ? d.sequence
           : d.messages?.length
             ? d.messages.flatMap((m, i): SeqItem[] => [
-                ...(i > 0 && m.delaySeconds > 0 ? [{ kind: "delay" as const, seconds: m.delaySeconds }] : []),
+                ...(i > 0 && m.delaySeconds > 0 ? [{ kind: "delay" as const, seconds: m.delaySeconds, typing: true }] : []),
                 { kind: "message" as const, messageType: m.messageType, text: m.text, mediaUrl: m.mediaUrl, fileName: m.fileName },
               ])
             : [{ kind: "message" as const, messageType: d.messageType ?? "text", text: d.text ?? "", mediaUrl: d.mediaUrl ?? null, fileName: d.fileName ?? null }];
@@ -314,6 +333,11 @@ export const flowProcessStep = inngest.createFunction(
         for (let i = 0; i < sequence.length; i++) {
           const item = sequence[i];
           if (item.kind === "delay") {
+            if (item.typing) {
+              await step.run(`typing-${nodeId}-${i}`, () =>
+                sendTyping(phone, item.seconds * 1000, clientId)
+              );
+            }
             await step.sleep(`delay-${nodeId}-${i}`, `${item.seconds}s`);
           } else {
             await step.run(`send-msg-${nodeId}-${i}`, async () => {
@@ -544,6 +568,20 @@ export const flowProcessStep = inngest.createFunction(
         break;
       }
 
+      // ── wait (atraso inteligente) ─────────────────────────────────────────
+      case "wait": {
+        const d = node.data as unknown as FlowWaitData;
+        if (d.mode === "datetime" && d.datetime) {
+          await step.sleepUntil(`wait-${nodeId}`, new Date(d.datetime));
+        } else {
+          const unitMap: Record<string, string> = { minutes: "m", hours: "h", days: "d" };
+          const suffix = unitMap[d.unit ?? "hours"] ?? "h";
+          await step.sleep(`wait-${nodeId}`, `${d.value ?? 1}${suffix}`);
+        }
+        nextNodeId = getNextNodeId(edges, nodeId);
+        break;
+      }
+
       // ── startFlow ─────────────────────────────────────────────────────────
       case "startFlow": {
         const d = node.data as unknown as FlowStartFlowData;
@@ -568,21 +606,6 @@ export const flowProcessStep = inngest.createFunction(
         break;
       }
 
-      // ── end ───────────────────────────────────────────────────────────────
-      case "end": {
-        await step.run("complete", () =>
-          prisma.flowEnrollment.update({
-            where: { id: enrollmentId },
-            data:  { status: "COMPLETED", completedAt: new Date() },
-          })
-        );
-        await step.run("log-end", () =>
-          prisma.flowNodeLog.create({
-            data: { enrollmentId, flowId, leadId, clientId, nodeId, nodeType: node.type!, result: "completed" },
-          })
-        );
-        return { result: "completed" };
-      }
     }
 
     // ── log + avançar ─────────────────────────────────────────────────────────

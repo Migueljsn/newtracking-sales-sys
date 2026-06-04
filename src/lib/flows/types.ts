@@ -9,7 +9,7 @@ export type FlowNodeType =
   | "assign"
   | "addToAudience"
   | "startFlow"
-  | "end"
+  | "wait"
 
 // ── Trigger ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +36,7 @@ export type FlowSeqMessage = {
 export type FlowSeqDelay = {
   kind:    "delay"
   seconds: number   // 1–10
+  typing:  boolean  // exibe "digitando..." durante o atraso
 }
 
 export type FlowSequenceItem = FlowSeqMessage | FlowSeqDelay
@@ -115,9 +116,17 @@ export type FlowStartFlowData = {
   targetFlowName: string | null
 }
 
-// ── End ───────────────────────────────────────────────────────────────────────
+// ── Wait (Atraso Inteligente) ─────────────────────────────────────────────────
 
-export type FlowEndData = Record<string, never>
+export type WaitMode = "duration" | "datetime"
+export type WaitUnit = "minutes" | "hours" | "days"
+
+export type FlowWaitData = {
+  mode:     WaitMode
+  value:    number        // duração (modo duration)
+  unit:     WaitUnit      // unidade (modo duration)
+  datetime: string | null // ISO local: "2026-06-18T21:00" (modo datetime)
+}
 
 // ── Union ─────────────────────────────────────────────────────────────────────
 
@@ -130,7 +139,7 @@ export type FlowNodeData =
   | FlowAssignData
   | FlowAddToAudienceData
   | FlowStartFlowData
-  | FlowEndData
+  | FlowWaitData
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -143,16 +152,6 @@ export type FlowNodeDef = {
 }
 
 export const FLOW_NODE_DEFS: FlowNodeDef[] = [
-  {
-    type:        "trigger",
-    label:       "Gatilho",
-    description: "Como o fluxo é iniciado",
-    color:       "#6366f1",
-    defaultData: {
-      triggerType: "audience", audienceId: null, audienceName: null,
-      keyword: null, keywordMatch: "contains",
-    },
-  },
   {
     type:        "message",
     label:       "Mensagem",
@@ -212,10 +211,10 @@ export const FLOW_NODE_DEFS: FlowNodeDef[] = [
     defaultData: { targetFlowId: null, targetFlowName: null },
   },
   {
-    type:        "end",
-    label:       "Encerrar",
-    description: "Finaliza o fluxo para este lead",
-    color:       "#ef4444",
-    defaultData: {},
+    type:        "wait",
+    label:       "Atraso inteligente",
+    description: "Pausa o fluxo por uma duração ou até uma data/hora",
+    color:       "#f59e0b",
+    defaultData: { mode: "duration", value: 1, unit: "hours", datetime: null },
   },
 ]

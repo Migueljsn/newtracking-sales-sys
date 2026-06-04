@@ -1,22 +1,23 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   ReactFlow, Background, Controls, MiniMap,
-  addEdge, useNodesState, useEdgesState,
+  addEdge, useNodesState, useEdgesState, useReactFlow,
   type Node, type Edge, type Connection, type OnConnect,
   BackgroundVariant, Panel, SelectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
   Zap, MessageCircle, HelpCircle, GitBranch, ArrowRightLeft,
-  UserCheck, UserPlus, ExternalLink, Square, Save, Loader2,
+  UserCheck, UserPlus, ExternalLink, Save, Loader2,
   Play, Pause, ChevronLeft, Copy, Trash2, RotateCcw, RotateCw,
-  Pencil, Check, X, MousePointer2, Hand,
+  Pencil, Check, X, MousePointer2, Hand, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { flowNodeTypes } from "./nodes";
+import { FlowEdge } from "./flow-edge";
 import { FlowNodeConfigPanel } from "./flow-node-config-panel";
 import { FLOW_NODE_DEFS, type FlowNodeType } from "@/lib/flows/types";
 import { updateFlowAction, publishFlowAction, pauseFlowAction } from "@/app/(dashboard)/flows/actions";
@@ -46,11 +47,29 @@ const ICON_MAP: Record<FlowNodeType, React.ReactNode> = {
   assign:        <UserCheck     size={13} />,
   addToAudience: <UserPlus      size={13} />,
   startFlow:     <ExternalLink  size={13} />,
-  end:           <Square        size={13} />,
+  wait:          <Clock         size={13} />,
 };
 
 type Snapshot    = { nodes: Node[]; edges: Edge[] }
 type ContextMenu = { x: number; y: number; node: Node }
+
+const NODE_COLORS: Record<string, string> = {
+  trigger:       "#6366f1",
+  message:       "#10b981",
+  question:      "#0ea5e9",
+  condition:     "#8b5cf6",
+  changeStatus:  "#f97316",
+  assign:        "#06b6d4",
+  addToAudience: "#a855f7",
+  startFlow:     "#ec4899",
+  wait:          "#f59e0b",
+};
+
+function AutoFitView() {
+  const { fitView } = useReactFlow();
+  useEffect(() => { requestAnimationFrame(() => fitView({ padding: 0.15 })); }, []);
+  return null;
+}
 
 let nodeIdCounter = Date.now();
 function newId() { return `node-${++nodeIdCounter}`; }
@@ -61,7 +80,9 @@ export function FlowCanvas({
   audiences, pipelineStages, consultants, flows,
 }: FlowCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
+    initialEdges.map((e) => ({ ...e, type: "default" }))
+  );
   const [selectedNode,      setSelectedNode]      = useState<Node | null>(null);
   const [panMode,           setPanMode]           = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -98,7 +119,7 @@ export function FlowCanvas({
     const snap = undoStack.current.pop();
     if (!snap) return;
     redoStack.current.push({ nodes: latestNodes.current, edges: latestEdges.current });
-    setNodes(snap.nodes); setEdges(snap.edges);
+    setNodes(snap.nodes); setEdges(snap.edges.map((e) => ({ ...e, type: "default" })));
     setCanUndo(undoStack.current.length > 0);
     setCanRedo(true);
   }
@@ -107,14 +128,16 @@ export function FlowCanvas({
     const snap = redoStack.current.pop();
     if (!snap) return;
     undoStack.current.push({ nodes: latestNodes.current, edges: latestEdges.current });
-    setNodes(snap.nodes); setEdges(snap.edges);
+    setNodes(snap.nodes); setEdges(snap.edges.map((e) => ({ ...e, type: "default" })));
     setCanUndo(true);
     setCanRedo(redoStack.current.length > 0);
   }
 
+  const edgeTypes = { default: FlowEdge };
+
   const onConnect: OnConnect = useCallback((conn: Connection) => {
     pushUndo();
-    setEdges((eds) => addEdge({ ...conn, animated: false }, eds));
+    setEdges((eds) => addEdge({ ...conn, animated: false, type: "default" }, eds));
   }, [setEdges]);
 
   function addNode(type: FlowNodeType) {
@@ -134,6 +157,7 @@ export function FlowCanvas({
   }
 
   function deleteNode(id: string) {
+    if (nodes.find((n) => n.id === id)?.type === "trigger") return;
     pushUndo();
     setNodes((ns) => ns.filter((n) => n.id !== id));
     setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
@@ -152,7 +176,7 @@ export function FlowCanvas({
   }
 
   function deleteSelected() {
-    const selected = nodes.filter((n) => n.selected);
+    const selected = nodes.filter((n) => n.selected && n.type !== "trigger");
     if (!selected.length) return;
     pushUndo();
     const ids = new Set(selected.map((n) => n.id));
@@ -267,12 +291,18 @@ export function FlowCanvas({
             setConfirmCtxDelete(false);
           }}
           onNodeDragStart={() => pushUndo()}
-          fitView
+          onEdgeClick={() => pushUndo()}
+          edgeTypes={edgeTypes}
           deleteKeyCode={null}
         >
+          <AutoFitView />
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls />
-          <MiniMap zoomable pannable nodeColor={() => "#6366f1"} className="!rounded-xl !border !border-[var(--border)]" />
+          <MiniMap
+            zoomable pannable
+            nodeColor={(node) => NODE_COLORS[node.type ?? ""] ?? "#9ca3af"}
+            className="!rounded-xl !border !border-[var(--border)]"
+          />
 
           {/* Top bar */}
           <Panel position="top-center">

@@ -6,10 +6,11 @@ import { X, Trash2, Copy, Plus, Type, MousePointerClick, Timer, ChevronUp, Chevr
 import type {
   FlowNodeType, FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
-  FlowAddToAudienceData, FlowStartFlowData, FlowButton,
+  FlowAddToAudienceData, FlowStartFlowData, FlowWaitData, FlowButton,
   FlowSequenceItem, FlowSeqMessage,
 } from "@/lib/flows/types";
 import { FIELD_DEFS, OPERATORS_BY_TYPE, getFieldDef, defaultOperator, defaultValue } from "@/lib/audiences/fields";
+import { TextareaWithVars, InputWithVars } from "@/components/flows/field-with-vars";
 
 type AudienceOption  = { id: string; name: string }
 type PipelineStage   = { id: string; name: string }
@@ -155,7 +156,7 @@ export function FlowNodeConfigPanel({
           } else if (d.messages?.length) {
             seq = [];
             d.messages.forEach((m, i) => {
-              if (i > 0 && m.delaySeconds > 0) seq.push({ kind: "delay", seconds: m.delaySeconds });
+              if (i > 0 && m.delaySeconds > 0) seq.push({ kind: "delay", seconds: m.delaySeconds, typing: true });
               seq.push({ kind: "message", messageType: m.messageType, text: m.text, mediaUrl: m.mediaUrl, fileName: m.fileName });
             });
           } else {
@@ -171,7 +172,7 @@ export function FlowNodeConfigPanel({
             setSeq([...seq, { kind: "message", messageType: "text", text: "", mediaUrl: null, fileName: null }]);
           }
           function addDelay() {
-            setSeq([...seq, { kind: "delay", seconds: 3 }]);
+            setSeq([...seq, { kind: "delay", seconds: 3, typing: true }]);
           }
           function patchMessage(idx: number, patch: Partial<FlowSeqMessage>) {
             setSeq(seq.map((item, i): FlowSequenceItem => {
@@ -180,7 +181,7 @@ export function FlowNodeConfigPanel({
             }));
           }
           function patchDelay(idx: number, seconds: number) {
-            setSeq(seq.map((item, i) => i === idx ? { kind: "delay", seconds } : item));
+            setSeq(seq.map((item, i): FlowSequenceItem => i === idx && item.kind === "delay" ? { ...item, seconds } : item));
           }
           function moveItem(idx: number, dir: -1 | 1) {
             const next = [...seq];
@@ -231,6 +232,17 @@ export function FlowNodeConfigPanel({
                         />
                         <span className="text-[10px] text-[var(--warning)] w-5 shrink-0 text-right">10s</span>
                       </div>
+                      <label className="flex items-center gap-2 cursor-pointer select-none mt-1">
+                        <input
+                          type="checkbox"
+                          checked={item.typing ?? true}
+                          onChange={(e) => setSeq(seq.map((s, i): FlowSequenceItem =>
+                            i === idx && s.kind === "delay" ? { ...s, typing: e.target.checked } : s
+                          ))}
+                          className="w-3.5 h-3.5 rounded accent-[var(--warning)] cursor-pointer"
+                        />
+                        <span className="text-xs text-[var(--warning)]">Ativar digitando</span>
+                      </label>
                     </div>
                   );
                 }
@@ -264,10 +276,10 @@ export function FlowNodeConfigPanel({
                     {item.messageType === "text" && (
                       <div>
                         <label className={labelClass}>Mensagem</label>
-                        <textarea
+                        <TextareaWithVars
                           rows={3}
                           value={item.text}
-                          onChange={(e) => patchMessage(idx, { text: e.target.value })}
+                          onChange={(v) => patchMessage(idx, { text: v })}
                           placeholder="Olá {nome}!"
                           className={taClass}
                         />
@@ -300,10 +312,10 @@ export function FlowNodeConfigPanel({
                         )}
                         <div>
                           <label className={labelClass}>Legenda</label>
-                          <textarea
+                          <TextareaWithVars
                             rows={2}
                             value={item.text}
-                            onChange={(e) => patchMessage(idx, { text: e.target.value })}
+                            onChange={(v) => patchMessage(idx, { text: v })}
                             placeholder="Opcional"
                             className={taClass}
                           />
@@ -333,9 +345,6 @@ export function FlowNodeConfigPanel({
                 ))}
               </div>
 
-              <p className="text-[10px] text-[var(--text-muted)]">
-                Use {"{nome}"}, {"{nome_completo}"}, {"{telefone}"} para personalizar.
-              </p>
             </div>
           );
         })()}
@@ -389,10 +398,13 @@ export function FlowNodeConfigPanel({
               {/* Pergunta */}
               <div>
                 <label className={labelClass}>Pergunta</label>
-                <textarea rows={3} value={d.questionText}
-                  onChange={(e) => set("questionText", e.target.value)}
+                <TextareaWithVars
+                  rows={3}
+                  value={d.questionText}
+                  onChange={(v) => set("questionText", v)}
                   placeholder="Ex: Qual é o seu CNPJ? (apenas números)"
-                  className={taClass} />
+                  className={taClass}
+                />
               </div>
 
               {/* Modo texto: campo + validação + retries */}
@@ -434,10 +446,12 @@ export function FlowNodeConfigPanel({
                       </div>
                       <div>
                         <label className={labelClass}>Mensagem ao retentar</label>
-                        <input type="text" value={d.retryMessage}
-                          onChange={(e) => set("retryMessage", e.target.value)}
+                        <InputWithVars
+                          value={d.retryMessage}
+                          onChange={(v) => set("retryMessage", v)}
                           placeholder="Resposta inválida, tente novamente:"
-                          className={inputClass} />
+                          className={inputClass}
+                        />
                       </div>
                     </>
                   )}
@@ -501,10 +515,12 @@ export function FlowNodeConfigPanel({
                 </div>
                 <div>
                   <label className={labelClass}>Mensagem de recuperação</label>
-                  <input type="text" value={d.timeoutMessage}
-                    onChange={(e) => set("timeoutMessage", e.target.value)}
+                  <InputWithVars
+                    value={d.timeoutMessage}
+                    onChange={(v) => set("timeoutMessage", v)}
                     placeholder="Ainda está aí? Aguardamos sua resposta 😊"
-                    className={inputClass} />
+                    className={inputClass}
+                  />
                   <p className="text-[10px] text-[var(--text-muted)] mt-1">Enviada quando o lead não responde no prazo</p>
                 </div>
                 <div>
@@ -671,29 +687,109 @@ export function FlowNodeConfigPanel({
           );
         })()}
 
-        {/* ── End ──────────────────────────────────────────────────────────── */}
-        {type === "end" && (
-          <p className="text-sm text-[var(--text-muted)]">Este nó encerra o fluxo para o lead. Não há configurações adicionais.</p>
-        )}
+        {/* ── Wait ─────────────────────────────────────────────────────────── */}
+        {type === "wait" && (() => {
+          const d = data as unknown as FlowWaitData;
+          const mode = d.mode ?? "duration";
+
+          const UNITS = [
+            { value: "minutes", label: "Minutos" },
+            { value: "hours",   label: "Horas"   },
+            { value: "days",    label: "Dias"     },
+          ];
+
+          return (
+            <div className="space-y-4">
+              {/* Tabs */}
+              <div className="flex rounded-xl border border-[var(--border)] overflow-hidden">
+                {(["duration", "datetime"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => set("mode", m)}
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      mode === m
+                        ? "bg-[var(--text)] text-[var(--bg)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    {m === "duration" ? "Duração" : "Data & Hora"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Modo: Duração */}
+              {mode === "duration" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className={labelClass}>Aguardar por</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={d.value ?? 1}
+                        onChange={(e) => set("value", Math.max(1, parseInt(e.target.value) || 1))}
+                        className={inputClass + " w-24"}
+                      />
+                      <select
+                        value={d.unit ?? "hours"}
+                        onChange={(e) => set("unit", e.target.value)}
+                        className={selectClass}
+                      >
+                        {UNITS.map((u) => (
+                          <option key={u.value} value={u.value}>{u.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs text-[var(--text-muted)]">
+                    O fluxo pausa exatamente por este tempo antes de continuar para o próximo nó.
+                  </div>
+                </div>
+              )}
+
+              {/* Modo: Data & Hora */}
+              {mode === "datetime" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className={labelClass}>Continuar em</label>
+                    <input
+                      type="datetime-local"
+                      value={d.datetime ?? ""}
+                      onChange={(e) => set("datetime", e.target.value || null)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs text-[var(--text-muted)]">
+                    O fluxo pausa até a data e hora definidas, independente de quando o lead chegou aqui.
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 px-4 py-3 border-t border-[var(--border)] space-y-2">
-        <button type="button" onClick={() => onDuplicate(node)}
-          className="w-full flex items-center justify-center gap-2 h-9 rounded-xl text-sm font-medium border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
-          <Copy size={13} />
-          Duplicar nó
-        </button>
-        <button type="button" onClick={handleDelete} onBlur={() => setConfirmDelete(false)}
-          className={`w-full flex items-center justify-center gap-2 h-9 rounded-xl text-sm font-medium transition-colors ${
-            confirmDelete
-              ? "bg-[var(--danger)] text-white"
-              : "border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)]"
-          }`}>
-          <Trash2 size={13} />
-          {confirmDelete ? "Confirmar remoção" : "Remover nó"}
-        </button>
-      </div>
+      {type !== "trigger" && (
+        <div className="shrink-0 px-4 py-3 border-t border-[var(--border)] space-y-2">
+          <button type="button" onClick={() => onDuplicate(node)}
+            className="w-full flex items-center justify-center gap-2 h-9 rounded-xl text-sm font-medium border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+            <Copy size={13} />
+            Duplicar nó
+          </button>
+          <button type="button" onClick={handleDelete} onBlur={() => setConfirmDelete(false)}
+            className={`w-full flex items-center justify-center gap-2 h-9 rounded-xl text-sm font-medium transition-colors ${
+              confirmDelete
+                ? "bg-[var(--danger)] text-white"
+                : "border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)]"
+            }`}>
+            <Trash2 size={13} />
+            {confirmDelete ? "Confirmar remoção" : "Remover nó"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

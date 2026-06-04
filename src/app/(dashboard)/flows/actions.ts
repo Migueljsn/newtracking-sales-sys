@@ -7,11 +7,24 @@ import { prisma }         from "@/lib/db/prisma";
 import { inngest }                          from "@/lib/inngest/client";
 import { flowEnrollAllEvent }               from "@/lib/inngest/events";
 
+const DEFAULT_TRIGGER_NODE = {
+  id:       "trigger-1",
+  type:     "trigger",
+  position: { x: 80, y: 180 },
+  data: {
+    triggerType:  "audience",
+    audienceId:   null,
+    audienceName: null,
+    keyword:      null,
+    keywordMatch: "contains",
+  },
+};
+
 export async function createFlowAction(name: string) {
   const session  = await getSession();
   const clientId = session.clientId!;
   const flow = await prisma.flow.create({
-    data: { clientId, name: name.trim(), nodes: [], edges: [] },
+    data: { clientId, name: name.trim(), nodes: [DEFAULT_TRIGGER_NODE], edges: [] },
   });
   revalidatePath("/flows");
   redirect(`/flows/${flow.id}`);
@@ -101,6 +114,54 @@ export async function deleteFlowAction(id: string) {
   const session  = await getSession();
   const clientId = session.clientId!;
   await prisma.flow.delete({ where: { id, clientId } });
+  revalidatePath("/flows");
+}
+
+export async function bulkDeleteFlowsAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+  await prisma.flow.deleteMany({ where: { id: { in: ids }, clientId } });
+  revalidatePath("/flows");
+}
+
+export async function bulkArchiveFlowsAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+  await prisma.flow.updateMany({ where: { id: { in: ids }, clientId }, data: { status: "ARCHIVED" } });
+  revalidatePath("/flows");
+}
+
+export async function bulkDuplicateFlowsAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+  const sources  = await prisma.flow.findMany({ where: { id: { in: ids }, clientId }, include: { triggers: true } });
+  for (const source of sources) {
+    const copy = await prisma.flow.create({
+      data: { clientId, name: `${source.name} — cópia`, nodes: source.nodes as object, edges: source.edges as object, status: "DRAFT" },
+    });
+    if (source.triggers.length > 0) {
+      await prisma.flowTrigger.createMany({
+        data: source.triggers.map((t) => ({
+          flowId: copy.id, clientId, type: t.type,
+          audienceId: t.audienceId, keyword: t.keyword, keywordMatchType: t.keywordMatchType,
+        })),
+      });
+    }
+  }
+  revalidatePath("/flows");
+}
+
+export async function bulkPublishFlowsAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+  await prisma.flow.updateMany({ where: { id: { in: ids }, clientId }, data: { status: "ACTIVE" } });
+  revalidatePath("/flows");
+}
+
+export async function bulkPauseFlowsAction(ids: string[]) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+  await prisma.flow.updateMany({ where: { id: { in: ids }, clientId }, data: { status: "PAUSED" } });
   revalidatePath("/flows");
 }
 

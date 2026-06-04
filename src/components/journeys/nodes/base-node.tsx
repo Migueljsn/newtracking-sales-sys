@@ -13,16 +13,20 @@ interface BaseNodeProps {
   hasFalseOutput?: boolean
   hasOutput?: boolean
   dualOutputs?: { id: string; label: string; color: string; left: string }[]
+  horizontal?: boolean
 }
 
 export function BaseNode({
   label, color, icon, summary, selected,
   hasInput = true, hasOutput = true,
   hasTrueOutput = false, hasFalseOutput = false,
-  dualOutputs,
+  dualOutputs, horizontal = false,
 }: BaseNodeProps) {
   const isCondition = hasTrueOutput || hasFalseOutput
   const isDual = !!dualOutputs?.length
+
+  const inPos  = horizontal ? Position.Left  : Position.Top
+  const outPos = horizontal ? Position.Right : Position.Bottom
 
   return (
     <div
@@ -48,7 +52,7 @@ export function BaseNode({
       {hasInput && (
         <Handle
           type="target"
-          position={Position.Top}
+          position={inPos}
           className="!w-3 !h-3 !border-2 !border-[var(--border)] !bg-[var(--surface)]"
         />
       )}
@@ -56,7 +60,7 @@ export function BaseNode({
       {hasOutput && !isCondition && !isDual && (
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={outPos}
           className="!w-3 !h-3 !border-2 !border-[var(--border)] !bg-[var(--surface)]"
         />
       )}
@@ -65,16 +69,16 @@ export function BaseNode({
         <>
           <Handle
             type="source"
-            position={Position.Bottom}
+            position={outPos}
             id="true"
-            style={{ left: "30%" }}
+            style={horizontal ? { top: "30%" } : { left: "30%" }}
             className="!w-3 !h-3 !border-2 !border-[#10b981] !bg-[#10b981]"
           />
           <Handle
             type="source"
-            position={Position.Bottom}
+            position={outPos}
             id="false"
-            style={{ left: "70%" }}
+            style={horizontal ? { top: "70%" } : { left: "70%" }}
             className="!w-3 !h-3 !border-2 !border-[#ef4444] !bg-[#ef4444]"
           />
         </>
@@ -84,7 +88,7 @@ export function BaseNode({
         <Handle
           key={o.id}
           type="source"
-          position={Position.Bottom}
+          position={outPos}
           id={o.id}
           style={{ left: o.left, borderColor: o.color, backgroundColor: o.color }}
           className="!w-3 !h-3 !border-2"

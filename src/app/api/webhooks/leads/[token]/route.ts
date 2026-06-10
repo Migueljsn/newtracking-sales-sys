@@ -59,6 +59,21 @@ export async function POST(
   const pipelineStageName = pick(body, "pipeline_stage", "estagio", "etapa");
   const consultantName    = pick(body, "consultant", "consultor", "vendedor");
 
+  // UTMs e parâmetros de rastreamento
+  const utmSource      = pick(body, "utm_source");
+  const utmMedium      = pick(body, "utm_medium");
+  const utmCampaign    = pick(body, "utm_campaign");
+  const utmContent     = pick(body, "utm_content");
+  const utmTerm        = pick(body, "utm_term");
+  const fbc            = pick(body, "fbc");
+  const fbp            = pick(body, "fbp");
+  const gclid          = pick(body, "gclid");
+  const eventSourceUrl = pick(body, "event_source_url", "eventSourceUrl");
+  const eventId        = pick(body, "event_id", "eventId");
+  const metaCampaignId = pick(body, "meta_campaign_id");
+  const metaAdsetId    = pick(body, "meta_adset_id");
+  const metaAdId       = pick(body, "meta_ad_id");
+
   // ── Observações: campo explícito + campos não reconhecidos ───────────────────
   const KNOWN_FIELDS = new Set([
     "phone", "telefone", "whatsapp", "fone", "celular",
@@ -145,15 +160,28 @@ export async function POST(
       const { lead, duplicate } = await createLead({
         clientId,
         name,
-        phone:      rawPhone,
-        email:      email    || undefined,
-        document:   document || undefined,
-        city:       city     || undefined,
-        state:      state    || undefined,
-        zipCode:    zipCode  || undefined,
-        notes:      notes    || undefined,
-        consultant: consultantName || undefined,
-        source:     "FORM",
+        phone:          rawPhone,
+        email:          email          || undefined,
+        document:       document       || undefined,
+        city:           city           || undefined,
+        state:          state          || undefined,
+        zipCode:        zipCode        || undefined,
+        notes:          notes          || undefined,
+        consultant:     consultantName || undefined,
+        source:         "FORM",
+        utmSource:      utmSource      || undefined,
+        utmMedium:      utmMedium      || undefined,
+        utmCampaign:    utmCampaign    || undefined,
+        utmContent:     utmContent     || undefined,
+        utmTerm:        utmTerm        || undefined,
+        fbc:            fbc            || undefined,
+        fbp:            fbp            || undefined,
+        gclid:          gclid          || undefined,
+        eventSourceUrl: eventSourceUrl || undefined,
+        eventId:        eventId        || undefined,
+        metaCampaignId: metaCampaignId || undefined,
+        metaAdsetId:    metaAdsetId    || undefined,
+        metaAdId:       metaAdId       || undefined,
       });
 
       customerId = lead.customerId;

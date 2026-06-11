@@ -62,6 +62,11 @@ export async function processGooglePendingEvents() {
       continue;
     }
 
+    if (event.eventName === "GoogleLead" && settings.googleLeadEnabled === false) {
+      await prisma.trackingEvent.update({ where: { id: event.id }, data: { status: TrackingEventStatus.SKIPPED } });
+      continue;
+    }
+
     const payload = event.payload as {
       gclid?: string;
       conversionDateTime: string;

@@ -33,3 +33,5 @@ prisma/migrations/
 .DS_Store
 Captura de Tela*.png
 sobreposição.png
+.vercel
+.env*.local

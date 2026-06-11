@@ -10,11 +10,14 @@ import { saveSettingsAction, rotateLeadCaptureKeyAction } from "@/app/(dashboard
 
 interface Props {
   settings: {
-    metaPixelId:       string | null;
-    metaAccessToken:   string | null;
-    metaTestEventCode: string | null;
-    trackingEnabled:   boolean;
+    metaPixelId:          string | null;
+    metaAccessToken:      string | null;
+    metaTestEventCode:    string | null;
+    trackingEnabled:      boolean;
+    metaLeadEnabled:      boolean;
+    metaPurchaseEnabled:  boolean;
     googleAdsEnabled:                  boolean;
+    googleLeadEnabled:                 boolean;
     googleAdsCustomerId:               string | null;
     googleAdsConversionActionLead:     string | null;
     googleAdsConversionActionPurchase: string | null;
@@ -206,6 +209,29 @@ export function SettingsForm({ settings, googleStatus, leadCaptureKey }: Props) 
               Deixe em branco em produção. Use para validar eventos no Events Manager.
             </p>
           </div>
+
+          {/* Eventos */}
+          <div className="rounded-xl border border-[var(--border)] divide-y divide-[var(--border)]">
+            <div className="px-4 py-3">
+              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Eventos enviados via CAPI</p>
+            </div>
+            {([
+              { name: "metaLeadEnabled",     label: "Lead",     desc: "Enviado ao capturar uma nova lead. Deduplica com o pixel da landing page via event_id.", checked: settings.metaLeadEnabled },
+              { name: "metaPurchaseEnabled", label: "Purchase",  desc: "Enviado ao registrar uma venda. Principal evento de otimização de campanhas.",          checked: settings.metaPurchaseEnabled },
+            ] as const).map((evt) => (
+              <label key={evt.name} className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-[var(--surface-muted)] transition-colors">
+                <div>
+                  <p className="text-sm font-medium text-[var(--text)]">{evt.label}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5 max-w-sm">{evt.desc}</p>
+                </div>
+                <div className="relative shrink-0 ml-4">
+                  <input type="checkbox" name={evt.name} defaultChecked={evt.checked} className="sr-only peer" />
+                  <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-[var(--accent)]" />
+                  <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+                </div>
+              </label>
+            ))}
+          </div>
         </div>
 
         <button
@@ -280,6 +306,24 @@ export function SettingsForm({ settings, googleStatus, leadCaptureKey }: Props) 
               className="input w-full font-mono"
               placeholder="Ex: 9876543210"
             />
+          </div>
+
+          {/* Eventos Google */}
+          <div className="rounded-xl border border-[var(--border)] divide-y divide-[var(--border)]">
+            <div className="px-4 py-3">
+              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Eventos enviados</p>
+            </div>
+            <label className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-[var(--surface-muted)] transition-colors">
+              <div>
+                <p className="text-sm font-medium text-[var(--text)]">Lead</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5 max-w-sm">Enviado ao capturar uma nova lead. Requer ID da ação de conversão Lead configurado acima.</p>
+              </div>
+              <div className="relative shrink-0 ml-4">
+                <input type="checkbox" name="googleLeadEnabled" defaultChecked={settings.googleLeadEnabled} className="sr-only peer" />
+                <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-[var(--accent)]" />
+                <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+              </div>
+            </label>
           </div>
 
           <div>

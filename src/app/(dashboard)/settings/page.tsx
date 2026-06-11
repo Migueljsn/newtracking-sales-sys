@@ -105,11 +105,14 @@ export default async function SettingsPage({
 
           <SettingsForm
             settings={{
-              metaPixelId:       settings?.metaPixelId       ?? null,
-              metaAccessToken:   settings?.metaAccessToken   ?? null,
-              metaTestEventCode: settings?.metaTestEventCode ?? null,
-              trackingEnabled:   settings?.trackingEnabled   ?? false,
+              metaPixelId:          settings?.metaPixelId          ?? null,
+              metaAccessToken:      settings?.metaAccessToken       ?? null,
+              metaTestEventCode:    settings?.metaTestEventCode     ?? null,
+              trackingEnabled:      settings?.trackingEnabled       ?? false,
+              metaLeadEnabled:      settings?.metaLeadEnabled       ?? true,
+              metaPurchaseEnabled:  settings?.metaPurchaseEnabled   ?? true,
               googleAdsEnabled:                  settings?.googleAdsEnabled                  ?? false,
+              googleLeadEnabled:                 settings?.googleLeadEnabled                 ?? true,
               googleAdsCustomerId:               settings?.googleAdsCustomerId               ?? null,
               googleAdsConversionActionLead:     settings?.googleAdsConversionActionLead     ?? null,
               googleAdsConversionActionPurchase: settings?.googleAdsConversionActionPurchase ?? null,

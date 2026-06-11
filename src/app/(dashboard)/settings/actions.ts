@@ -11,15 +11,17 @@ export async function saveSettingsAction(formData: FormData) {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const metaPixelId       = (formData.get("metaPixelId")       as string).trim() || null;
-  const metaAccessToken   = (formData.get("metaAccessToken")   as string).trim() || null;
-  const metaTestEventCode = (formData.get("metaTestEventCode") as string).trim() || null;
-  const trackingEnabled   = formData.get("trackingEnabled") === "on";
+  const metaPixelId           = (formData.get("metaPixelId")       as string).trim() || null;
+  const metaAccessToken       = (formData.get("metaAccessToken")   as string).trim() || null;
+  const metaTestEventCode     = (formData.get("metaTestEventCode") as string).trim() || null;
+  const trackingEnabled       = formData.get("trackingEnabled")       === "on";
+  const metaLeadEnabled       = formData.get("metaLeadEnabled")       === "on";
+  const metaPurchaseEnabled   = formData.get("metaPurchaseEnabled")   === "on";
 
   await prisma.clientSettings.upsert({
     where:  { clientId },
-    create: { clientId, metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled },
-    update: { metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled },
+    create: { clientId, metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled, metaLeadEnabled, metaPurchaseEnabled },
+    update: { metaPixelId, metaAccessToken, metaTestEventCode, trackingEnabled, metaLeadEnabled, metaPurchaseEnabled },
   });
 
   revalidatePath("/settings");
@@ -29,7 +31,8 @@ export async function saveGoogleSettingsAction(formData: FormData) {
   const session  = await getSession();
   const clientId = session.clientId;
 
-  const googleAdsEnabled                  = formData.get("googleAdsEnabled") === "on";
+  const googleAdsEnabled                  = formData.get("googleAdsEnabled")  === "on";
+  const googleLeadEnabled                 = formData.get("googleLeadEnabled") === "on";
   const googleAdsCustomerId               = (formData.get("googleAdsCustomerId")               as string).trim() || null;
   const googleAdsConversionActionLead     = (formData.get("googleAdsConversionActionLead")     as string).trim() || null;
   const googleAdsConversionActionPurchase = (formData.get("googleAdsConversionActionPurchase") as string).trim() || null;
@@ -37,8 +40,8 @@ export async function saveGoogleSettingsAction(formData: FormData) {
 
   await prisma.clientSettings.upsert({
     where:  { clientId },
-    create: { clientId, googleAdsEnabled, googleAdsCustomerId, googleAdsConversionActionLead, googleAdsConversionActionPurchase, googleRefreshToken },
-    update: { googleAdsEnabled, googleAdsCustomerId, googleAdsConversionActionLead, googleAdsConversionActionPurchase, googleRefreshToken },
+    create: { clientId, googleAdsEnabled, googleLeadEnabled, googleAdsCustomerId, googleAdsConversionActionLead, googleAdsConversionActionPurchase, googleRefreshToken },
+    update: { googleAdsEnabled, googleLeadEnabled, googleAdsCustomerId, googleAdsConversionActionLead, googleAdsConversionActionPurchase, googleRefreshToken },
   });
 
   revalidatePath("/settings");

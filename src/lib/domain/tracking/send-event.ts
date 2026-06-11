@@ -24,6 +24,15 @@ async function processMetaPendingEvents() {
       continue;
     }
 
+    if (event.eventName === "Lead"     && settings.metaLeadEnabled     === false) {
+      await prisma.trackingEvent.update({ where: { id: event.id }, data: { status: TrackingEventStatus.SKIPPED } });
+      continue;
+    }
+    if (event.eventName === "Purchase" && settings.metaPurchaseEnabled === false) {
+      await prisma.trackingEvent.update({ where: { id: event.id }, data: { status: TrackingEventStatus.SKIPPED } });
+      continue;
+    }
+
     try {
       const res = await fetch(
         `https://graph.facebook.com/${META_API_VERSION}/${settings.metaPixelId}/events`,

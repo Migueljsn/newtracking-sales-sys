@@ -97,15 +97,19 @@ export async function createLead(input: CreateLeadInput) {
     },
   });
 
-  // Evento de Lead marcado como SKIPPED — o pixel da landing page já rastreia
-  // o Lead no gerenciador; CAPI envia apenas Purchase
+  const leadCustomer = await prisma.customer.findUniqueOrThrow({
+    where: { id: lead.customerId },
+  });
+
+  const { buildLeadPayload } = await import("@/lib/domain/tracking/build-payload");
+
   await prisma.trackingEvent.create({
     data: {
       clientId:  input.clientId,
       eventName: "Lead",
       eventId,
-      status:    TrackingEventStatus.SKIPPED,
-      payload:   {},
+      status:    TrackingEventStatus.PENDING,
+      payload:   buildLeadPayload(leadCustomer, lead, eventId) as object,
       leadId:    lead.id,
     },
   });
@@ -116,7 +120,7 @@ export async function createLead(input: CreateLeadInput) {
         clientId:  input.clientId,
         eventName: "GoogleLead",
         eventId:   createId(),
-        status:    TrackingEventStatus.SKIPPED,
+        status:    TrackingEventStatus.PENDING,
         payload:   {},
         leadId:    lead.id,
       },

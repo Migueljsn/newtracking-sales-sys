@@ -71,6 +71,9 @@ model ClientSettings {
   metaAccessToken                   String?
   metaTestEventCode                 String?
   trackingEnabled                   Boolean  @default(true)
+  metaLeadEnabled                   Boolean  @default(true)
+  metaPurchaseEnabled               Boolean  @default(true)
+  googleLeadEnabled                 Boolean  @default(true)
 
   // Consultores / vendedores
   consultants                       String[] @default([])

@@ -113,7 +113,7 @@ export default async function ConsultantLeadDetailPage({
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/consultor"

@@ -18,7 +18,7 @@ export default async function ConsultantPage() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 sm:px-6">
         <div>
           <p className="text-xs text-[var(--text-muted)]">Portal CRM</p>
           <p className="text-sm font-semibold text-[var(--text)]">Olá, {session.name}</p>
@@ -34,7 +34,7 @@ export default async function ConsultantPage() {
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-screen-xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-screen-xl px-3 py-4 sm:px-6 sm:py-6">
         <div className="mb-4">
           <h1 className="text-xl font-semibold text-[var(--text)]">Leads</h1>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">Lista operacional de leads</p>

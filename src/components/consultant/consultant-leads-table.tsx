@@ -399,8 +399,115 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
         </div>
       )}
 
-      {/* Table */}
-      <div className="table-shell">
+      {/* ── Mobile cards (< md) ──────────────────────────────────────────────── */}
+      <div className="md:hidden space-y-3">
+        {paginated.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--text-muted)]">
+              <Users size={22} />
+            </div>
+            <p className="text-sm font-semibold text-[var(--text)]">Nenhuma lead encontrada</p>
+          </div>
+        ) : paginated.map(lead => {
+          const canEditStage = lead.status === "NEW" || lead.status === "REGISTERED";
+          const inactivity   = getInactivityDays(lead);
+          const totalSales   = getTotalSalesValue(lead);
+          return (
+            <div key={lead.id} className="card p-4 space-y-3">
+              {/* Nome + status */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-[var(--text)] truncate">{lead.customer.name}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{lead.customer.phone}</p>
+                </div>
+                <LeadStatusBadge status={lead.status} pipelineStage={null} />
+              </div>
+
+              {/* Etapa */}
+              {pipelineStages.length > 0 && canEditStage && (
+                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: lead.pipelineStage?.color ?? "var(--border)" }}
+                  />
+                  <div className="relative flex-1">
+                    <select
+                      value={lead.pipelineStage?.id ?? ""}
+                      disabled={updatingStage.has(lead.id)}
+                      onChange={e => handleInlineStageChange(lead, e.target.value)}
+                      className="w-full h-9 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 pr-8 text-sm text-[var(--text)] focus:outline-none disabled:opacity-50 appearance-none"
+                    >
+                      <option value="">— Sem etapa</option>
+                      {pipelineStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+                      {updatingStage.has(lead.id)
+                        ? <Loader2 size={13} className="animate-spin" />
+                        : <ChevronDown size={13} />}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {pipelineStages.length > 0 && !canEditStage && lead.pipelineStage && (
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: lead.pipelineStage.color }} />
+                  <span className="text-sm text-[var(--text-muted)]">{lead.pipelineStage.name}</span>
+                </div>
+              )}
+
+              {/* Métricas */}
+              <div className="flex items-center gap-4 text-xs">
+                <div>
+                  <p className="text-[var(--text-muted)]">Inativo</p>
+                  <p className={`font-semibold tabular-nums ${
+                    inactivity >= 30 ? "text-[var(--danger)]" : inactivity >= 15 ? "text-[var(--warning)]" : "text-[var(--text)]"
+                  }`}>{inactivity}d</p>
+                </div>
+                {totalSales > 0 && (
+                  <div>
+                    <p className="text-[var(--text-muted)]">Vol. compras</p>
+                    <p className="font-semibold text-[var(--success)]">{formatBRL(totalSales)}</p>
+                  </div>
+                )}
+                <div className="ml-auto text-right">
+                  <p className="text-[var(--text-muted)]">Capturada</p>
+                  <p className="font-medium text-[var(--text)]">{new Date(lead.capturedAt).toLocaleDateString("pt-BR")}</p>
+                </div>
+              </div>
+
+              {/* Ações */}
+              <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
+                <WhatsAppButton
+                  phone={lead.customer.phone}
+                  name={lead.customer.name}
+                  state={lead.customer.state}
+                  city={lead.customer.city}
+                  template={whatsappTemplate}
+                  variant="icon"
+                />
+                {lead.status !== "LOST" && (
+                  <button
+                    onClick={() => openSaleModal(lead)}
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--success)] text-[var(--success)] text-sm font-medium hover:bg-[var(--success)] hover:text-white transition-colors"
+                  >
+                    <DollarSign size={15} />
+                    {lead.status === "SOLD" ? "Recompra" : "Registrar venda"}
+                  </button>
+                )}
+                <a
+                  href={`/consultor/leads/${lead.id}`}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                >
+                  <Eye size={15} />
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Desktop table (≥ md) ─────────────────────────────────────────────── */}
+      <div className="hidden md:block table-shell">
         {paginated.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--text-muted)]">

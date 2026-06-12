@@ -12,7 +12,7 @@ import type {
   WaitData, ConditionData, EmailData,
   WhatsAppData, ChangeStatusData, AssignData,
 } from "@/lib/journeys/types";
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() { return new Resend(process.env.RESEND_API_KEY); }
 
 // ─── Graph helpers ─────────────────────────────────────────────────────────────
 
@@ -310,7 +310,7 @@ export const journeyProcessStep = inngest.createFunction(
             const subject   = renderTemplate(template.subject, vars);
             const html      = renderTemplate(template.body,    vars);
 
-            const { data, error } = await resend.emails.send({
+            const { data, error } = await getResend().emails.send({
               from:    `${client.name} via Portal CRM <noreply@fonilcompany.com.br>`,
               to:      [lead.customer.email!],
               subject,

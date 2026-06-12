@@ -5,7 +5,7 @@ import { DEFAULT_TEMPLATES } from "./default-templates";
 import { generateUnsubToken, unsubscribeUrl } from "./unsubscribe";
 import { Decimal } from "@prisma/client/runtime/library";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() { return new Resend(process.env.RESEND_API_KEY); }
 
 type Threshold = { days: number; templateId: string | null; enabled: boolean };
 
@@ -131,7 +131,7 @@ export async function processLtvEmails() {
         const html      = renderTemplate(template.body, varsWithUnsub);
 
         try {
-          const { data } = await resend.emails.send({
+          const { data } = await getResend().emails.send({
             from:    `${config.client.name} via Portal CRM <noreply@fonilcompany.com.br>`,
             to:      [customer.email!],
             subject,
@@ -249,7 +249,7 @@ async function sendTeamDigest(opts: {
 </html>`;
 
   try {
-    const { data } = await resend.emails.send({
+    const { data } = await getResend().emails.send({
       from:    `Portal CRM <onboarding@resend.dev>`,
       to:      opts.teamEmails,
       subject: `[${opts.clientName}] ${opts.customers.length} cliente(s) sem compra — ${new Date().toLocaleDateString("pt-BR")}`,

@@ -21,6 +21,10 @@ async function processMetaPendingEvents() {
     const settings = event.client.settings;
 
     if (!settings?.trackingEnabled || !settings.metaAccessToken || !settings.metaPixelId) {
+      await prisma.trackingEvent.update({
+        where: { id: event.id },
+        data:  { status: TrackingEventStatus.SKIPPED },
+      });
       continue;
     }
 

@@ -35,6 +35,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/consultor") ||
     pathname.startsWith("/api/webhooks") ||
     pathname.startsWith("/api/admin") ||
+    pathname.startsWith("/api/tracking") ||
+    pathname.startsWith("/api/cron") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/consultor")
   ) {

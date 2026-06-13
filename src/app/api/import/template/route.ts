@@ -26,7 +26,7 @@ export async function GET() {
     "Status":               "NOVA",
     "Valor da Venda (R$)":  "",
     "Data da Venda":        "",
-    "Data de Captura":      new Date().toLocaleDateString("pt-BR"),
+    "Data de Captura":      new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
     "UTM Source":           "",
     "UTM Medium":           "",
     "UTM Campaign":         "",

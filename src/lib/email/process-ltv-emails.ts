@@ -202,7 +202,7 @@ async function sendTeamDigest(opts: {
         <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;text-align:center;">
           <span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:600;">${days}d sem compra</span>
         </td>
-        <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">${lastPurchaseDate.toLocaleDateString("pt-BR")}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">${lastPurchaseDate.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td>
         <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:500;">${Number(totalLtv).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
       </tr>`)
     .join("");
@@ -239,7 +239,7 @@ async function sendTeamDigest(opts: {
         </tr>
         <tr>
           <td style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb;">
-            <p style="color:#9ca3af;font-size:12px;margin:0;">Portal CRM · Digest diário de LTV · ${new Date().toLocaleDateString("pt-BR")}</p>
+            <p style="color:#9ca3af;font-size:12px;margin:0;">Portal CRM · Digest diário de LTV · ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
           </td>
         </tr>
       </table>
@@ -252,7 +252,7 @@ async function sendTeamDigest(opts: {
     const { data } = await getResend().emails.send({
       from:    `Portal CRM <onboarding@resend.dev>`,
       to:      opts.teamEmails,
-      subject: `[${opts.clientName}] ${opts.customers.length} cliente(s) sem compra — ${new Date().toLocaleDateString("pt-BR")}`,
+      subject: `[${opts.clientName}] ${opts.customers.length} cliente(s) sem compra — ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
       html,
     });
 

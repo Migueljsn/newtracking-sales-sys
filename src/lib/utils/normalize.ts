@@ -29,3 +29,24 @@ export function normalizeEmail(raw: string): string {
 export function normalizeState(raw: string): string {
   return raw.toUpperCase().trim();
 }
+
+const LOWER_WORDS = new Set(["da", "de", "do", "das", "dos", "e", "a", "o"]);
+
+/** Title Case para nomes — ex: "CARLENE DOS santos" → "Carlene dos Santos". */
+export function normalizeName(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word, i) =>
+      i === 0 || !LOWER_WORDS.has(word)
+        ? word.charAt(0).toUpperCase() + word.slice(1)
+        : word
+    )
+    .join(" ");
+}
+
+/** Formata uma data sempre em BRT (America/Sao_Paulo) para evitar divergência UTC vs local. */
+export function formatDateBRT(date: Date | string): string {
+  return new Date(date).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}

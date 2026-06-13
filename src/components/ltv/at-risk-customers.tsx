@@ -82,7 +82,7 @@ export function AtRiskCustomers({ customers, thresholds }: Props) {
                     {c.email && <div className="truncate max-w-[200px]">{c.email}</div>}
                   </td>
                   <td className="px-4 py-3 text-xs text-[var(--text-muted)]">
-                    {new Date(c.lastSaleAt).toLocaleDateString("pt-BR")}
+                    {new Date(c.lastSaleAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${riskColor(c.daysSinceLast, enabledDays)}`}>

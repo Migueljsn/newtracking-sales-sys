@@ -21,7 +21,7 @@ const SAMPLE_VARS: Record<string, string> = {
   consultor:           "Maria Vendas",
   empresa:             "Minha Empresa",
   dias:                "15",
-  data_ultima_compra:  new Date().toLocaleDateString("pt-BR"),
+  data_ultima_compra:  new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
   valor_ultima_compra: "R$ 350,00",
   total_compras:       "3",
   valor_total_ltv:     "R$ 1.050,00",
@@ -126,7 +126,7 @@ function EmailNodeConfig({
 const SAMPLE_VARS_WA: Record<string, string> = {
   nome: "João", nome_completo: "João Silva", telefone: "11999999999",
   email: "joao@email.com", consultor: "Maria Vendas", empresa: "Minha Empresa",
-  dias: "15", data_ultima_compra: new Date().toLocaleDateString("pt-BR"),
+  dias: "15", data_ultima_compra: new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
   valor_ultima_compra: "R$ 350,00", total_compras: "3", valor_total_ltv: "R$ 1.050,00",
 };
 

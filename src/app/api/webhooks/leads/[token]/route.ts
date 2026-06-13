@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { findOrCreateCustomer } from "@/lib/domain/customer/find-or-create";
 import { createLead } from "@/lib/domain/lead/create";
-import { normalizePhone } from "@/lib/utils/normalize";
+import { normalizePhone, normalizeName } from "@/lib/utils/normalize";
 import { inngest } from "@/lib/inngest/client";
 import { leadChangedEvent } from "@/lib/inngest/events";
 import { triggerFlowForLead } from "@/lib/botconversa/client";
@@ -48,7 +48,7 @@ export async function POST(
   }
 
   const phone    = normalizePhone(rawPhone);
-  const name     = pick(body, "name", "nome", "nome_completo");
+  const name     = normalizeName(pick(body, "name", "nome", "nome_completo"));
   const email    = pick(body, "email");
   const document = pick(body, "document", "documento", "cnpj", "cpf");
   const city     = pick(body, "city", "cidade");

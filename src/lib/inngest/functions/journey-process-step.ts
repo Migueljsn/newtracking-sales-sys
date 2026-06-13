@@ -64,7 +64,7 @@ function buildLeadVars(
     empresa:            clientName,
     dias:               String(daysSince),
     data_ultima_compra: last
-      ? new Date(last.soldAt as string).toLocaleDateString("pt-BR")
+      ? new Date(last.soldAt as string).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
       : "",
     valor_ultima_compra: last
       ? Number(last.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })

@@ -436,7 +436,7 @@ const SAMPLE_VARS: Record<string, string> = {
   email:               "joao@email.com",
   consultor:           "Maria Vendas",
   dias:                "15",
-  data_ultima_compra:  new Date().toLocaleDateString("pt-BR"),
+  data_ultima_compra:  new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
   valor_ultima_compra: "R$ 350,00",
   total_compras:       "3",
   valor_total_ltv:     "R$ 1.050,00",

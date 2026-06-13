@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { normalizeName } from "@/lib/utils/normalize";
 import { createLead } from "@/lib/domain/lead/create";
 import { processPendingEvents } from "@/lib/domain/tracking/send-event";
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const result = await createLead({
       clientId,
-      name,
+      name: normalizeName(name),
       phone,
       email:          body.email,
       document:       body.document,

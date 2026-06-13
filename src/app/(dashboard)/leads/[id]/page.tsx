@@ -102,7 +102,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
               <LeadStatusBadge status={lead.status} pipelineStage={lead.pipelineStage} />
               <span>•</span>
-              <span>Capturada em {new Date(lead.capturedAt).toLocaleDateString("pt-BR")}</span>
+              <span>Capturada em {new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
             </p>
           </div>
         </div>
@@ -309,7 +309,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                       )}
                     </div>
                     <p className="text-xs text-[var(--text-muted)]">
-                      {new Date(sale.soldAt).toLocaleDateString("pt-BR")}
+                      {new Date(sale.soldAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                     </p>
                     {sale.notes && (
                       <p className="text-xs text-[var(--text)] bg-[var(--bg)] rounded-lg px-3 py-2 whitespace-pre-wrap break-words">{sale.notes}</p>
@@ -370,7 +370,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 </div>
                 <div className="flex items-center gap-4 text-[var(--text-muted)]">
                   <span>tentativas: {event.attempts}</span>
-                  <span>{new Date(event.createdAt).toLocaleDateString("pt-BR")}</span>
+                  <span>{new Date(event.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
                 </div>
               </div>
             ))}
@@ -418,7 +418,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                         <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                           {entry.checkedBy && <span className="font-medium">{entry.checkedBy}</span>}
                           {entry.checkedAt && (
-                            <span> · {new Date(entry.checkedAt).toLocaleDateString("pt-BR")}</span>
+                            <span> · {new Date(entry.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
                           )}
                         </p>
                       )}
@@ -448,7 +448,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                               {c.requirement.stage.name}
                             </span>
                             {c.checkedBy && <span>{c.checkedBy}</span>}
-                            {c.checkedAt && <span> · {new Date(c.checkedAt).toLocaleDateString("pt-BR")}</span>}
+                            {c.checkedAt && <span> · {new Date(c.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>}
                           </p>
                         </div>
                       </div>
@@ -481,7 +481,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                       {c.requirement.stage.name}
                     </span>
                     {c.checkedBy && <span>{c.checkedBy}</span>}
-                    {c.checkedAt && <span> · {new Date(c.checkedAt).toLocaleDateString("pt-BR")}</span>}
+                    {c.checkedAt && <span> · {new Date(c.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>}
                   </p>
                 </div>
               </div>
@@ -521,7 +521,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 <div className="flex items-center gap-3">
                   <LeadStatusBadge status={l.status} pipelineStage={null} />
                   <span className="text-[var(--text-muted)]">
-                    {new Date(l.capturedAt).toLocaleDateString("pt-BR")}
+                    {new Date(l.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                   </span>
                   {l.sales[0] && (
                     <span className="font-medium text-[var(--success)]">

@@ -471,7 +471,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                 )}
                 <div className="ml-auto text-right">
                   <p className="text-[var(--text-muted)]">Capturada</p>
-                  <p className="font-medium text-[var(--text)]">{new Date(lead.capturedAt).toLocaleDateString("pt-BR")}</p>
+                  <p className="font-medium text-[var(--text)]">{new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
                 </div>
               </div>
 
@@ -628,7 +628,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                       )}
 
                       <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                        {new Date(lead.capturedAt).toLocaleDateString("pt-BR")}
+                        {new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </td>
                       <td className="px-4 py-3.5">
                         {(() => {

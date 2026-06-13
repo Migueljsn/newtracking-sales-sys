@@ -188,7 +188,7 @@ export function SalesTable() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-[var(--text-muted)]">
-                        {new Date(sale.soldAt).toLocaleDateString("pt-BR")}
+                        {new Date(sale.soldAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </td>
                       <td className="px-4 py-3">
                         <Link

@@ -88,7 +88,7 @@ export function EmailHistory({ logs }: Props) {
                     {log.threshold ? `${log.threshold} dias` : "—"}
                   </td>
                   <td className="px-4 py-3 text-xs text-[var(--text-muted)]">
-                    {new Date(log.sentAt).toLocaleDateString("pt-BR")}
+                    {new Date(log.sentAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge log={log} />

@@ -20,7 +20,7 @@ function formatCurrency(value: Decimal | number): string {
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("pt-BR");
+  return date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
 export function buildTemplateVars(opts: {

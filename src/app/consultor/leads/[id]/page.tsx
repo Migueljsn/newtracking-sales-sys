@@ -312,7 +312,7 @@ export default async function ConsultantLeadDetailPage({
                     )}
                   </div>
                   <p className="text-xs text-[var(--text-muted)] mt-1">
-                    {new Date(sale.soldAt).toLocaleDateString("pt-BR")}
+                    {new Date(sale.soldAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                   </p>
                   {sale.notes && (
                     <p className="text-xs text-[var(--text)] bg-[var(--bg)] rounded-lg px-3 py-2 mt-2 whitespace-pre-wrap break-words">
@@ -366,7 +366,7 @@ export default async function ConsultantLeadDetailPage({
                           <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                             {entry.checkedBy && <span className="font-medium">{entry.checkedBy}</span>}
                             {entry.checkedAt && (
-                              <span> · {new Date(entry.checkedAt).toLocaleDateString("pt-BR")}</span>
+                              <span> · {new Date(entry.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
                             )}
                           </p>
                         )}
@@ -389,7 +389,7 @@ export default async function ConsultantLeadDetailPage({
                   return (
                     <div key={item.id} className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
                       <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--border)]" />
-                      <span>Lead capturada em {item.createdAt.toLocaleDateString("pt-BR")}</span>
+                      <span>Lead capturada em {item.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
                     </div>
                   );
                 }
@@ -403,7 +403,7 @@ export default async function ConsultantLeadDetailPage({
                         {item.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </span>
                       <span className="text-[var(--text-muted)]">
-                        {item.soldAt.toLocaleDateString("pt-BR")}
+                        {item.soldAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </span>
                     </div>
                   );
@@ -419,7 +419,7 @@ export default async function ConsultantLeadDetailPage({
                         <strong className="text-[var(--text)]">{stageName}</strong>
                         {item.changedBy ? ` por ${item.changedBy}` : ""}
                       </span>
-                      <span>{item.createdAt.toLocaleDateString("pt-BR")}</span>
+                      <span>{item.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
                     </div>
                   );
                 }
@@ -438,7 +438,7 @@ export default async function ConsultantLeadDetailPage({
                         </span>
                       </div>
                       <span className="text-[10px] text-[var(--text-muted)]">
-                        {item.createdAt.toLocaleDateString("pt-BR")}
+                        {item.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </span>
                     </div>
                     <p className="text-sm text-[var(--text)]">{item.content}</p>

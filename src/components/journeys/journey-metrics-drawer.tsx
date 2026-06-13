@@ -218,7 +218,7 @@ export function JourneyMetricsDrawer({ journeyId, journeyName, open, onClose }: 
                         <div>
                           <p className="font-medium text-[var(--text)]">{lead.customerName}</p>
                           <p className="text-[10px] text-[var(--text-muted)]">
-                            Inscrita {new Date(lead.enrolledAt).toLocaleDateString("pt-BR")} · vendeu {new Date(lead.soldAt).toLocaleDateString("pt-BR")}
+                            Inscrita {new Date(lead.enrolledAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} · vendeu {new Date(lead.soldAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                           </p>
                         </div>
                         <span className="font-semibold text-[var(--success)]">

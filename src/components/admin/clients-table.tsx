@@ -105,7 +105,7 @@ export function ClientsTable({ clients }: { clients: ClientRow[] }) {
                   </span>
                 </td>
                 <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                  {new Date(client.createdAt).toLocaleDateString("pt-BR")}
+                  {new Date(client.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-2">

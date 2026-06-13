@@ -177,7 +177,7 @@ function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
     if (visibleCols.has("state"))      cols.push(l.customer.state ?? "");
     if (visibleCols.has("consultant")) cols.push(l.consultant ?? "");
     if (visibleCols.has("source"))     cols.push(sourceLabel[l.source]);
-    if (visibleCols.has("capturedAt")) cols.push(new Date(l.capturedAt).toLocaleDateString("pt-BR"));
+    if (visibleCols.has("capturedAt")) cols.push(new Date(l.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }));
     if (visibleCols.has("inactivity")) cols.push(String(getInactivityDays(l)));
     if (visibleCols.has("totalSales")) cols.push(String(getTotalSalesValue(l).toFixed(2)));
     if (visibleCols.has("lastSale"))   cols.push(l.sales[0] ? String(Number(l.sales[0].value).toFixed(2)) : "");
@@ -910,7 +910,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                       )}
                       {visibleCols.has("capturedAt") && (
                         <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                          {new Date(lead.capturedAt).toLocaleDateString("pt-BR")}
+                          {new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                         </td>
                       )}
                       {visibleCols.has("inactivity") && (

@@ -97,7 +97,7 @@ export default async function NotificationsPage() {
 
                 <div className="flex shrink-0 items-center gap-3">
                   <time className="text-xs text-[var(--text-muted)]">
-                    {new Date(n.createdAt).toLocaleDateString("pt-BR")}
+                    {new Date(n.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                   </time>
                   {href && <ChevronRight size={15} className="text-[var(--text-muted)]" />}
                 </div>

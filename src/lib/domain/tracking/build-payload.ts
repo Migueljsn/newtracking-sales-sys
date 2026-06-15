@@ -40,6 +40,8 @@ export function buildLeadPayload(
       external_id: hashId(lead.id), // Lead usa leadId
     },
     custom_data: {
+      value:       0,
+      currency:    "BRL",
       lead_source: lead.source,
       ...(lead.utmSource   && { utm_source:   lead.utmSource }),
       ...(lead.utmMedium   && { utm_medium:   lead.utmMedium }),

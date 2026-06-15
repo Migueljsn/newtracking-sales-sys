@@ -12,7 +12,9 @@ function brl(v: number) {
 }
 
 function periodLabel(period: string) {
-  return period === "WEEKLY" ? "esta semana" : "este mês";
+  if (period === "WEEKLY") return "esta semana";
+  const month = new Date().toLocaleDateString("pt-BR", { month: "long", timeZone: "America/Sao_Paulo" });
+  return `${month.charAt(0).toUpperCase() + month.slice(1)}`;
 }
 
 function periodStart(period: string): Date {

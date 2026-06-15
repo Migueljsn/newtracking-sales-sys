@@ -1,7 +1,8 @@
 import type { ReactNode }        from "react";
 import type { Metadata, Viewport } from "next";
-import { QueryProvider }           from "@/providers/query-provider";
-import { ConsultantBottomNav }     from "@/components/consultant/consultant-bottom-nav";
+import { QueryProvider }              from "@/providers/query-provider";
+import { ConsultantBottomNav }        from "@/components/consultant/consultant-bottom-nav";
+import { ConsultantLayoutWrapper }    from "@/components/consultant/consultant-layout-wrapper";
 
 export const metadata: Metadata = {
   title: "Portal CRM",
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
 export default function ConsultantLayout({ children }: { children: ReactNode }) {
   return (
     <QueryProvider>
-      <div className="pb-[68px]">{children}</div>
+      <ConsultantLayoutWrapper>{children}</ConsultantLayoutWrapper>
       <ConsultantBottomNav />
     </QueryProvider>
   );

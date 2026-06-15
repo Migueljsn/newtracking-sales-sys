@@ -12,6 +12,8 @@ const NAV = [
 export function ConsultantBottomNav() {
   const pathname = usePathname();
 
+  if (pathname.startsWith("/consultor/login")) return null;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[var(--border)] bg-[var(--surface)] pb-safe">
       <div className="flex">

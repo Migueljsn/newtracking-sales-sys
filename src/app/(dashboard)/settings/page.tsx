@@ -136,7 +136,10 @@ export default async function SettingsPage({
 
       {activeTab === "acessos" && (
         <div className="card p-5">
-          <ConsultantAccess consultants={consultantUsers} />
+          <ConsultantAccess
+            consultants={consultantUsers.map(u => ({ ...u, goal: u.goal as import("@/components/settings/consultant-access").ConsultantGoal | null }))}
+            pipelineStages={pipelineStages.map(s => ({ id: s.id, name: s.name }))}
+          />
         </div>
       )}
 

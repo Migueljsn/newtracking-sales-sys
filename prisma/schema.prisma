@@ -111,6 +111,7 @@ model ConsultantUser {
   email        String
   passwordHash String
   active       Boolean  @default(true)
+  goal         Json?    // { period, primaryKpi, primaryTarget, stageTargets[] }
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

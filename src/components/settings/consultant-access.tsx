@@ -2,24 +2,48 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { UserPlus, Trash2, KeyRound, ToggleLeft, ToggleRight, Loader2, Eye, EyeOff, Pencil, Check, X } from "lucide-react";
+import { UserPlus, Trash2, KeyRound, ToggleLeft, ToggleRight, Loader2, Eye, EyeOff, Pencil, Check, X, Target, ChevronDown, ChevronUp } from "lucide-react";
 import {
   createConsultantAction,
   updateConsultantAction,
   toggleConsultantAction,
   deleteConsultantAction,
   resetConsultantPasswordAction,
+  saveConsultantGoalAction,
 } from "@/app/(dashboard)/settings/actions";
+
+type GoalPeriod  = "WEEKLY" | "MONTHLY";
+type GoalKpi     = "SALES_COUNT" | "REVENUE";
+type StageTarget = { stageId: string; stageName: string; target: number };
+
+export interface ConsultantGoal {
+  period:        GoalPeriod;
+  primaryKpi:    GoalKpi;
+  primaryTarget: number;
+  stageTargets:  StageTarget[];
+}
 
 interface Consultant {
   id:        string;
   name:      string;
   email:     string;
   active:    boolean;
+  goal:      ConsultantGoal | null;
   createdAt: Date;
 }
 
-export function ConsultantAccess({ consultants }: { consultants: Consultant[] }) {
+interface PipelineStage { id: string; name: string }
+
+function defaultGoal(stages: PipelineStage[]): ConsultantGoal {
+  return {
+    period:        "MONTHLY",
+    primaryKpi:    "REVENUE",
+    primaryTarget: 0,
+    stageTargets:  stages.map(s => ({ stageId: s.id, stageName: s.name, target: 0 })),
+  };
+}
+
+export function ConsultantAccess({ consultants, pipelineStages }: { consultants: Consultant[]; pipelineStages: PipelineStage[] }) {
   const [list,           setList]           = useState<Consultant[]>(consultants);
   const [showForm,       setShowForm]       = useState(false);
   const [loading,        setLoading]        = useState<string | null>(null);
@@ -30,6 +54,43 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
   const [newPass,        setNewPass]        = useState("");
   const [showCreatePass, setShowCreatePass] = useState(false);
   const [showResetPass,  setShowResetPass]  = useState(false);
+
+  // Goals
+  const [goalOpenId,  setGoalOpenId]  = useState<string | null>(null);
+  const [goalDraft,   setGoalDraft]   = useState<ConsultantGoal>(defaultGoal(pipelineStages));
+  const [goalLoading, setGoalLoading] = useState(false);
+
+  function openGoal(c: Consultant) {
+    setGoalOpenId(goalOpenId === c.id ? null : c.id);
+    setGoalDraft(c.goal ?? defaultGoal(pipelineStages));
+    setResetId(null);
+    setEditId(null);
+  }
+
+  function patchGoal(patch: Partial<ConsultantGoal>) {
+    setGoalDraft(prev => ({ ...prev, ...patch }));
+  }
+
+  function patchStageTarget(stageId: string, target: number) {
+    setGoalDraft(prev => ({
+      ...prev,
+      stageTargets: prev.stageTargets.map(s => s.stageId === stageId ? { ...s, target } : s),
+    }));
+  }
+
+  async function handleSaveGoal(id: string) {
+    setGoalLoading(true);
+    try {
+      await saveConsultantGoalAction(id, goalDraft);
+      setList(prev => prev.map(x => x.id === id ? { ...x, goal: goalDraft } : x));
+      setGoalOpenId(null);
+      toast.success("Meta salva com sucesso!");
+    } catch {
+      toast.error("Erro ao salvar meta");
+    } finally {
+      setGoalLoading(false);
+    }
+  }
 
   // Create
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -250,6 +311,23 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
                       <KeyRound size={13} /> Senha
                     </button>
 
+                    {/* Metas */}
+                    <button
+                      onClick={() => openGoal(c)}
+                      title="Configurar metas"
+                      className={`shrink-0 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs transition-colors ${
+                        goalOpenId === c.id
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                          : c.goal
+                          ? "border-[var(--success)]/40 text-[var(--success)] hover:border-[var(--success)]"
+                          : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                      }`}
+                    >
+                      <Target size={13} />
+                      Metas
+                      {goalOpenId === c.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                    </button>
+
                     {/* Toggle active */}
                     <button
                       onClick={() => handleToggle(c)}
@@ -307,6 +385,121 @@ export function ConsultantAccess({ consultants }: { consultants: Consultant[] })
                   <button onClick={() => { setResetId(null); setNewPass(""); setShowResetPass(false); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]">
                     Cancelar
                   </button>
+                </div>
+              )}
+              {/* ── Seção de metas ── */}
+              {goalOpenId === c.id && (
+                <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--accent-soft)]/20 p-4 space-y-4">
+                  <p className="text-xs font-semibold text-[var(--accent)] uppercase tracking-wider">Configurar metas</p>
+
+                  {/* Período */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-[var(--text-muted)] w-24 shrink-0">Período</span>
+                    <div className="flex rounded-xl border border-[var(--border)] overflow-hidden">
+                      {(["WEEKLY", "MONTHLY"] as const).map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => patchGoal({ period: p })}
+                          className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
+                            goalDraft.period === p
+                              ? "bg-[var(--accent)] text-white"
+                              : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                          }`}
+                        >
+                          {p === "WEEKLY" ? "Semanal" : "Mensal"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* KPI principal */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-medium text-[var(--text-muted)]">KPI principal</span>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {([
+                        { value: "SALES_COUNT", label: "Nº de vendas",    placeholder: "ex: 100" },
+                        { value: "REVENUE",     label: "Receita (R$)",    placeholder: "ex: 50000" },
+                      ] as const).map(opt => (
+                        <label
+                          key={opt.value}
+                          onClick={() => patchGoal({ primaryKpi: opt.value })}
+                          className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
+                            goalDraft.primaryKpi === opt.value
+                              ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                              : "border-[var(--border)] hover:border-[var(--accent)]/50"
+                          }`}
+                        >
+                          <div className={`h-4 w-4 shrink-0 rounded-full border-2 transition-colors flex items-center justify-center ${
+                            goalDraft.primaryKpi === opt.value ? "border-[var(--accent)]" : "border-[var(--border)]"
+                          }`}>
+                            {goalDraft.primaryKpi === opt.value && (
+                              <div className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-[var(--text)]">{opt.label}</p>
+                          </div>
+                          {goalDraft.primaryKpi === opt.value && (
+                            <input
+                              type="number"
+                              min={0}
+                              value={goalDraft.primaryTarget || ""}
+                              onChange={e => patchGoal({ primaryTarget: Number(e.target.value) })}
+                              onClick={e => e.stopPropagation()}
+                              placeholder={opt.placeholder}
+                              className="w-24 h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                            />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* KPIs secundárias por etapa */}
+                  {pipelineStages.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium text-[var(--text-muted)]">KPIs secundárias — leads por etapa</span>
+                      <div className="space-y-2">
+                        {goalDraft.stageTargets.map(st => (
+                          <div key={st.stageId} className="flex items-center gap-3">
+                            <span className="text-xs text-[var(--text)] flex-1 truncate">{st.stageName}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <input
+                                type="number"
+                                min={0}
+                                value={st.target || ""}
+                                onChange={e => patchStageTarget(st.stageId, Number(e.target.value))}
+                                placeholder="0"
+                                className="w-20 h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] text-right"
+                              />
+                              <span className="text-xs text-[var(--text-muted)]">leads</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ações */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                    <button
+                      type="button"
+                      onClick={() => setGoalOpenId(null)}
+                      className="rounded-xl border border-[var(--border)] px-4 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveGoal(c.id)}
+                      disabled={goalLoading}
+                      className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 transition-colors hover:bg-[var(--accent-strong)]"
+                    >
+                      {goalLoading ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      Salvar metas
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

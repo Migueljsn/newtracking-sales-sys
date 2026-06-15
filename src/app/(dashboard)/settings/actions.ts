@@ -340,6 +340,26 @@ export async function resetConsultantPasswordAction(id: string, formData: FormDa
   revalidatePath("/settings?tab=acessos");
 }
 
+export async function saveConsultantGoalAction(
+  id: string,
+  goal: {
+    period:        "WEEKLY" | "MONTHLY";
+    primaryKpi:    "SALES_COUNT" | "REVENUE";
+    primaryTarget: number;
+    stageTargets:  { stageId: string; stageName: string; target: number }[];
+  }
+) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  await prisma.consultantUser.update({
+    where: { id, clientId },
+    data:  { goal },
+  });
+
+  revalidatePath("/settings?tab=acessos");
+}
+
 // ─── Botconversa ─────────────────────────────────────────────────────────────
 
 export async function saveBotconversaConfigAction(formData: FormData) {

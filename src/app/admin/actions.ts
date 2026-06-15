@@ -151,3 +151,21 @@ export async function stopImpersonatingAction() {
   cookieStore.delete(IMPERSONATION_COOKIE);
   redirect("/admin");
 }
+
+export async function resetClientPasswordAction(clientId: string, newPassword: string) {
+  await getAdminSession();
+
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error("Senha deve ter pelo menos 6 caracteres.");
+  }
+
+  const user = await prisma.user.findUnique({ where: { clientId } });
+  if (!user?.authUserId) throw new Error("Usuário não encontrado.");
+
+  const supabaseAdmin = getSupabaseAdmin();
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(user.authUserId, {
+    password: newPassword,
+  });
+
+  if (error) throw new Error(error.message);
+}

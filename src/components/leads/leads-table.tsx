@@ -8,7 +8,9 @@ import {
   Download, SlidersHorizontal, X, Check, Loader2,
   CheckSquare, UserCheck, ChevronDown, Trash2, AlertTriangle,
   DollarSign, Plus, Minus, ArrowUp, ArrowDown, ChevronsUpDown,
+  GripVertical, Upload,
 } from "lucide-react";
+import { ImportUploader } from "@/components/import/import-uploader";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
@@ -76,8 +78,9 @@ const COLUMNS: { key: ColumnKey; label: string; defaultOn: boolean }[] = [
 ];
 
 const COLUMNS_KEY   = "leads-columns-v3";
+const COL_ORDER_KEY = "leads-col-order-v1";
 const PAGE_SIZE_KEY = "leads-page-size-v1";
-const PAGE_SIZES    = [25, 50, 100];
+const PAGE_SIZES    = [15, 25, 50, 100];
 
 function loadColumns(): Set<ColumnKey> {
   if (typeof window === "undefined") return new Set(COLUMNS.filter(c => c.defaultOn).map(c => c.key));
@@ -88,13 +91,28 @@ function loadColumns(): Set<ColumnKey> {
   return new Set(COLUMNS.filter(c => c.defaultOn).map(c => c.key));
 }
 
+function loadColOrder(): ColumnKey[] {
+  const allKeys = COLUMNS.map(c => c.key);
+  if (typeof window === "undefined") return allKeys;
+  try {
+    const stored = localStorage.getItem(COL_ORDER_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as ColumnKey[];
+      const storedSet = new Set(parsed);
+      const missing = allKeys.filter(k => !storedSet.has(k));
+      return [...parsed.filter((k): k is ColumnKey => allKeys.includes(k as ColumnKey)), ...missing];
+    }
+  } catch {}
+  return allKeys;
+}
+
 function loadPageSize(): number {
-  if (typeof window === "undefined") return 50;
+  if (typeof window === "undefined") return 25;
   try {
     const n = Number(localStorage.getItem(PAGE_SIZE_KEY));
     if (PAGE_SIZES.includes(n)) return n;
   } catch {}
-  return 50;
+  return 25;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -228,8 +246,13 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
 
   // Columns
   const [visibleCols,   setVisibleCols]   = useState<Set<ColumnKey>>(() => loadColumns());
+  const [colOrder,      setColOrder]      = useState<ColumnKey[]>(() => loadColOrder());
   const [colPanelOpen,  setColPanelOpen]  = useState(false);
-  const colPanelRef = useRef<HTMLDivElement>(null);
+  const colPanelRef  = useRef<HTMLDivElement>(null);
+  const dragColIdx   = useRef<number | null>(null);
+
+  // Import modal
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Consultants list
   const [consultants, setConsultants] = useState<string[]>([]);
@@ -377,6 +400,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   }, [visibleCols]);
 
   useEffect(() => {
+    localStorage.setItem(COL_ORDER_KEY, JSON.stringify(colOrder));
+  }, [colOrder]);
+
+  useEffect(() => {
     localStorage.setItem(PAGE_SIZE_KEY, String(pageSize));
     resetPage();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -398,6 +425,150 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
+  }
+
+  function handleColDragStart(idx: number) { dragColIdx.current = idx; }
+  function handleColDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    if (dragColIdx.current === null || dragColIdx.current === idx) return;
+    setColOrder(prev => {
+      const next = [...prev];
+      const [item] = next.splice(dragColIdx.current!, 1);
+      next.splice(idx, 0, item);
+      dragColIdx.current = idx;
+      return next;
+    });
+  }
+  function handleColDragEnd() { dragColIdx.current = null; }
+
+  const thClass = "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]";
+
+  function renderHeaderCell(key: ColumnKey) {
+    switch (key) {
+      case "phone":      return <th key={key} className={thClass}>Telefone</th>;
+      case "email":      return <th key={key} className={thClass}>Email</th>;
+      case "document":   return <th key={key} className={thClass}>Documento</th>;
+      case "status":     return <th key={key} className={thClass}>Status</th>;
+      case "pipeline":   return (pipelineStages ?? []).length > 0 ? <th key={key} className={thClass}>Etapa</th> : null;
+      case "state":      return <th key={key} className={thClass}>Estado</th>;
+      case "consultant": return <th key={key} className={thClass}>Consultor</th>;
+      case "source":     return <th key={key} className={thClass}>Origem</th>;
+      case "capturedAt": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("capturedAt")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Capturada em <SortIcon col="capturedAt" />
+          </button>
+        </th>
+      );
+      case "inactivity": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("inactivity")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Dias inativo <SortIcon col="inactivity" />
+          </button>
+        </th>
+      );
+      case "totalSales": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("totalSales")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Vol. Compras <SortIcon col="totalSales" />
+          </button>
+        </th>
+      );
+      case "lastSale": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("lastSale")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Última Compra <SortIcon col="lastSale" />
+          </button>
+        </th>
+      );
+      default: return null;
+    }
+  }
+
+  function renderBodyCell(key: ColumnKey, lead: Lead, inactiveDays: number, canEditStage: boolean) {
+    switch (key) {
+      case "phone": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.phone}</td>;
+      case "email": return (
+        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
+          <span className="truncate block max-w-[180px]" title={lead.customer.email ?? "—"}>{lead.customer.email || "—"}</span>
+        </td>
+      );
+      case "document": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.document || "—"}</td>;
+      case "status": return (
+        <td key={key} className="px-4 py-3.5">
+          <LeadStatusBadge status={lead.status} pipelineStage={null} />
+        </td>
+      );
+      case "pipeline": {
+        if (!(pipelineStages ?? []).length) return null;
+        return (
+          <td key={key} className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+            {canEditStage ? (
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: lead.pipelineStage?.color ?? "var(--border)" }} />
+                <div className="relative">
+                  <select
+                    value={lead.pipelineStage?.id ?? ""}
+                    disabled={updatingStage.has(lead.id)}
+                    onChange={(e) => handleInlineStageChange(lead, e.target.value)}
+                    className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
+                  >
+                    <option value="">— Sem etapa</option>
+                    {(pipelineStages ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  {updatingStage.has(lead.id)
+                    ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
+                    : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />}
+                </div>
+              </div>
+            ) : <span className="text-xs text-[var(--text-muted)]">—</span>}
+          </td>
+        );
+      }
+      case "state": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>;
+      case "consultant": return consultants.length > 0 ? (
+        <td key={key} className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+          <div className="relative">
+            <select
+              value={lead.consultant ?? ""}
+              disabled={updatingConsultant.has(lead.id)}
+              onChange={(e) => handleInlineConsultantChange(lead, e.target.value)}
+              className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
+            >
+              <option value="">— Sem consultor</option>
+              {consultants.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {updatingConsultant.has(lead.id)
+              ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
+              : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />}
+          </div>
+        </td>
+      ) : <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.consultant || "—"}</td>;
+      case "source": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{sourceLabel[lead.source]}</td>;
+      case "capturedAt": return (
+        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
+          {new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+        </td>
+      );
+      case "inactivity": return (
+        <td key={key} className="px-4 py-3.5">
+          <span className={`font-semibold tabular-nums ${inactiveDays >= 30 ? "text-[var(--danger)]" : inactiveDays >= 15 ? "text-[var(--warning)]" : "text-[var(--text-muted)]"}`}>
+            {inactiveDays}d
+          </span>
+        </td>
+      );
+      case "totalSales": return (
+        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
+          {lead.sales.length > 0 ? <span className="font-semibold text-[var(--success)]">{formatBRL(getTotalSalesValue(lead))}</span> : "—"}
+        </td>
+      );
+      case "lastSale": return (
+        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
+          {lead.sales[0] ? <span className="font-medium text-[var(--text)]">{formatBRL(Number(lead.sales[0].value))}</span> : "—"}
+        </td>
+      );
+      default: return null;
+    }
   }
 
   async function handleInlineStageChange(lead: Lead, stageId: string) {
@@ -630,6 +801,15 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
           })}
         </div>
 
+        {/* Import button */}
+        <button
+          onClick={() => setShowImportModal(true)}
+          title="Importar leads (XLSX)"
+          className="flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+        >
+          <Upload size={13} /> Importar
+        </button>
+
         {/* Column editor */}
         <div className="relative" ref={colPanelRef}>
           <button
@@ -645,24 +825,34 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
           </button>
 
           {colPanelOpen && (
-            <div className="absolute right-0 top-11 z-20 w-52 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-lg">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Colunas visíveis</p>
-              <div className="space-y-1">
-                {COLUMNS.map((col) => {
-                  const on = visibleCols.has(col.key);
+            <div className="absolute right-0 top-11 z-20 w-56 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-lg">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Colunas — arraste para reordenar</p>
+              <div className="space-y-0.5">
+                {colOrder.map((key, idx) => {
+                  const col = COLUMNS.find(c => c.key === key)!;
+                  const on  = visibleCols.has(key);
                   return (
-                    <button
-                      key={col.key}
-                      onClick={() => toggleCol(col.key)}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-sm text-[var(--text)] transition-colors hover:bg-[var(--surface-muted)]"
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={() => handleColDragStart(idx)}
+                      onDragOver={(e) => handleColDragOver(e, idx)}
+                      onDragEnd={handleColDragEnd}
+                      className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-[var(--surface-muted)] transition-colors"
                     >
-                      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${
-                        on ? "border-[var(--accent)] bg-[var(--accent)]" : "border-[var(--border)]"
-                      }`}>
-                        {on && <Check size={10} className="text-white" />}
-                      </span>
-                      {col.label}
-                    </button>
+                      <GripVertical size={12} className="shrink-0 text-[var(--text-muted)] opacity-40" />
+                      <button
+                        onClick={() => toggleCol(key)}
+                        className="flex flex-1 items-center gap-2 text-sm text-[var(--text)]"
+                      >
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${
+                          on ? "border-[var(--accent)] bg-[var(--accent)]" : "border-[var(--border)]"
+                        }`}>
+                          {on && <Check size={10} className="text-white" />}
+                        </span>
+                        {col.label}
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -748,42 +938,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     </th>
                   )}
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
-                  {visibleCols.has("phone")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Telefone</th>}
-                  {visibleCols.has("email")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Email</th>}
-                  {visibleCols.has("document")   && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Documento</th>}
-                  {visibleCols.has("status")     && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Status</th>}
-                  {visibleCols.has("pipeline") && (pipelineStages ?? []).length > 0 && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Etapa</th>}
-                  {visibleCols.has("state")      && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Estado</th>}
-                  {visibleCols.has("consultant") && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Consultor</th>}
-                  {visibleCols.has("source")     && <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Origem</th>}
-                  {visibleCols.has("capturedAt") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("capturedAt")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Capturada em <SortIcon col="capturedAt" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("inactivity") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("inactivity")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Dias inativo <SortIcon col="inactivity" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("totalSales") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("totalSales")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Vol. Compras <SortIcon col="totalSales" />
-                      </button>
-                    </th>
-                  )}
-                  {visibleCols.has("lastSale") && (
-                    <th className="px-4 py-3 text-left">
-                      <button onClick={() => handleSort("lastSale")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                        Última Compra <SortIcon col="lastSale" />
-                      </button>
-                    </th>
-                  )}
+                  {colOrder.filter(k => visibleCols.has(k)).map(k => renderHeaderCell(k))}
                   <th />
                 </tr>
               </thead>
@@ -827,115 +982,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                           </Link>
                         </div>
                       </td>
-                      {visibleCols.has("phone") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.phone}</td>
-                      )}
-                      {visibleCols.has("email") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                          <span className="truncate block max-w-[180px]" title={lead.customer.email ?? "—"}>
-                            {lead.customer.email || "—"}
-                          </span>
-                        </td>
-                      )}
-                      {visibleCols.has("document") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                          {lead.customer.document || "—"}
-                        </td>
-                      )}
-                      {visibleCols.has("status") && (
-                        <td className="px-4 py-3.5">
-                          <LeadStatusBadge status={lead.status} pipelineStage={null} />
-                        </td>
-                      )}
-                      {visibleCols.has("pipeline") && (pipelineStages ?? []).length > 0 && (
-                        <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
-                          {canEditStage ? (
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className="h-2 w-2 shrink-0 rounded-full transition-colors"
-                                style={{ backgroundColor: lead.pipelineStage?.color ?? "var(--border)" }}
-                              />
-                              <div className="relative">
-                                <select
-                                  value={lead.pipelineStage?.id ?? ""}
-                                  disabled={updatingStage.has(lead.id)}
-                                  onChange={(e) => handleInlineStageChange(lead, e.target.value)}
-                                  className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
-                                >
-                                  <option value="">— Sem etapa</option>
-                                  {(pipelineStages ?? []).map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                  ))}
-                                </select>
-                                {updatingStage.has(lead.id)
-                                  ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
-                                  : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                }
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-[var(--text-muted)]">—</span>
-                          )}
-                        </td>
-                      )}
-                      {visibleCols.has("state") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>
-                      )}
-                      {visibleCols.has("consultant") && consultants.length > 0 && (
-                        <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
-                          <div className="relative">
-                            <select
-                              value={lead.consultant ?? ""}
-                              disabled={updatingConsultant.has(lead.id)}
-                              onChange={(e) => handleInlineConsultantChange(lead, e.target.value)}
-                              className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
-                            >
-                              <option value="">— Sem consultor</option>
-                              {consultants.map(c => (
-                                <option key={c} value={c}>{c}</option>
-                              ))}
-                            </select>
-                            {updatingConsultant.has(lead.id)
-                              ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
-                              : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                            }
-                          </div>
-                        </td>
-                      )}
-                      {visibleCols.has("consultant") && consultants.length === 0 && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.consultant || "—"}</td>
-                      )}
-                      {visibleCols.has("source") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">{sourceLabel[lead.source]}</td>
-                      )}
-                      {visibleCols.has("capturedAt") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                          {new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
-                        </td>
-                      )}
-                      {visibleCols.has("inactivity") && (
-                        <td className="px-4 py-3.5">
-                          <span className={`font-semibold tabular-nums ${
-                            inactiveDays >= 30 ? "text-[var(--danger)]" : inactiveDays >= 15 ? "text-[var(--warning)]" : "text-[var(--text-muted)]"
-                          }`}>
-                            {inactiveDays}d
-                          </span>
-                        </td>
-                      )}
-                      {visibleCols.has("totalSales") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                          {lead.sales.length > 0
-                            ? <span className="font-semibold text-[var(--success)]">{formatBRL(getTotalSalesValue(lead))}</span>
-                            : "—"}
-                        </td>
-                      )}
-                      {visibleCols.has("lastSale") && (
-                        <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                          {lead.sales[0]
-                            ? <span className="font-medium text-[var(--text)]">{formatBRL(Number(lead.sales[0].value))}</span>
-                            : "—"}
-                        </td>
-                      )}
+                      {colOrder.filter(k => visibleCols.has(k)).map(k => renderBodyCell(k, lead, inactiveDays, canEditStage))}
                       <td className="px-4 py-3.5" onClick={e => isSelecting && e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <WhatsAppButton
@@ -1366,6 +1413,35 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Import modal ──────────────────────────────────────────────────── */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setShowImportModal(false); refetch(); }} />
+          <div className="relative z-10 w-full max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
+              <p className="text-sm font-semibold text-[var(--text)]">Importar leads — XLSX</p>
+              <button
+                onClick={() => { setShowImportModal(false); refetch(); }}
+                className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5">
+              <ImportUploader />
+            </div>
+            <div className="border-t border-[var(--border)] px-5 py-3 flex justify-end">
+              <button
+                onClick={() => { setShowImportModal(false); refetch(); }}
+                className="h-9 rounded-xl bg-[var(--accent)] px-4 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+              >
+                Fechar e atualizar lista
+              </button>
+            </div>
           </div>
         </div>
       )}

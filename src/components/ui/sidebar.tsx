@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Bell, Filter, LayoutDashboard, LogOut, Menu, MessageSquareMore, Settings, ShoppingBag, Users, X, Zap } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { signOutAction } from "@/lib/auth/actions";
+import { useQuery } from "@tanstack/react-query";
 
 const nav = [
   { href: "/",              label: "Dashboard",     icon: LayoutDashboard,  badge: false },
@@ -20,11 +21,19 @@ const nav = [
 ];
 
 interface SidebarProps {
-  clientName:   string;
-  unreadCount?: number;
+  clientName:    string;
+  initialCount?: number;
 }
 
-export function Sidebar({ clientName, unreadCount = 0 }: SidebarProps) {
+export function Sidebar({ clientName, initialCount = 0 }: SidebarProps) {
+  const { data } = useQuery<{ count: number }>({
+    queryKey:       ["notifications", "unread-count"],
+    queryFn:        () => fetch("/api/notifications/unread-count").then(r => r.json()),
+    initialData:    { count: initialCount },
+    refetchInterval: 15_000,
+    staleTime:       10_000,
+  });
+  const unreadCount = data?.count ?? initialCount;
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 

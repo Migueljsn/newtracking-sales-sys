@@ -6,11 +6,15 @@ export type TriggerData = {
 }
 
 export type WaitUnit = "minutes" | "hours" | "days"
+export type WaitMode = "duration" | "datetime"
 
 export type WaitData = {
-  // novo formato
-  amount?: number
-  unit?:   WaitUnit
+  mode?:     WaitMode
+  // modo duration
+  amount?:   number
+  unit?:     WaitUnit
+  // modo datetime
+  datetime?: string | null  // ISO local: "2026-06-18T21:00"
   // legado — mantido para jornadas já salvas
   days?: number
 }
@@ -94,9 +98,9 @@ export const NODE_DEFS: NodeDef[] = [
   {
     type:        "wait",
     label:       "Aguardar",
-    description: "Esperar antes de continuar (minutos, horas ou dias)",
+    description: "Esperar antes de continuar (duração ou até uma data/hora)",
     color:       "#f59e0b",
-    defaultData: { amount: 1, unit: "days" },
+    defaultData: { mode: "duration", amount: 1, unit: "days", datetime: null },
   },
   {
     type:        "condition",

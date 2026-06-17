@@ -124,6 +124,29 @@ function formatWaNumber(phone: string) {
   return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
+const IMAGE_EXTS    = new Set(["jpg","jpeg","png","gif","webp","bmp","svg"]);
+const VIDEO_EXTS    = new Set(["mp4","avi","mov","mkv","webm","3gp","m4v"]);
+const MIME_MAP: Record<string, string> = {
+  jpg:"image/jpeg", jpeg:"image/jpeg", png:"image/png", gif:"image/gif",
+  webp:"image/webp", bmp:"image/bmp", svg:"image/svg+xml",
+  mp4:"video/mp4",  mov:"video/quicktime", avi:"video/x-msvideo",
+  mkv:"video/x-matroska", webm:"video/webm", "3gp":"video/3gpp",
+  pdf:"application/pdf", doc:"application/msword",
+  docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls:"application/vnd.ms-excel",
+  xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+function detectMediaType(url: string): { mediatype: "image" | "video" | "document"; mimetype: string; fileName?: string } {
+  const clean = url.split("?")[0].toLowerCase();
+  const ext   = clean.split(".").pop() ?? "";
+  const mimetype = MIME_MAP[ext] ?? "application/octet-stream";
+  if (IMAGE_EXTS.has(ext)) return { mediatype: "image", mimetype };
+  if (VIDEO_EXTS.has(ext)) return { mediatype: "video", mimetype };
+  const fileName = clean.split("/").pop() ?? "arquivo";
+  return { mediatype: "document", mimetype, fileName };
+}
+
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 10_000): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -155,16 +178,17 @@ async function sendWhatsApp(phone: string, message: string, clientId: string): P
 async function sendWhatsAppMedia(phone: string, mediaUrl: string, caption: string, clientId: string): Promise<void> {
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = formatWaNumber(phone);
+  const { mediatype, mimetype, fileName } = detectMediaType(mediaUrl);
 
   for (const inst of instances) {
     const res = await fetchWithTimeout(`${baseUrl}/message/sendMedia/${inst.instanceName}`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
-      body:    JSON.stringify({ number, media: mediaUrl, caption, mediatype: "image" }),
+      body:    JSON.stringify({ number, media: mediaUrl, caption, mediatype, mimetype, ...(fileName ? { fileName } : {}) }),
     });
     if (res.ok) return;
     const errBody = await res.text().catch(() => "(sem corpo)");
-    console.warn(`[Journey] Falha de mídia na instância ${inst.instanceName} — status ${res.status}: ${errBody}`);
+    console.warn(`[Journey] Falha de mídia na instância ${inst.instanceName} — status ${res.status} mediatype=${mediatype}: ${errBody}`);
   }
 
   throw new Error(`[Journey] Todas as instâncias falharam ao enviar mídia para ${phone}`);
@@ -270,11 +294,14 @@ export const journeyProcessStep = inngest.createFunction(
 
       case "wait": {
         const d = node.data as unknown as WaitData;
-        // suporta formato legado { days } e novo formato { amount, unit }
-        const amount = d.amount ?? d.days ?? 1;
-        const unit   = d.unit ?? "days";
-        const unitMap: Record<string, string> = { minutes: "m", hours: "h", days: "d" };
-        await step.sleep("wait-step", `${amount}${unitMap[unit] ?? "d"}`);
+        if (d.mode === "datetime" && d.datetime) {
+          await step.sleepUntil("wait-step", new Date(d.datetime));
+        } else {
+          const amount = d.amount ?? d.days ?? 1;
+          const unit   = d.unit ?? "days";
+          const unitMap: Record<string, string> = { minutes: "m", hours: "h", days: "d" };
+          await step.sleep("wait-step", `${amount}${unitMap[unit] ?? "d"}`);
+        }
         nextNodeId = getNextNodeId(edges, nodeId);
         break;
       }

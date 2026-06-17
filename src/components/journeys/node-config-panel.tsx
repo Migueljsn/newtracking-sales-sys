@@ -486,28 +486,70 @@ export function NodeConfigPanel({
 
         {/* ── Wait ── */}
         {type === "wait" && (() => {
-          const d = data as unknown as WaitData;
-          const amount = d.amount ?? d.days ?? 1;
-          const unit   = d.unit ?? "days";
+          const d    = data as unknown as WaitData;
+          const mode = d.mode ?? "duration";
+
           return (
-            <div className="space-y-3">
-              <label className={labelClass}>Aguardar</label>
-              <div className="flex gap-2">
-                <input
-                  type="number" min={1} value={amount}
-                  onChange={(e) => set("amount", Math.max(1, parseInt(e.target.value) || 1))}
-                  className={inputClass + " w-24"}
-                />
-                <select
-                  value={unit}
-                  onChange={(e) => set("unit", e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="minutes">minuto(s)</option>
-                  <option value="hours">hora(s)</option>
-                  <option value="days">dia(s)</option>
-                </select>
+            <div className="space-y-4">
+              {/* Tabs */}
+              <div className="flex rounded-xl border border-[var(--border)] overflow-hidden">
+                {(["duration", "datetime"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => onUpdate(node.id, { ...data, mode: m })}
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      mode === m
+                        ? "bg-[var(--text)] text-[var(--bg)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    {m === "duration" ? "Duração" : "Data & Hora"}
+                  </button>
+                ))}
               </div>
+
+              {mode === "duration" && (
+                <div className="space-y-3">
+                  <label className={labelClass}>Aguardar por</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" min={1} value={d.amount ?? d.days ?? 1}
+                      onChange={(e) => set("amount", Math.max(1, parseInt(e.target.value) || 1))}
+                      className={inputClass + " w-24"}
+                    />
+                    <select
+                      value={d.unit ?? "days"}
+                      onChange={(e) => set("unit", e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="minutes">minuto(s)</option>
+                      <option value="hours">hora(s)</option>
+                      <option value="days">dia(s)</option>
+                    </select>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] bg-[var(--surface-muted)] rounded-lg p-2">
+                    A jornada pausa exatamente por este tempo antes de continuar.
+                  </p>
+                </div>
+              )}
+
+              {mode === "datetime" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className={labelClass}>Continuar em</label>
+                    <input
+                      type="datetime-local"
+                      value={d.datetime ?? ""}
+                      onChange={(e) => set("datetime", e.target.value || null)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] bg-[var(--surface-muted)] rounded-lg p-2">
+                    A jornada pausa até esta data e hora, independente de quando o lead chegou aqui. Útil para disparos em datas específicas (ex: Black Friday).
+                  </p>
+                </div>
+              )}
             </div>
           );
         })()}

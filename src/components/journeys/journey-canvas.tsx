@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { nodeTypes } from "./nodes";
+import { JourneyEdge } from "./journey-edge";
 import { NodeConfigPanel } from "./node-config-panel";
 import { NODE_DEFS, NodeType } from "@/lib/journeys/types";
 import { updateJourneyAction, publishJourneyAction, pauseJourneyAction } from "@/app/(dashboard)/journeys/actions";
@@ -65,8 +66,12 @@ export function JourneyCanvas({
   pipelineStages, emailTemplates, audiences, consultants,
   sendWindow,
 }: JourneyCanvasProps) {
+  const edgeTypes = { journey: JourneyEdge };
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
+    initialEdges.map((e) => ({ ...e, type: "journey" }))
+  );
   const [selectedNode,       setSelectedNode]       = useState<Node | null>(null);
   const [multiSelectedNodes, setMultiSelectedNodes] = useState<Node[]>([]);
   const [panMode,            setPanMode]            = useState(false);
@@ -111,7 +116,7 @@ export function JourneyCanvas({
     redoStack.current.push({ nodes: latestNodes.current, edges: latestEdges.current });
     const prev = undoStack.current.pop()!;
     setNodes(prev.nodes);
-    setEdges(prev.edges);
+    setEdges(prev.edges.map((e) => ({ ...e, type: "journey" })));
     setSelectedNode(null);
     closeContextMenu();
     setCanUndo(undoStack.current.length > 0);
@@ -123,7 +128,7 @@ export function JourneyCanvas({
     undoStack.current.push({ nodes: latestNodes.current, edges: latestEdges.current });
     const next = redoStack.current.pop()!;
     setNodes(next.nodes);
-    setEdges(next.edges);
+    setEdges(next.edges.map((e) => ({ ...e, type: "journey" })));
     setSelectedNode(null);
     closeContextMenu();
     setCanUndo(true);
@@ -254,7 +259,7 @@ export function JourneyCanvas({
 
   const onConnect: OnConnect = useCallback((connection: Connection) => {
     pushUndo();
-    setEdges((eds) => addEdge({ ...connection, animated: true }, eds));
+    setEdges((eds) => addEdge({ ...connection, type: "journey" }, eds));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -523,6 +528,7 @@ export function JourneyCanvas({
             onNodeDragStart={onNodeDragStart}
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             fitView
             fitViewOptions={{ padding: 0.3 }}
             deleteKeyCode={null}
@@ -532,7 +538,6 @@ export function JourneyCanvas({
             selectionMode={SelectionMode.Partial}
             multiSelectionKeyCode="Shift"
             className="bg-[var(--bg)]"
-            defaultEdgeOptions={{ animated: true, style: { stroke: "var(--accent)", strokeWidth: 2 } }}
           >
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
             <Controls className="[&>button]:!bg-[var(--surface)] [&>button]:!border-[var(--border)] [&>button]:!text-[var(--text)]" />

@@ -368,7 +368,7 @@ export function AnalyticsOverview() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={d => d.slice(5)} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={d => `${d.slice(8)}/${d.slice(5, 7)}`} />
               <YAxis yAxisId="l" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={32} />
               <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={60}
                      tickFormatter={v => brl(v).replace("R$ ", "").replace(",00", "")} />
@@ -381,7 +381,7 @@ export function AnalyticsOverview() {
                     : 0;
                   return (
                     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 shadow-lg text-xs">
-                      <p className="mb-1.5 font-semibold text-[var(--text)]">{label ? String(label).slice(5).replace("-", "/") : ""}</p>
+                      <p className="mb-1.5 font-semibold text-[var(--text)]">{label ? `${String(label).slice(8)}/${String(label).slice(5, 7)}` : ""}</p>
                       {payload.map(p => (
                         <p key={p.name as string} style={{ color: p.color as string }} className="tabular-nums">
                           {p.name}: <span className="font-bold">{p.name === "Receita" ? brl(p.value as number) : fmt(p.value as number)}</span>

@@ -24,16 +24,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
           stopAction={stopImpersonatingAction}
         />
       )}
-      <div className="flex flex-1 min-h-0">
-        <Sidebar clientName={session.client.name} initialCount={unreadCount} />
-        <main className="min-w-0 flex-1 overflow-auto">
-          <div className="page-shell px-4 py-5 sm:px-6 sm:py-6 xl:px-8 xl:py-8">
-            <QueryProvider>
+      <QueryProvider>
+        <div className="flex flex-1 min-h-0">
+          <Sidebar clientName={session.client.name} initialCount={unreadCount} />
+          <main className="min-w-0 flex-1 overflow-auto">
+            <div className="page-shell px-4 py-5 sm:px-6 sm:py-6 xl:px-8 xl:py-8">
               {children}
-            </QueryProvider>
-          </div>
-        </main>
-      </div>
+            </div>
+          </main>
+        </div>
+      </QueryProvider>
     </div>
   );
 }

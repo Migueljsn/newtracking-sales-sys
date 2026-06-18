@@ -170,46 +170,53 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
   return result;
 }
 
-// ─── CSV export ───────────────────────────────────────────────────────────────
+// ─── XLSX export ─────────────────────────────────────────────────────────────
 
-function exportCSV(leads: Lead[], visibleCols: Set<ColumnKey>) {
-  const headers = ["Nome", "Telefone"];
-  if (visibleCols.has("email"))      headers.push("Email");
-  if (visibleCols.has("document"))   headers.push("Documento");
-  if (visibleCols.has("status"))     headers.push("Status");
-  if (visibleCols.has("pipeline"))   headers.push("Etapa Pipeline");
-  if (visibleCols.has("state"))      headers.push("Estado");
-  if (visibleCols.has("consultant")) headers.push("Consultor");
-  if (visibleCols.has("source"))     headers.push("Origem");
-  if (visibleCols.has("capturedAt")) headers.push("Capturada em");
-  if (visibleCols.has("inactivity")) headers.push("Dias inativo");
-  if (visibleCols.has("totalSales")) headers.push("Vol. Compras (R$)");
-  if (visibleCols.has("lastSale"))   headers.push("Última Compra (R$)");
+async function exportXLSX(leads: Lead[], visibleCols: Set<ColumnKey>, colOrder: ColumnKey[]) {
+  const { utils, writeFile } = await import("xlsx");
+
+  const orderedCols = colOrder.filter(k => visibleCols.has(k));
+
+  const colLabel: Record<ColumnKey, string> = {
+    phone:      "Telefone",
+    email:      "Email",
+    document:   "Documento",
+    status:     "Status",
+    pipeline:   "Etapa Pipeline",
+    state:      "Estado",
+    consultant: "Consultor",
+    source:     "Origem",
+    capturedAt: "Capturada em",
+    inactivity: "Dias inativo",
+    totalSales: "Vol. Compras (R$)",
+    lastSale:   "Última Compra (R$)",
+  };
 
   const rows = leads.map((l) => {
-    const cols = [l.customer.name, l.customer.phone];
-    if (visibleCols.has("email"))      cols.push(l.customer.email ?? "");
-    if (visibleCols.has("document"))   cols.push(l.customer.document ?? "");
-    if (visibleCols.has("status"))     cols.push(l.status);
-    if (visibleCols.has("pipeline"))   cols.push(l.pipelineStage?.name ?? "");
-    if (visibleCols.has("state"))      cols.push(l.customer.state ?? "");
-    if (visibleCols.has("consultant")) cols.push(l.consultant ?? "");
-    if (visibleCols.has("source"))     cols.push(sourceLabel[l.source]);
-    if (visibleCols.has("capturedAt")) cols.push(new Date(l.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }));
-    if (visibleCols.has("inactivity")) cols.push(String(getInactivityDays(l)));
-    if (visibleCols.has("totalSales")) cols.push(String(getTotalSalesValue(l).toFixed(2)));
-    if (visibleCols.has("lastSale"))   cols.push(l.sales[0] ? String(Number(l.sales[0].value).toFixed(2)) : "");
-    return cols.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    const row: Record<string, string | number> = { Nome: l.customer.name };
+    for (const key of orderedCols) {
+      switch (key) {
+        case "phone":      row[colLabel[key]] = l.customer.phone; break;
+        case "email":      row[colLabel[key]] = l.customer.email ?? ""; break;
+        case "document":   row[colLabel[key]] = l.customer.document ?? ""; break;
+        case "status":     row[colLabel[key]] = l.status; break;
+        case "pipeline":   row[colLabel[key]] = l.pipelineStage?.name ?? ""; break;
+        case "state":      row[colLabel[key]] = l.customer.state ?? ""; break;
+        case "consultant": row[colLabel[key]] = l.consultant ?? ""; break;
+        case "source":     row[colLabel[key]] = sourceLabel[l.source]; break;
+        case "capturedAt": row[colLabel[key]] = new Date(l.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }); break;
+        case "inactivity": row[colLabel[key]] = getInactivityDays(l); break;
+        case "totalSales": row[colLabel[key]] = getTotalSalesValue(l); break;
+        case "lastSale":   row[colLabel[key]] = l.sales[0] ? Number(l.sales[0].value) : ""; break;
+      }
+    }
+    return row;
   });
 
-  const csv  = [headers.join(","), ...rows].join("\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const ws = utils.json_to_sheet(rows);
+  const wb = utils.book_new();
+  utils.book_append_sheet(wb, ws, "Leads");
+  writeFile(wb, `leads-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 // ─── Sale item type ───────────────────────────────────────────────────────────
@@ -874,13 +881,14 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
           {isSelecting && selectedIds.size > 0 ? `${selectedIds.size} selecionadas` : "Selecionar"}
         </button>
 
-        {/* Export CSV */}
+        {/* Export XLSX */}
         <button
-          onClick={() => exportCSV(
+          onClick={() => exportXLSX(
             isSelecting && selectedIds.size > 0 ? filtered.filter(l => selectedIds.has(l.id)) : filtered,
             visibleCols,
+            colOrder,
           )}
-          title={isSelecting && selectedIds.size > 0 ? "Exportar selecionadas" : "Exportar CSV"}
+          title={isSelecting && selectedIds.size > 0 ? "Exportar selecionadas (XLSX)" : "Exportar XLSX"}
           className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
         >
           <Download size={15} />
@@ -1123,7 +1131,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                     <UserCheck size={13} /> Consultor
                   </button>
                   <button
-                    onClick={() => exportCSV(filtered.filter(l => selectedIds.has(l.id)), visibleCols)}
+                    onClick={() => exportXLSX(filtered.filter(l => selectedIds.has(l.id)), visibleCols, colOrder)}
                     className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
                   >
                     <Download size={13} /> Exportar

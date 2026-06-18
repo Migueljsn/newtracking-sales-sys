@@ -34,6 +34,7 @@ export function buildLeadPayload(
     event_name: "Lead",
     event_time: Math.floor(lead.capturedAt.getTime() / 1000),
     event_id: eventId,
+    action_source: "website",
     event_source_url: lead.eventSourceUrl ?? "",
     user_data: {
       ...buildUserData(customer, lead),
@@ -62,6 +63,7 @@ export function buildPurchasePayload(
     event_name: "Purchase",
     event_time: Math.floor(sale.soldAt.getTime() / 1000),
     event_id: eventId,
+    action_source: "website",
     event_source_url: lead.eventSourceUrl ?? "",
     user_data: buildUserData(customer, lead), // Purchase usa customerId (já no buildUserData)
     custom_data: {

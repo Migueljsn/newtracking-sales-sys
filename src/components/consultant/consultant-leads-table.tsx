@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, ChevronLeft, ChevronRight, Loader2,
   ChevronDown, DollarSign, X, Plus, Minus, Users,
   ArrowDown, ArrowUp, ChevronsUpDown, CheckSquare, Square, ListChecks, Eye,
+  SlidersHorizontal, Check, GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
@@ -89,6 +90,51 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
 type SortKey = "capturedAt" | "inactivity" | "totalSales" | "lastSale";
 interface SortConfig { key: SortKey; dir: "asc" | "desc" }
 
+// ─── Column definitions (apenas colunas disponíveis na tabela do consultor) ───
+
+type ColumnKey = "phone" | "email" | "document" | "status" | "pipeline" | "state" | "consultant" | "capturedAt" | "inactivity" | "totalSales" | "lastSale";
+
+const COLUMNS: { key: ColumnKey; label: string; defaultOn: boolean }[] = [
+  { key: "phone",      label: "Telefone",        defaultOn: true },
+  { key: "email",      label: "Email",            defaultOn: true },
+  { key: "document",   label: "Documento",        defaultOn: true },
+  { key: "status",     label: "Status",           defaultOn: true },
+  { key: "pipeline",   label: "Etapa Pipeline",   defaultOn: true },
+  { key: "state",      label: "Estado",           defaultOn: true },
+  { key: "consultant", label: "Consultor",        defaultOn: true },
+  { key: "capturedAt", label: "Capturada em",     defaultOn: true },
+  { key: "inactivity", label: "Inativo",          defaultOn: true },
+  { key: "totalSales", label: "Total compras",    defaultOn: true },
+  { key: "lastSale",   label: "Última compra",    defaultOn: true },
+];
+
+const COLUMNS_KEY   = "consultant-leads-columns-v1";
+const COL_ORDER_KEY = "consultant-leads-col-order-v1";
+
+function loadColumns(): Set<ColumnKey> {
+  if (typeof window === "undefined") return new Set(COLUMNS.filter(c => c.defaultOn).map(c => c.key));
+  try {
+    const stored = localStorage.getItem(COLUMNS_KEY);
+    if (stored) return new Set(JSON.parse(stored) as ColumnKey[]);
+  } catch {}
+  return new Set(COLUMNS.filter(c => c.defaultOn).map(c => c.key));
+}
+
+function loadColOrder(): ColumnKey[] {
+  const allKeys = COLUMNS.map(c => c.key);
+  if (typeof window === "undefined") return allKeys;
+  try {
+    const stored = localStorage.getItem(COL_ORDER_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as ColumnKey[];
+      const storedSet = new Set(parsed);
+      const missing = allKeys.filter(k => !storedSet.has(k));
+      return [...parsed.filter((k): k is ColumnKey => allKeys.includes(k as ColumnKey)), ...missing];
+    }
+  } catch {}
+  return allKeys;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -114,6 +160,53 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   const [pageSize,         setPageSize]          = useState(50);
   const [sortConfig,       setSortConfig]        = useState<SortConfig | null>(null);
   const [advancedRules,    setAdvancedRules]     = useState<RuleGroup | null>(null);
+
+  // Columns
+  const [visibleCols,  setVisibleCols]  = useState<Set<ColumnKey>>(() => loadColumns());
+  const [colOrder,     setColOrder]     = useState<ColumnKey[]>(() => loadColOrder());
+  const [colPanelOpen, setColPanelOpen] = useState(false);
+  const colPanelRef = useRef<HTMLDivElement>(null);
+  const dragColIdx  = useRef<number | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem(COLUMNS_KEY, JSON.stringify([...visibleCols]));
+  }, [visibleCols]);
+
+  useEffect(() => {
+    localStorage.setItem(COL_ORDER_KEY, JSON.stringify(colOrder));
+  }, [colOrder]);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (colPanelRef.current && !colPanelRef.current.contains(e.target as Node)) {
+        setColPanelOpen(false);
+      }
+    }
+    if (colPanelOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [colPanelOpen]);
+
+  function toggleCol(key: ColumnKey) {
+    setVisibleCols(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function handleColDragStart(idx: number) { dragColIdx.current = idx; }
+  function handleColDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    if (dragColIdx.current === null || dragColIdx.current === idx) return;
+    setColOrder(prev => {
+      const next = [...prev];
+      const [item] = next.splice(dragColIdx.current!, 1);
+      next.splice(idx, 0, item);
+      dragColIdx.current = idx;
+      return next;
+    });
+  }
+  function handleColDragEnd() { dragColIdx.current = null; }
 
   // Inline updates
   const [updatingStage,      setUpdatingStage]      = useState<Set<string>>(new Set());
@@ -262,6 +355,149 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
     }
   }
 
+  const thClass = "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]";
+
+  function renderHeaderCell(key: ColumnKey) {
+    switch (key) {
+      case "phone":      return <th key={key} className={thClass}>Telefone</th>;
+      case "email":      return <th key={key} className={thClass}>Email</th>;
+      case "document":   return <th key={key} className={thClass}>Documento</th>;
+      case "status":     return <th key={key} className={thClass}>Status</th>;
+      case "pipeline":   return pipelineStages.length > 0 ? <th key={key} className={thClass}>Etapa</th> : null;
+      case "state":      return <th key={key} className={thClass}>Estado</th>;
+      case "consultant": return consultants.length > 0 ? <th key={key} className={thClass}>Consultor</th> : null;
+      case "capturedAt": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("capturedAt")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Capturada em <SortIcon col="capturedAt" />
+          </button>
+        </th>
+      );
+      case "inactivity": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("inactivity")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Dias inativo <SortIcon col="inactivity" />
+          </button>
+        </th>
+      );
+      case "totalSales": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("totalSales")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Vol. Compras <SortIcon col="totalSales" />
+          </button>
+        </th>
+      );
+      case "lastSale": return (
+        <th key={key} className="px-4 py-3 text-left">
+          <button onClick={() => handleSort("lastSale")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+            Última Compra <SortIcon col="lastSale" />
+          </button>
+        </th>
+      );
+      default: return null;
+    }
+  }
+
+  function renderBodyCell(key: ColumnKey, lead: Lead, canEditStage: boolean) {
+    switch (key) {
+      case "phone": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.phone}</td>;
+      case "email": return (
+        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
+          <span className="truncate block max-w-[180px]" title={lead.customer.email ?? "—"}>{lead.customer.email || "—"}</span>
+        </td>
+      );
+      case "document": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.document || "—"}</td>;
+      case "status": return (
+        <td key={key} className="px-4 py-3.5">
+          <LeadStatusBadge status={lead.status} pipelineStage={null} />
+        </td>
+      );
+      case "pipeline": {
+        if (pipelineStages.length === 0) return null;
+        return (
+          <td key={key} className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+            {canEditStage ? (
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full transition-colors"
+                  style={{ backgroundColor: lead.pipelineStage?.color ?? "var(--border)" }}
+                />
+                <div className="relative">
+                  <select
+                    value={lead.pipelineStage?.id ?? ""}
+                    disabled={updatingStage.has(lead.id)}
+                    onChange={e => handleInlineStageChange(lead, e.target.value)}
+                    className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
+                  >
+                    <option value="">— Sem etapa</option>
+                    {pipelineStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  {updatingStage.has(lead.id)
+                    ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
+                    : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                  }
+                </div>
+              </div>
+            ) : (
+              <span className="text-xs text-[var(--text-muted)]">—</span>
+            )}
+          </td>
+        );
+      }
+      case "state": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>;
+      case "consultant": {
+        if (consultants.length === 0) return null;
+        return (
+          <td key={key} className="px-4 py-3.5">
+            <div className="relative">
+              <select
+                value={lead.consultant ?? ""}
+                disabled={updatingConsultant.has(lead.id)}
+                onChange={e => handleInlineConsultantChange(lead, e.target.value)}
+                className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
+              >
+                <option value="">— Sem consultor</option>
+                {consultants.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {updatingConsultant.has(lead.id)
+                ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
+                : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              }
+            </div>
+          </td>
+        );
+      }
+      case "capturedAt": return (
+        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
+          {new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+        </td>
+      );
+      case "inactivity": {
+        const d = getInactivityDays(lead);
+        return (
+          <td key={key} className="px-4 py-3.5">
+            <span className={`font-semibold tabular-nums ${d >= 30 ? "text-[var(--danger)]" : d >= 15 ? "text-[var(--warning)]" : "text-[var(--text-muted)]"}`}>{d}d</span>
+          </td>
+        );
+      }
+      case "totalSales": return (
+        <td key={key} className="px-4 py-3.5">
+          {lead.sales.length > 0
+            ? <span className="font-semibold text-[var(--success)]">{formatBRL(getTotalSalesValue(lead))}</span>
+            : <span className="text-[var(--text-muted)]">—</span>}
+        </td>
+      );
+      case "lastSale": return (
+        <td key={key} className="px-4 py-3.5">
+          {lead.sales[0]
+            ? <span className="font-medium text-[var(--text)]">{formatBRL(Number(lead.sales[0].value))}</span>
+            : <span className="text-[var(--text-muted)]">—</span>}
+        </td>
+      );
+      default: return null;
+    }
+  }
+
   // Filter
   const filtered = leads.filter(lead => {
     if (advancedRules) {
@@ -362,26 +598,78 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
         )}
       </div>
 
-      {/* Status tabs */}
-      <div className="soft-panel flex flex-wrap gap-1 p-1.5 w-fit">
-        {(["ALL", "NEW", "SOLD", "LOST"] as const).map(tab => {
-          const labels = { ALL: "Todas", NEW: "Novas", SOLD: "Vendidas", LOST: "Perdidas" };
-          const active = statusFilter === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => { setStatusFilter(tab); resetPage(); }}
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
-                active ? "bg-[var(--surface-strong)] text-[var(--text)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text)]"
-              }`}
-            >
-              {labels[tab]}
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                active ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "bg-[var(--border)] text-[var(--text-muted)]"
-              }`}>{counts[tab]}</span>
-            </button>
-          );
-        })}
+      {/* Status tabs + column editor */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="soft-panel flex flex-wrap gap-1 p-1.5 w-fit">
+          {(["ALL", "NEW", "SOLD", "LOST"] as const).map(tab => {
+            const labels = { ALL: "Todas", NEW: "Novas", SOLD: "Vendidas", LOST: "Perdidas" };
+            const active = statusFilter === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => { setStatusFilter(tab); resetPage(); }}
+                className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
+                  active ? "bg-[var(--surface-strong)] text-[var(--text)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                {labels[tab]}
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  active ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "bg-[var(--border)] text-[var(--text-muted)]"
+                }`}>{counts[tab]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Column editor — apenas visível na tabela desktop */}
+        <div className="relative hidden md:block" ref={colPanelRef}>
+          <button
+            onClick={() => setColPanelOpen(v => !v)}
+            title="Editar colunas"
+            className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${
+              colPanelOpen
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] hover:text-[var(--text)]"
+            }`}
+          >
+            <SlidersHorizontal size={15} />
+          </button>
+
+          {colPanelOpen && (
+            <div className="absolute right-0 top-11 z-20 w-56 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-lg">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Colunas — arraste para reordenar</p>
+              <div className="space-y-0.5">
+                {colOrder.map((key, idx) => {
+                  const col = COLUMNS.find(c => c.key === key)!;
+                  const on  = visibleCols.has(key);
+                  return (
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={() => handleColDragStart(idx)}
+                      onDragOver={(e) => handleColDragOver(e, idx)}
+                      onDragEnd={handleColDragEnd}
+                      className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-[var(--surface-muted)] transition-colors"
+                    >
+                      <GripVertical size={12} className="shrink-0 text-[var(--text-muted)] opacity-40" />
+                      <button
+                        onClick={() => toggleCol(key)}
+                        className="flex flex-1 items-center gap-2 text-sm text-[var(--text)]"
+                      >
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${
+                          on ? "border-[var(--accent)] bg-[var(--accent)]" : "border-[var(--border)]"
+                        }`}>
+                          {on && <Check size={10} className="text-white" />}
+                        </span>
+                        {col.label}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <AdvancedFiltersPanel
@@ -521,37 +809,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
               <thead className="bg-[var(--surface-muted)]">
                 <tr className="border-b border-[var(--border)]">
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Telefone</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Email</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Documento</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Status</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Estado</th>
-                  {pipelineStages.length > 0 && (
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Etapa</th>
-                  )}
-                  {consultants.length > 0 && (
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Consultor</th>
-                  )}
-                  <th className="px-4 py-3 text-left">
-                    <button onClick={() => handleSort("capturedAt")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                      Capturada em <SortIcon col="capturedAt" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left">
-                    <button onClick={() => handleSort("inactivity")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                      Dias inativo <SortIcon col="inactivity" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left">
-                    <button onClick={() => handleSort("totalSales")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                      Vol. Compras <SortIcon col="totalSales" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left">
-                    <button onClick={() => handleSort("lastSale")} className="flex items-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
-                      Última Compra <SortIcon col="lastSale" />
-                    </button>
-                  </th>
+                  {colOrder.filter(k => visibleCols.has(k)).map(k => renderHeaderCell(k))}
                   <th />
                 </tr>
               </thead>
@@ -565,91 +823,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                           {lead.customer.name}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.phone}</td>
-                      <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                        <span className="truncate block max-w-[180px]" title={lead.customer.email ?? "—"}>
-                          {lead.customer.email || "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.document || "—"}</td>
-                      <td className="px-4 py-3.5">
-                        <LeadStatusBadge status={lead.status} pipelineStage={null} />
-                      </td>
-                      <td className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>
-
-                      {pipelineStages.length > 0 && (
-                        <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
-                          {canEditStage ? (
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className="h-2 w-2 shrink-0 rounded-full transition-colors"
-                                style={{ backgroundColor: lead.pipelineStage?.color ?? "var(--border)" }}
-                              />
-                              <div className="relative">
-                                <select
-                                  value={lead.pipelineStage?.id ?? ""}
-                                  disabled={updatingStage.has(lead.id)}
-                                  onChange={e => handleInlineStageChange(lead, e.target.value)}
-                                  className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
-                                >
-                                  <option value="">— Sem etapa</option>
-                                  {pipelineStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
-                                {updatingStage.has(lead.id)
-                                  ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
-                                  : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                }
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-[var(--text-muted)]">—</span>
-                          )}
-                        </td>
-                      )}
-
-                      {consultants.length > 0 && (
-                        <td className="px-4 py-3.5">
-                          <div className="relative">
-                            <select
-                              value={lead.consultant ?? ""}
-                              disabled={updatingConsultant.has(lead.id)}
-                              onChange={e => handleInlineConsultantChange(lead, e.target.value)}
-                              className="h-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 pr-6 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 appearance-none cursor-pointer"
-                            >
-                              <option value="">— Sem consultor</option>
-                              {consultants.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            {updatingConsultant.has(lead.id)
-                              ? <Loader2 size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />
-                              : <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                            }
-                          </div>
-                        </td>
-                      )}
-
-                      <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                        {new Date(lead.capturedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {(() => {
-                          const d = getInactivityDays(lead);
-                          return (
-                            <span className={`font-semibold tabular-nums ${
-                              d >= 30 ? "text-[var(--danger)]" : d >= 15 ? "text-[var(--warning)]" : "text-[var(--text-muted)]"
-                            }`}>{d}d</span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {lead.sales.length > 0
-                          ? <span className="font-semibold text-[var(--success)]">{formatBRL(getTotalSalesValue(lead))}</span>
-                          : <span className="text-[var(--text-muted)]">—</span>}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {lead.sales[0]
-                          ? <span className="font-medium text-[var(--text)]">{formatBRL(Number(lead.sales[0].value))}</span>
-                          : <span className="text-[var(--text-muted)]">—</span>}
-                      </td>
+                      {colOrder.filter(k => visibleCols.has(k)).map(k => renderBodyCell(k, lead, canEditStage))}
 
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">

@@ -37,6 +37,7 @@ interface Lead {
   utmCampaign:     string | null;
   sales:           { soldAt: string; value: number }[];
   pipelineStage:   { id: string; name: string; color: string } | null;
+  lastCheckedRequirement?: { text: string; checkedAt: string | null; checkedBy: string | null } | null;
   customer: {
     name:     string;
     phone:    string;
@@ -52,7 +53,7 @@ interface SaleItem    { name: string; quantity: number; price: number }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const PAGE_SIZES = [25, 50, 100];
+const PAGE_SIZES = [10, 25, 50, 100];
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 function getMostRecentSaleDate(sales: { soldAt: string }[]): string | undefined {
@@ -92,20 +93,21 @@ interface SortConfig { key: SortKey; dir: "asc" | "desc" }
 
 // ─── Column definitions (apenas colunas disponíveis na tabela do consultor) ───
 
-type ColumnKey = "phone" | "email" | "document" | "status" | "pipeline" | "state" | "consultant" | "capturedAt" | "inactivity" | "totalSales" | "lastSale";
+type ColumnKey = "phone" | "email" | "document" | "status" | "pipeline" | "lastRequirement" | "state" | "consultant" | "capturedAt" | "inactivity" | "totalSales" | "lastSale";
 
 const COLUMNS: { key: ColumnKey; label: string; defaultOn: boolean }[] = [
-  { key: "phone",      label: "Telefone",        defaultOn: true },
-  { key: "email",      label: "Email",            defaultOn: true },
-  { key: "document",   label: "Documento",        defaultOn: true },
-  { key: "status",     label: "Status",           defaultOn: true },
-  { key: "pipeline",   label: "Etapa Pipeline",   defaultOn: true },
-  { key: "state",      label: "Estado",           defaultOn: true },
-  { key: "consultant", label: "Consultor",        defaultOn: true },
-  { key: "capturedAt", label: "Capturada em",     defaultOn: true },
-  { key: "inactivity", label: "Inativo",          defaultOn: true },
-  { key: "totalSales", label: "Total compras",    defaultOn: true },
-  { key: "lastSale",   label: "Última compra",    defaultOn: true },
+  { key: "phone",           label: "Telefone",        defaultOn: true },
+  { key: "email",           label: "Email",            defaultOn: true },
+  { key: "document",        label: "Documento",        defaultOn: true },
+  { key: "status",          label: "Status",           defaultOn: true },
+  { key: "pipeline",        label: "Etapa Pipeline",   defaultOn: true },
+  { key: "lastRequirement", label: "Último requisito", defaultOn: true },
+  { key: "state",           label: "Estado",           defaultOn: true },
+  { key: "consultant",      label: "Consultor",        defaultOn: true },
+  { key: "capturedAt",      label: "Capturada em",     defaultOn: true },
+  { key: "inactivity",      label: "Inativo",          defaultOn: true },
+  { key: "totalSales",      label: "Total compras",    defaultOn: true },
+  { key: "lastSale",        label: "Última compra",    defaultOn: true },
 ];
 
 const COLUMNS_KEY   = "consultant-leads-columns-v1";
@@ -135,6 +137,31 @@ function loadColOrder(): ColumnKey[] {
   return allKeys;
 }
 
+// ─── Persistência de filtros (apenas no dispositivo — localStorage) ──────────
+
+interface PersistedFilters {
+  search?:           string;
+  statusFilter?:     "ALL" | "NEW" | "SOLD" | "LOST";
+  stateFilter?:      string;
+  consultantFilter?: string;
+  stageFilter?:      string;
+  page?:             number;
+  pageSize?:         number;
+  sortConfig?:       SortConfig | null;
+  advancedRules?:    RuleGroup | null;
+}
+
+const FILTERS_KEY = "consultant-leads-filters-v1";
+
+function loadFilters(): PersistedFilters {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = localStorage.getItem(FILTERS_KEY);
+    if (stored) return JSON.parse(stored) as PersistedFilters;
+  } catch {}
+  return {};
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -151,15 +178,25 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
     refetchInterval: 30_000,
   });
 
-  const [search,           setSearch]           = useState("");
-  const [statusFilter,     setStatusFilter]      = useState<"ALL" | "NEW" | "SOLD" | "LOST">("ALL");
-  const [stateFilter,      setStateFilter]       = useState("ALL");
-  const [consultantFilter, setConsultantFilter]  = useState("ALL");
-  const [stageFilter,      setStageFilter]       = useState("ALL");
-  const [page,             setPage]              = useState(0);
-  const [pageSize,         setPageSize]          = useState(50);
-  const [sortConfig,       setSortConfig]        = useState<SortConfig | null>(null);
-  const [advancedRules,    setAdvancedRules]     = useState<RuleGroup | null>(null);
+  const [persisted] = useState<PersistedFilters>(() => loadFilters());
+
+  const [search,           setSearch]           = useState(persisted.search ?? "");
+  const [statusFilter,     setStatusFilter]      = useState<"ALL" | "NEW" | "SOLD" | "LOST">(persisted.statusFilter ?? "ALL");
+  const [stateFilter,      setStateFilter]       = useState(persisted.stateFilter ?? "ALL");
+  const [consultantFilter, setConsultantFilter]  = useState(persisted.consultantFilter ?? "ALL");
+  const [stageFilter,      setStageFilter]       = useState(persisted.stageFilter ?? "ALL");
+  const [page,             setPage]              = useState(persisted.page ?? 0);
+  const [pageSize,         setPageSize]          = useState(persisted.pageSize ?? 10);
+  const [sortConfig,       setSortConfig]        = useState<SortConfig | null>(persisted.sortConfig ?? null);
+  const [advancedRules,    setAdvancedRules]     = useState<RuleGroup | null>(persisted.advancedRules ?? null);
+
+  useEffect(() => {
+    const data: PersistedFilters = {
+      search, statusFilter, stateFilter, consultantFilter, stageFilter,
+      page, pageSize, sortConfig, advancedRules,
+    };
+    localStorage.setItem(FILTERS_KEY, JSON.stringify(data));
+  }, [search, statusFilter, stateFilter, consultantFilter, stageFilter, page, pageSize, sortConfig, advancedRules]);
 
   // Columns
   const [visibleCols,  setVisibleCols]  = useState<Set<ColumnKey>>(() => loadColumns());
@@ -363,7 +400,8 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
       case "email":      return <th key={key} className={thClass}>Email</th>;
       case "document":   return <th key={key} className={thClass}>Documento</th>;
       case "status":     return <th key={key} className={thClass}>Status</th>;
-      case "pipeline":   return pipelineStages.length > 0 ? <th key={key} className={thClass}>Etapa</th> : null;
+      case "pipeline":        return pipelineStages.length > 0 ? <th key={key} className={thClass}>Etapa</th> : null;
+      case "lastRequirement": return <th key={key} className={thClass}>Requisitos</th>;
       case "state":      return <th key={key} className={thClass}>Estado</th>;
       case "consultant": return consultants.length > 0 ? <th key={key} className={thClass}>Consultor</th> : null;
       case "capturedAt": return (
@@ -444,6 +482,23 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
           </td>
         );
       }
+      case "lastRequirement": return (
+        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
+          {lead.lastCheckedRequirement ? (
+            <span
+              className="truncate block max-w-[200px]"
+              title={[
+                lead.lastCheckedRequirement.text,
+                lead.lastCheckedRequirement.checkedAt
+                  ? new Date(lead.lastCheckedRequirement.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
+                  : null,
+              ].filter(Boolean).join(" · ")}
+            >
+              {lead.lastCheckedRequirement.text}
+            </span>
+          ) : "—"}
+        </td>
+      );
       case "state": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>;
       case "consultant": {
         if (consultants.length === 0) return null;

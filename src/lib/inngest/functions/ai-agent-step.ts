@@ -22,12 +22,13 @@ export const aiAgentStep = inngest.createFunction(
         agent: session.agent,
         phone: session.lead.customer.phone,
         turnCount: session.turnCount,
+        startedAt: session.startedAt,
       };
     });
 
     if (!ctx) return { skipped: "sessão inexistente ou já encerrada" };
 
-    const { agent, phone } = ctx;
+    const { agent, phone, startedAt } = ctx;
     const agentConfig: AgentTurnConfig = {
       systemPrompt:   agent.systemPrompt,
       negativePrompt: agent.negativePrompt,
@@ -35,9 +36,11 @@ export const aiAgentStep = inngest.createFunction(
       temperature:    agent.temperature,
     };
 
+    // Memória limitada a esta sessão — mensagens anteriores (de outras
+    // ativações do agente, fluxos ou conversas manuais) não entram no contexto.
     async function loadHistory(): Promise<AgentHistoryMessage[]> {
       const interactions = await prisma.leadInteraction.findMany({
-        where:   { leadId, type: { in: ["WHATSAPP", "WHATSAPP_INBOUND"] } },
+        where:   { leadId, type: { in: ["WHATSAPP", "WHATSAPP_INBOUND"] }, createdAt: { gte: startedAt } },
         orderBy: { createdAt: "desc" },
         take:    agent.memoryWindow,
       });

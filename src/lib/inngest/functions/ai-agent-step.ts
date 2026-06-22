@@ -1,7 +1,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { aiAgentStepEvent, whatsappReplyEvent } from "@/lib/inngest/events";
 import { prisma } from "@/lib/db/prisma";
-import { sendWhatsAppText } from "@/lib/whatsapp/evolution";
+import { sendWhatsAppText, sendWhatsAppTyping, estimateTypingMs } from "@/lib/whatsapp/evolution";
 import { runAgentTurn, type AgentTurnConfig, type AgentHistoryMessage } from "@/lib/ai/openai-agent";
 import { evaluateGroup } from "@/lib/audiences/evaluate";
 import { parseExitRules, type AgentExitRule } from "@/lib/agents/types";
@@ -89,6 +89,7 @@ export const aiAgentStep = inngest.createFunction(
 
       const message = action.type === "end_silent" ? null : action.message || null;
       if (message) {
+        await sendWhatsAppTyping(phone, estimateTypingMs(message), clientId);
         await sendWhatsAppText(phone, message, clientId);
         await prisma.leadInteraction.create({
           data: { leadId, clientId, type: "WHATSAPP", content: message, createdBy: "Agente IA" },
@@ -103,6 +104,7 @@ export const aiAgentStep = inngest.createFunction(
 
     async function endSession(reason: string, finalMessage?: string | null) {
       if (finalMessage) {
+        await sendWhatsAppTyping(phone, estimateTypingMs(finalMessage), clientId);
         await sendWhatsAppText(phone, finalMessage, clientId);
         await prisma.leadInteraction.create({
           data: { leadId, clientId, type: "WHATSAPP", content: finalMessage, createdBy: "Agente IA" },
@@ -141,6 +143,7 @@ export const aiAgentStep = inngest.createFunction(
       }
 
       await step.run("send-opening", async () => {
+        await sendWhatsAppTyping(phone, estimateTypingMs(opening.text), clientId);
         await sendWhatsAppText(phone, opening.text, clientId);
         await prisma.leadInteraction.create({
           data: { leadId, clientId, type: "WHATSAPP", content: opening.text, createdBy: "Agente IA" },
@@ -177,6 +180,7 @@ export const aiAgentStep = inngest.createFunction(
       }
 
       await step.run(`send-reply-${turnCount}`, async () => {
+        await sendWhatsAppTyping(phone, estimateTypingMs(result.text), clientId);
         await sendWhatsAppText(phone, result.text, clientId);
         await prisma.leadInteraction.create({
           data: { leadId, clientId, type: "WHATSAPP", content: result.text, createdBy: "Agente IA" },

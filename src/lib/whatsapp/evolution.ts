@@ -50,6 +50,30 @@ async function resolveWaInstances(clientId: string) {
   return { baseUrl, apiKey, instances };
 }
 
+/** Estima quanto tempo uma pessoa levaria pra digitar o texto — usado pra
+ *  simular "digitando..." antes de mensagens geradas por IA, em vez de
+ *  responder instantaneamente (o que é o sinal mais óbvio de bot). */
+export function estimateTypingMs(text: string): number {
+  return Math.min(6_000, Math.max(1_200, text.length * 45));
+}
+
+export async function sendWhatsAppTyping(phone: string, durationMs: number, clientId: string) {
+  const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
+  const number = fmtNumber(phone);
+  for (const inst of instances) {
+    try {
+      const res = await fetchWithTimeout(`${baseUrl}/chat/sendPresence/${inst.instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: apiKey },
+        body: JSON.stringify({ number, presence: "composing", delay: durationMs }),
+      });
+      if (res.ok) return;
+    } catch {
+      // typing é best-effort — não interrompe o fluxo se falhar
+    }
+  }
+}
+
 export async function sendWhatsAppText(phone: string, text: string, clientId: string) {
   const { baseUrl, apiKey, instances } = await resolveWaInstances(clientId);
   const number = fmtNumber(phone);

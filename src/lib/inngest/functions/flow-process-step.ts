@@ -3,6 +3,7 @@ import { flowStepEvent, flowEnrollEvent, whatsappReplyEvent } from "@/lib/innges
 import { prisma }             from "@/lib/db/prisma";
 import { evaluateGroup }      from "@/lib/audiences/evaluate";
 import { rephraseMessage, generateAiQuestion, extractAiAnswer } from "@/lib/ai/openai-agent";
+import { estimateTypingMs } from "@/lib/whatsapp/evolution";
 import type { RuleGroup }     from "@/lib/audiences/types";
 import type { Node, Edge }    from "@xyflow/react";
 import type {
@@ -387,6 +388,7 @@ export const flowProcessStep = inngest.createFunction(
           } else {
             await step.run(`send-msg-${nodeId}-${i}`, async () => {
               let text = renderTemplate(item.text, vars);
+              let wasRephrased = false;
               if (item.aiRephrase?.enabled && item.aiRephrase.agentId) {
                 const agent = await prisma.aiAgent.findUnique({ where: { id: item.aiRephrase.agentId } });
                 if (agent) {
@@ -394,8 +396,10 @@ export const flowProcessStep = inngest.createFunction(
                     { systemPrompt: agent.systemPrompt, negativePrompt: agent.negativePrompt, model: agent.model, temperature: agent.temperature },
                     text
                   );
+                  wasRephrased = true;
                 }
               }
+              if (wasRephrased) await sendTyping(phone, estimateTypingMs(text), clientId);
               if (item.messageType === "document" && item.mediaUrl) {
                 await sendDocument(phone, item.mediaUrl, item.fileName ?? "arquivo.pdf", text, clientId);
               } else if (item.messageType === "media" && item.mediaUrl) {
@@ -450,6 +454,7 @@ export const flowProcessStep = inngest.createFunction(
               const question = agentConfig
                 ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", false, history)
                 : d.aiCaptureDescription ?? "";
+              await sendTyping(phone, estimateTypingMs(question), clientId);
               await sendText(phone, question, clientId);
             });
           }
@@ -539,6 +544,7 @@ export const flowProcessStep = inngest.createFunction(
               const question = agentConfig
                 ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", true, history)
                 : d.aiCaptureDescription ?? "";
+              await sendTyping(phone, estimateTypingMs(question), clientId);
               await sendText(phone, question, clientId);
             });
             await step.run("log-retry-ai", () =>

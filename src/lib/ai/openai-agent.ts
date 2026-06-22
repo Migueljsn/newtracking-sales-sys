@@ -43,11 +43,19 @@ const END_CONVERSATION_TOOL = {
   },
 };
 
+const NATURAL_TONE_INSTRUCTIONS =
+  "Estilo de escrita (sempre, em qualquer mensagem que você mandar):\n" +
+  '- Escreva como uma pessoa real escreve no WhatsApp: mensagens curtas, tom leve — não como e-mail corporativo.\n' +
+  '- Evite frases feitas de atendimento formal ("antes de avançarmos", "gostaria de", "fico feliz que você tenha"). Prefira algo mais direto e simples.\n' +
+  "- Use o nome da pessoa raramente — só quando fizer sentido natural, não em toda mensagem.\n" +
+  "- Varie o tamanho das mensagens: às vezes uma reação curta já basta, não precisa sempre emendar numa pergunta completa.";
+
 function buildPersonaPrompt(config: Pick<AgentTurnConfig, "systemPrompt" | "negativePrompt">): string {
   let prompt = config.systemPrompt;
   if (config.negativePrompt?.trim()) {
     prompt += `\n\nRegras que você NUNCA deve seguir ou mencionar:\n${config.negativePrompt}`;
   }
+  prompt += `\n\n${NATURAL_TONE_INSTRUCTIONS}`;
   return prompt;
 }
 

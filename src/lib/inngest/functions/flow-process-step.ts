@@ -455,52 +455,78 @@ export const flowProcessStep = inngest.createFunction(
           }
 
           const timeout1 = `${d.timeoutValue}${unitMap[d.timeoutUnit] ?? "m"}`;
-          const reply = await step.waitForEvent(`await-ai-${nodeId}-${attempts}`, {
-            event: whatsappReplyEvent.name, match: "data.leadId", timeout: timeout1,
-          });
+          const MAX_WAITING_EXTENSIONS = 2; // quantas vezes aceita esperar em silêncio quando a lead avisou que vai responder
 
-          if (!reply) {
-            await step.run("send-timeout-msg-ai", async () => {
-              await sendText(phone, renderTemplate(d.timeoutMessage, vars), clientId);
+          let handled = false;
+          let waitExt  = 0;
+
+          while (!handled) {
+            const reply = await step.waitForEvent(`await-ai-${nodeId}-${attempts}-${waitExt}`, {
+              event: whatsappReplyEvent.name, match: "data.leadId", timeout: timeout1,
             });
-            const timeout2 = `${d.timeoutWaitValue}${unitMap[d.timeoutWaitUnit] ?? "m"}`;
-            const reply2 = await step.waitForEvent(`await-ai-recovery-${nodeId}`, {
-              event: whatsappReplyEvent.name, match: "data.leadId", timeout: timeout2,
-            });
-            if (!reply2) {
-              nodeResult = "timeout";
-              nextNodeId = getNextNodeId(edges, nodeId, "timeout");
+
+            if (!reply) {
+              // timeout de verdade (sem nenhuma resposta) → mensagem de recuperação e segunda espera
+              await step.run(`send-timeout-msg-ai-${attempts}-${waitExt}`, async () => {
+                await sendText(phone, renderTemplate(d.timeoutMessage, vars), clientId);
+              });
+              const timeout2 = `${d.timeoutWaitValue}${unitMap[d.timeoutWaitUnit] ?? "m"}`;
+              const reply2 = await step.waitForEvent(`await-ai-recovery-${nodeId}-${attempts}-${waitExt}`, {
+                event: whatsappReplyEvent.name, match: "data.leadId", timeout: timeout2,
+              });
+              if (!reply2) {
+                nodeResult = "timeout";
+                nextNodeId = getNextNodeId(edges, nodeId, "timeout");
+                handled = true;
+                break;
+              }
+              const extraction = await step.run(`extract-ai-recovery-${attempts}-${waitExt}`, async () => {
+                const agentConfig = await loadAgentConfig();
+                if (!agentConfig) return { status: "unclear" as const, value: null };
+                return extractAiAnswer(agentConfig, d.aiCaptureDescription ?? "", reply2.data.message);
+              });
+              const ok = extraction.status === "captured" && extraction.value && validateField(extraction.value, d.validation);
+              if (ok) {
+                await step.run(`save-field-ai-recovery-${attempts}-${waitExt}`, () => saveCaptured(extraction.value!));
+                nodeResult = "valid";
+                nextNodeId = getNextNodeId(edges, nodeId, "valid");
+              } else {
+                nodeResult = "invalid";
+                nextNodeId = getNextNodeId(edges, nodeId, "invalid");
+              }
+              handled = true;
               break;
             }
-            const extraction = await step.run("extract-ai-recovery", async () => {
+
+            const extraction = await step.run(`extract-ai-${nodeId}-${attempts}-${waitExt}`, async () => {
               const agentConfig = await loadAgentConfig();
-              if (!agentConfig) return { captured: false, value: null };
-              return extractAiAnswer(agentConfig, d.aiCaptureDescription ?? "", reply2.data.message);
+              if (!agentConfig) return { status: "unclear" as const, value: null };
+              return extractAiAnswer(agentConfig, d.aiCaptureDescription ?? "", reply.data.message);
             });
-            const ok = extraction.captured && extraction.value && validateField(extraction.value, d.validation);
+            const ok = extraction.status === "captured" && extraction.value && validateField(extraction.value, d.validation);
+
             if (ok) {
-              await step.run("save-field-ai-recovery", () => saveCaptured(extraction.value!));
+              await step.run(`save-field-ai-${attempts}-${waitExt}`, () => saveCaptured(extraction.value!));
               nodeResult = "valid";
               nextNodeId = getNextNodeId(edges, nodeId, "valid");
-            } else {
-              nodeResult = "invalid";
-              nextNodeId = getNextNodeId(edges, nodeId, "invalid");
+              handled = true;
+              break;
             }
+
+            // a lead avisou que vai responder ("só um momento", "vou buscar aqui") —
+            // não insiste, só espera mais um pouco em silêncio
+            if (extraction.status === "waiting" && waitExt < MAX_WAITING_EXTENSIONS) {
+              waitExt++;
+              continue;
+            }
+
+            // não capturou e não há sinal de que vai responder → conta como tentativa de fato
             break;
           }
 
-          const extraction = await step.run(`extract-ai-${nodeId}-${attempts}`, async () => {
-            const agentConfig = await loadAgentConfig();
-            if (!agentConfig) return { captured: false, value: null };
-            return extractAiAnswer(agentConfig, d.aiCaptureDescription ?? "", reply.data.message);
-          });
-          const ok = extraction.captured && extraction.value && validateField(extraction.value, d.validation);
+          if (handled) break;
 
-          if (ok) {
-            await step.run("save-field-ai", () => saveCaptured(extraction.value!));
-            nodeResult = "valid";
-            nextNodeId = getNextNodeId(edges, nodeId, "valid");
-          } else if (attempts < maxAttemptsAi) {
+          if (attempts < maxAttemptsAi) {
             await step.run("save-attempt-ai", () =>
               prisma.flowEnrollment.update({
                 where: { id: enrollmentId },

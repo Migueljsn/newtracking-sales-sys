@@ -149,32 +149,45 @@ export async function generateAiQuestion(
   return response.choices[0].message.content?.trim() || captureDescription;
 }
 
+export type AiAnswerStatus = "captured" | "waiting" | "unclear";
+
 const CAPTURE_ANSWER_TOOL = {
   type: "function" as const,
   function: {
     name: "registrar_resposta",
-    description: "Registra se o lead respondeu de forma utilizável à pergunta e qual valor foi extraído.",
+    description: "Registra o resultado da resposta do lead à pergunta feita.",
     parameters: {
       type: "object",
       properties: {
-        respondeu: { type: "boolean", description: "true se o lead deu uma resposta utilizável; false se recusou, fugiu do assunto ou não ficou claro." },
-        valor:     { type: "string", description: "O valor extraído da resposta (ex: o CNPJ informado, ou 'sim'/'não'). Vazio se respondeu=false." },
+        status: {
+          type: "string",
+          enum: ["captured", "waiting", "unclear"],
+          description:
+            "'captured' se o lead já passou um valor utilizável. " +
+            "'waiting' se o lead NÃO respondeu ainda mas deu sinal de que vai responder em breve (ex: 'só um momento', 'vou buscar aqui', 'posso sim, espera') — NÃO conte isso como recusa. " +
+            "'unclear' se o lead recusou, ignorou a pergunta, mudou de assunto, ou não há nenhum sinal de que vai responder.",
+        },
+        valor: { type: "string", description: "O valor extraído da resposta. Só preencher quando status='captured'." },
       },
-      required: ["respondeu"],
+      required: ["status"],
     },
   },
 };
 
 /**
- * Extrai, via tool calling, o valor que o lead informou em resposta a uma
- * "Pergunta IA". Não decide validade de formato — isso é responsabilidade
- * do validador determinístico (validateField) aplicado sobre o valor extraído.
+ * Extrai, via tool calling, o resultado da resposta do lead a uma "Pergunta
+ * IA". Distingue "ainda não respondeu mas vai responder" (não deve gerar
+ * insistência) de "não ficou claro" (aí sim vale reformular e perguntar de
+ * novo) — sem essa distinção a IA insiste mesmo quando o lead já avisou que
+ * ia mandar o dado, o que é o maior sinal de "isso é um robô".
+ * Não decide validade de formato — isso é responsabilidade do validador
+ * determinístico (validateField) aplicado sobre o valor extraído.
  */
 export async function extractAiAnswer(
   config: PersonaConfig,
   captureDescription: string,
   leadReply: string
-): Promise<{ captured: boolean; value: string | null }> {
+): Promise<{ status: AiAnswerStatus; value: string | null }> {
   const openai = getClient();
   const response = await openai.chat.completions.create({
     model: config.model,
@@ -193,7 +206,8 @@ export async function extractAiAnswer(
   const toolCall = response.choices[0].message.tool_calls?.[0];
   if (toolCall?.type === "function") {
     const args = JSON.parse(toolCall.function.arguments || "{}");
-    return { captured: !!args.respondeu, value: args.valor || null };
+    const status: AiAnswerStatus = args.status === "captured" || args.status === "waiting" ? args.status : "unclear";
+    return { status, value: args.valor || null };
   }
-  return { captured: false, value: null };
+  return { status: "unclear", value: null };
 }

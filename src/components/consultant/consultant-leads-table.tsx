@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { WhatsAppButton } from "@/components/leads/whatsapp-button";
 import { AdvancedFiltersPanel } from "@/components/leads/advanced-filters-panel";
 import { evaluateGroup } from "@/lib/audiences/evaluate";
@@ -1100,7 +1101,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Valor (R$) *</label>
-                    <input type="number" min="0" step="0.01" value={saleValue} onChange={e => setSaleValue(e.target.value)} placeholder="0,00" className="input w-full" />
+                    <CurrencyInput value={saleValue} onValueChange={setSaleValue} className="input w-full" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Data da venda</label>

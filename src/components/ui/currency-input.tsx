@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 interface Props {
-  name: string;
+  name?: string;
   required?: boolean;
   className?: string;
   defaultValue?: number;
+  value?: string;
+  onValueChange?: (value: string) => void;
 }
 
 function formatDisplay(cents: number): string {
@@ -17,15 +19,25 @@ function formatDisplay(cents: number): string {
   });
 }
 
-export function CurrencyInput({ name, required, className, defaultValue }: Props) {
-  const [cents, setCents] = useState(() =>
-    defaultValue && defaultValue > 0 ? Math.round(defaultValue * 100) : 0
-  );
+function toCents(value: number | undefined): number {
+  return value && value > 0 ? Math.round(value * 100) : 0;
+}
+
+export function CurrencyInput({ name, required, className, defaultValue, value, onValueChange }: Props) {
+  const isControlled = value !== undefined;
+  const [internalCents, setInternalCents] = useState(() => toCents(defaultValue));
+
+  const cents = isControlled ? toCents(parseFloat(value || "0")) : internalCents;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const digits = e.target.value.replace(/\D/g, "");
     const num    = digits ? parseInt(digits, 10) : 0;
-    setCents(num);
+    const next   = num > 0 ? String(num / 100) : "";
+    if (isControlled) {
+      onValueChange?.(next);
+    } else {
+      setInternalCents(num);
+    }
   }
 
   const display      = formatDisplay(cents);
@@ -48,7 +60,7 @@ export function CurrencyInput({ name, required, className, defaultValue }: Props
         className={className}
         style={cents > 0 ? { paddingLeft: "2.75rem" } : undefined}
       />
-      <input type="hidden" name={name} value={numericValue} />
+      {name && <input type="hidden" name={name} value={numericValue} />}
     </div>
   );
 }

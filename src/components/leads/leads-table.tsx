@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ImportUploader } from "@/components/import/import-uploader";
 import { Spinner } from "@/components/ui/spinner";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
@@ -1331,15 +1332,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                   {/* Valor */}
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Valor (R$) *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={saleValue}
-                      onChange={e => setSaleValue(e.target.value)}
-                      placeholder="0,00"
-                      className="input w-full"
-                    />
+                    <CurrencyInput value={saleValue} onValueChange={setSaleValue} className="input w-full" />
                   </div>
 
                   {/* Data */}

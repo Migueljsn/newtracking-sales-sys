@@ -7,6 +7,7 @@ import {
   Plus, Minus, CheckSquare, Square, ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import {
   consultantRegisterSaleAction,
   consultantMoveToStageWithChecklistAction,
@@ -271,11 +272,7 @@ export function ConsultantLeadDetailActions({ lead, pipelineStages }: Props) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Valor (R$) *</label>
-                  <input
-                    type="number" min="0" step="0.01"
-                    value={saleValue} onChange={e => setSaleValue(e.target.value)}
-                    placeholder="0,00" className="input w-full"
-                  />
+                  <CurrencyInput value={saleValue} onValueChange={setSaleValue} className="input w-full" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Data da venda</label>

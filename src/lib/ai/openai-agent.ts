@@ -140,7 +140,7 @@ export async function generateAiQuestion(
     messages: [
       {
         role: "system",
-        content: `${buildPersonaPrompt(config)}\n\nVocê está no meio de uma conversa com o lead pelo WhatsApp (histórico abaixo, se houver). Agora você precisa descobrir: "${captureDescription}".\n\n${instruction} Não repita cumprimentos, perguntas ou frases que você já usou nesta conversa. Nunca use menus numerados (ex: "responda 1 para sim") nem se refira a botões. Responda APENAS com a pergunta a ser enviada agora, sem aspas, sem comentário.`,
+        content: `${buildPersonaPrompt(config)}\n\nVocê está no meio de uma conversa com o lead pelo WhatsApp (histórico abaixo, se houver). Agora você precisa descobrir: "${captureDescription}".\n\n${instruction} Não repita cumprimentos, perguntas ou frases que você já usou nesta conversa. Nunca use menus numerados (ex: "responda 1 para sim") nem se refira a botões.\n\nREGRA OBRIGATÓRIA: sua mensagem PRECISA conter, de forma clara, o pedido por essa informação — mesmo que você também responda brevemente a algo que o lead disse antes (uma saudação, uma pergunta de volta, etc). Nunca envie uma mensagem que só converse e deixe de fazer o pedido. Responda APENAS com a mensagem a ser enviada agora, sem aspas, sem comentário.`,
       },
       ...history,
     ],

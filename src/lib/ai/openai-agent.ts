@@ -126,7 +126,8 @@ type PersonaConfig = Pick<AgentTurnConfig, "systemPrompt" | "negativePrompt" | "
 export async function generateAiQuestion(
   config: PersonaConfig,
   captureDescription: string,
-  isRetry: boolean
+  isRetry: boolean,
+  history: AgentHistoryMessage[] = []
 ): Promise<string> {
   const openai = getClient();
   const instruction = isRetry
@@ -137,11 +138,11 @@ export async function generateAiQuestion(
     model: config.model,
     temperature: config.temperature,
     messages: [
-      { role: "system", content: buildPersonaPrompt(config) },
       {
-        role: "user",
-        content: `O que você precisa descobrir do lead agora: "${captureDescription}".\n\n${instruction} Nunca use menus numerados (ex: "responda 1 para sim") nem se refira a botões. Responda APENAS com a pergunta a ser enviada, sem aspas, sem comentário.`,
+        role: "system",
+        content: `${buildPersonaPrompt(config)}\n\nVocê está no meio de uma conversa com o lead pelo WhatsApp (histórico abaixo, se houver). Agora você precisa descobrir: "${captureDescription}".\n\n${instruction} Não repita cumprimentos, perguntas ou frases que você já usou nesta conversa. Nunca use menus numerados (ex: "responda 1 para sim") nem se refira a botões. Responda APENAS com a pergunta a ser enviada agora, sem aspas, sem comentário.`,
       },
+      ...history,
     ],
   });
 

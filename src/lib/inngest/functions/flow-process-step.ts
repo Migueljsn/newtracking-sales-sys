@@ -334,6 +334,21 @@ export const flowProcessStep = inngest.createFunction(
 
     const ctx = enrollment.context as Record<string, unknown>;
 
+    // Histórico recente desta execução de fluxo — passado pros nós de IA
+    // (Pergunta IA) pra evitar repetir cumprimentos/perguntas já feitas
+    // em nós anteriores do mesmo flow.
+    async function loadFlowConversationHistory(): Promise<{ role: "user" | "assistant"; content: string }[]> {
+      const interactions = await prisma.leadInteraction.findMany({
+        where:   { leadId, type: { in: ["WHATSAPP", "WHATSAPP_INBOUND"] }, createdAt: { gte: enrollment.startedAt } },
+        orderBy: { createdAt: "desc" },
+        take:    12,
+      });
+      return interactions.reverse().map((i) => ({
+        role:    i.type === "WHATSAPP_INBOUND" ? ("user" as const) : ("assistant" as const),
+        content: i.content,
+      }));
+    }
+
     let nextNodeId: string | null = null;
     let nodeResult = "advanced";
 
@@ -431,8 +446,9 @@ export const flowProcessStep = inngest.createFunction(
           if (attempts === 0) {
             await step.run("send-ai-question", async () => {
               const agentConfig = await loadAgentConfig();
+              const history = await loadFlowConversationHistory();
               const question = agentConfig
-                ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", false)
+                ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", false, history)
                 : d.aiCaptureDescription ?? "";
               await sendText(phone, question, clientId);
             });
@@ -493,8 +509,9 @@ export const flowProcessStep = inngest.createFunction(
             );
             await step.run("send-retry-ai", async () => {
               const agentConfig = await loadAgentConfig();
+              const history = await loadFlowConversationHistory();
               const question = agentConfig
-                ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", true)
+                ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", true, history)
                 : d.aiCaptureDescription ?? "";
               await sendText(phone, question, clientId);
             });

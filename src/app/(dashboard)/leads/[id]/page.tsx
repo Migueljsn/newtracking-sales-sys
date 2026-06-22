@@ -21,6 +21,7 @@ import { ResendEventButton } from "@/components/leads/resend-event-button";
 import { HintTooltip } from "@/components/ui/hint-tooltip";
 import { LeadInteractions } from "@/components/leads/lead-interactions";
 import { AutomationPauseToggle } from "@/components/leads/automation-pause-toggle";
+import { AiAgentButton } from "@/components/leads/ai-agent-button";
 
 const trackingStatusLabel: Record<string, string> = {
   PENDING: "Pendente",
@@ -40,7 +41,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const session = await getSession();
 
-  const [lead, clientSettings, pipelineStages] = await Promise.all([
+  const [lead, clientSettings, pipelineStages, activeAgents, activeAgentSession] = await Promise.all([
     fetchLeadDetail(id, session.clientId!),
     prisma.clientSettings.findUnique({
       where:  { clientId: session.clientId! },
@@ -50,6 +51,15 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       where:   { clientId: session.clientId! },
       orderBy: { position: "asc" },
       select:  { id: true, name: true, color: true },
+    }),
+    prisma.aiAgent.findMany({
+      where:   { clientId: session.clientId!, isActive: true },
+      orderBy: { name: "asc" },
+      select:  { id: true, name: true },
+    }),
+    prisma.aiAgentSession.findFirst({
+      where:  { leadId: id, status: "ACTIVE" },
+      select: { agent: { select: { name: true } } },
     }),
   ]);
 
@@ -127,6 +137,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 customerEmail={customer.email}
                 customerDocument={customer.document}
                 customerZipCode={customer.zipCode}
+              />
+              <AiAgentButton
+                leadId={lead.id}
+                agents={activeAgents}
+                activeSession={activeAgentSession ? { agentName: activeAgentSession.agent.name } : null}
               />
             </>
           )}

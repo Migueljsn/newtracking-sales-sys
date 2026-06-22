@@ -9,6 +9,7 @@ import { scheduleTimeBasedChecks }     from "@/lib/inngest/functions/schedule-ti
 import { flowProcessStep, flowEnroll } from "@/lib/inngest/functions/flow-process-step";
 import { flowCheckEnrollment }         from "@/lib/inngest/functions/flow-check-enrollment";
 import { flowEnrollAll }               from "@/lib/inngest/functions/flow-enroll-all";
+import { aiAgentStep }                 from "@/lib/inngest/functions/ai-agent-step";
 
 export const { GET, POST, PUT } = serve({
   client:    inngest,
@@ -23,5 +24,6 @@ export const { GET, POST, PUT } = serve({
     flowEnroll,
     flowCheckEnrollment,
     flowEnrollAll,
+    aiAgentStep,
   ],
 });

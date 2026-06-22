@@ -11,7 +11,7 @@ import { prisma } from "@/lib/db/prisma";
 import { invalidate, cacheKeys } from "@/lib/cache/invalidate";
 import { normalizePhone, normalizeDocument, normalizeEmail, normalizeState } from "@/lib/utils/normalize";
 import { inngest } from "@/lib/inngest/client";
-import { leadChangedEvent } from "@/lib/inngest/events";
+import { leadChangedEvent, aiAgentStepEvent } from "@/lib/inngest/events";
 
 function fireLeadChanged(leadId: string, clientId: string) {
   after(() => inngest.send(leadChangedEvent.create({ leadId, clientId })));
@@ -413,4 +413,27 @@ export async function deleteSaleAction(saleId: string) {
   revalidatePath("/leads");
   revalidatePath("/sales");
   revalidatePath("/");
+}
+
+export async function startAiAgentAction(leadId: string, agentId: string) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId, clientId } });
+  const agent = await prisma.aiAgent.findUniqueOrThrow({ where: { id: agentId, clientId, isActive: true } });
+
+  const existing = await prisma.aiAgentSession.findFirst({
+    where: { leadId: lead.id, status: "ACTIVE" },
+  });
+  if (existing) throw new Error("Já existe um agente IA ativo para esta lead");
+
+  const newSession = await prisma.aiAgentSession.create({
+    data: { agentId: agent.id, leadId: lead.id, clientId },
+  });
+
+  await inngest.send(
+    aiAgentStepEvent.create({ sessionId: newSession.id, leadId: lead.id, clientId })
+  );
+
+  revalidatePath(`/leads/${leadId}`);
 }

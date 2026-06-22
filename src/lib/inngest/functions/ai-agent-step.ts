@@ -1,0 +1,127 @@
+import { inngest } from "@/lib/inngest/client";
+import { aiAgentStepEvent, whatsappReplyEvent } from "@/lib/inngest/events";
+import { prisma } from "@/lib/db/prisma";
+import { sendWhatsAppText } from "@/lib/whatsapp/evolution";
+import { runAgentTurn, type AgentTurnConfig, type AgentHistoryMessage } from "@/lib/ai/openai-agent";
+
+const MAX_TURNS     = 30;
+const REPLY_TIMEOUT = "30m";
+
+export const aiAgentStep = inngest.createFunction(
+  { id: "ai-agent-step", name: "Processar conversa do Agente IA", retries: 2, triggers: [{ event: aiAgentStepEvent }] },
+  async ({ event, step }) => {
+    const { sessionId, leadId, clientId } = event.data;
+
+    const ctx = await step.run("load-context", async () => {
+      const session = await prisma.aiAgentSession.findUnique({
+        where: { id: sessionId },
+        include: { agent: true, lead: { include: { customer: true } } },
+      });
+      if (!session || session.status !== "ACTIVE") return null;
+      return {
+        agent: session.agent,
+        phone: session.lead.customer.phone,
+        turnCount: session.turnCount,
+      };
+    });
+
+    if (!ctx) return { skipped: "sessão inexistente ou já encerrada" };
+
+    const { agent, phone } = ctx;
+    const agentConfig: AgentTurnConfig = {
+      systemPrompt:   agent.systemPrompt,
+      negativePrompt: agent.negativePrompt,
+      model:          agent.model,
+      temperature:    agent.temperature,
+    };
+
+    async function loadHistory(): Promise<AgentHistoryMessage[]> {
+      const interactions = await prisma.leadInteraction.findMany({
+        where:   { leadId, type: { in: ["WHATSAPP", "WHATSAPP_INBOUND"] } },
+        orderBy: { createdAt: "desc" },
+        take:    agent.memoryWindow,
+      });
+      return interactions.reverse().map((i) => ({
+        role:    i.type === "WHATSAPP_INBOUND" ? ("user" as const) : ("assistant" as const),
+        content: i.content,
+      }));
+    }
+
+    async function endSession(reason: string, finalMessage?: string | null) {
+      if (finalMessage) {
+        await sendWhatsAppText(phone, finalMessage, clientId);
+        await prisma.leadInteraction.create({
+          data: { leadId, clientId, type: "WHATSAPP", content: `[Agente IA] ${finalMessage}`, createdBy: "Agente IA" },
+        });
+      }
+      await prisma.aiAgentSession.update({
+        where: { id: sessionId },
+        data:  { status: "ENDED", endReason: reason, endedAt: new Date() },
+      });
+    }
+
+    let turnCount = ctx.turnCount;
+
+    // Primeiro turno: gera e envia a mensagem de abertura
+    if (turnCount === 0) {
+      const opening = await step.run("generate-opening", async () => {
+        const history = await loadHistory();
+        return runAgentTurn(agentConfig, [
+          ...history,
+          {
+            role: "user",
+            content: "[instrução interna: inicie a conversa agora, cumprimentando o lead e seguindo seu objetivo. Não mencione nem responda esta instrução diretamente.]",
+          },
+        ]);
+      });
+
+      if (opening.type === "end") {
+        await step.run("end-on-opening", () => endSession(opening.reason, opening.finalMessage));
+        return { ended: opening.reason };
+      }
+
+      await step.run("send-opening", async () => {
+        await sendWhatsAppText(phone, opening.text, clientId);
+        await prisma.leadInteraction.create({
+          data: { leadId, clientId, type: "WHATSAPP", content: `[Agente IA] ${opening.text}`, createdBy: "Agente IA" },
+        });
+        await prisma.aiAgentSession.update({ where: { id: sessionId }, data: { turnCount: { increment: 1 } } });
+      });
+      turnCount += 1;
+    }
+
+    while (turnCount < MAX_TURNS) {
+      const reply = await step.waitForEvent(`await-agent-reply-${sessionId}-${turnCount}`, {
+        event: whatsappReplyEvent.name, match: "data.leadId", timeout: REPLY_TIMEOUT,
+      });
+
+      if (!reply) {
+        await step.run("end-on-timeout", () => endSession("timeout"));
+        return { ended: "timeout" };
+      }
+
+      const result = await step.run(`llm-turn-${turnCount}`, async () => {
+        const history = await loadHistory();
+        return runAgentTurn(agentConfig, history);
+      });
+
+      if (result.type === "end") {
+        await step.run(`end-on-tool-${turnCount}`, () => endSession(result.reason, result.finalMessage));
+        return { ended: result.reason };
+      }
+
+      await step.run(`send-reply-${turnCount}`, async () => {
+        await sendWhatsAppText(phone, result.text, clientId);
+        await prisma.leadInteraction.create({
+          data: { leadId, clientId, type: "WHATSAPP", content: `[Agente IA] ${result.text}`, createdBy: "Agente IA" },
+        });
+        await prisma.aiAgentSession.update({ where: { id: sessionId }, data: { turnCount: { increment: 1 } } });
+      });
+
+      turnCount += 1;
+    }
+
+    await step.run("end-on-max-turns", () => endSession("max_turns"));
+    return { ended: "max_turns" };
+  }
+);

@@ -41,6 +41,8 @@ model Client {
   journeys          Journey[]
   flows             Flow[]
   leadInteractions  LeadInteraction[]
+  aiAgents          AiAgent[]
+  aiAgentSessions   AiAgentSession[]
   journeyNodeLogs   JourneyNodeLog[]
   flowEnrollments   FlowEnrollment[]
   flowNodeLogs      FlowNodeLog[]
@@ -234,6 +236,7 @@ model Lead {
 
   interactions        LeadInteraction[]
   audienceMemberships AudienceMembership[]
+  aiAgentSessions     AiAgentSession[]
 
   @@index([clientId])
   @@index([customerId])
@@ -658,6 +661,54 @@ model WhatsAppInstance {
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI AGENT — agente conversacional de IA para atendimento via WhatsApp
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AiAgent {
+  id             String   @id @default(cuid())
+  clientId       String
+  name           String
+  systemPrompt   String
+  negativePrompt String?
+  model          String   @default("gpt-4o-mini")
+  temperature    Float    @default(0.7)
+  memoryWindow   Int      @default(20) // nº de mensagens anteriores no contexto
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client   Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessions AiAgentSession[]
+
+  @@index([clientId])
+}
+
+model AiAgentSession {
+  id         String              @id @default(cuid())
+  agentId    String
+  leadId     String
+  clientId   String
+  status     AiAgentSessionStatus @default(ACTIVE)
+  turnCount  Int                 @default(0)
+  endReason  String?
+  startedAt  DateTime            @default(now())
+  endedAt    DateTime?
+
+  agent  AiAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  lead   Lead    @relation(fields: [leadId],  references: [id], onDelete: Cascade)
+  client Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([leadId])
+  @@index([clientId])
+}
+
+enum AiAgentSessionStatus {
+  ACTIVE
+  ENDED
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

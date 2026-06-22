@@ -43,3 +43,7 @@ export const flowEnrollEvent = eventType("flow/enroll", {
 export const flowEnrollAllEvent = eventType("flow/enroll-all", {
   schema: staticSchema<{ flowId: string; clientId: string }>(),
 });
+
+export const aiAgentStepEvent = eventType("ai-agent/step", {
+  schema: staticSchema<{ sessionId: string; leadId: string; clientId: string }>(),
+});

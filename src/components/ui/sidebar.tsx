@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Filter, LayoutDashboard, LogOut, Menu, MessageSquareMore, Settings, ShoppingBag, Users, X, Zap } from "lucide-react";
+import { Bell, Bot, Filter, LayoutDashboard, LogOut, Menu, MessageSquareMore, Settings, ShoppingBag, Users, X, Zap } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { signOutAction } from "@/lib/auth/actions";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ const nav = [
   { href: "/publicos",      label: "Públicos",      icon: Filter,           badge: false },
   { href: "/journeys",      label: "Jornadas",      icon: Zap,              badge: false },
   { href: "/flows",         label: "Fluxos",        icon: MessageSquareMore, badge: false },
+  { href: "/agents",        label: "Agentes IA",    icon: Bot,              badge: false },
   { href: "/notifications", label: "Notificações",  icon: Bell,             badge: true  },
   { href: "/settings",      label: "Configurações", icon: Settings,         badge: false },
 ];

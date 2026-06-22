@@ -10,6 +10,7 @@ export type FlowNodeType =
   | "addToAudience"
   | "startFlow"
   | "wait"
+  | "activateAgent"
 
 // ── Trigger ──────────────────────────────────────────────────────────────────
 
@@ -136,6 +137,13 @@ export type FlowWaitData = {
   datetime: string | null // ISO local: "2026-06-18T21:00" (modo datetime)
 }
 
+// ── Activate Agent (ativa o Agente autônomo) ─────────────────────────────────
+
+export type FlowActivateAgentData = {
+  agentId:   string | null
+  agentName: string | null
+}
+
 // ── Union ─────────────────────────────────────────────────────────────────────
 
 export type FlowNodeData =
@@ -148,6 +156,7 @@ export type FlowNodeData =
   | FlowAddToAudienceData
   | FlowStartFlowData
   | FlowWaitData
+  | FlowActivateAgentData
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -224,5 +233,12 @@ export const FLOW_NODE_DEFS: FlowNodeDef[] = [
     description: "Pausa o fluxo por uma duração ou até uma data/hora",
     color:       "#f59e0b",
     defaultData: { mode: "duration", value: 1, unit: "hours", datetime: null },
+  },
+  {
+    type:        "activateAgent",
+    label:       "Ativar Agente",
+    description: "Aciona um Agente IA pra conduzir a conversa de forma autônoma",
+    color:       "#22d3ee",
+    defaultData: { agentId: null, agentName: null },
   },
 ]

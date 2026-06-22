@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { RuleGroupEditor } from "@/components/ltv/rule-group-editor";
+import { ExitActionPicker } from "./exit-action-picker";
 import type { AgentExitRule, AgentExitAction } from "@/lib/agents/types";
 import type { RuleGroup } from "@/lib/audiences/types";
 
@@ -21,12 +22,6 @@ export function ExitRuleCard({ rule, onChange, onRemove, pipelineStages }: ExitR
 
   function setAction(action: AgentExitAction) {
     onChange({ ...rule, action });
-  }
-
-  function handleActionTypeChange(type: AgentExitAction["type"]) {
-    if (type === "end_with_message") setAction({ type, message: "" });
-    else if (type === "move_stage_and_end") setAction({ type, stageId: pipelineStages[0]?.id ?? "", message: "" });
-    else setAction({ type: "end_silent" });
   }
 
   return (
@@ -52,50 +47,7 @@ export function ExitRuleCard({ rule, onChange, onRemove, pipelineStages }: ExitR
         <RuleGroupEditor group={rule.rules} onChange={setRules} depth={0} pipelineStages={pipelineStages} />
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-[var(--text-muted)]">Então:</p>
-        <select
-          value={rule.action.type}
-          onChange={(e) => handleActionTypeChange(e.target.value as AgentExitAction["type"])}
-          className="input w-full"
-        >
-          <option value="end_with_message">Encerrar a conversa com uma mensagem</option>
-          <option value="move_stage_and_end">Mover lead para outra etapa e encerrar</option>
-          <option value="end_silent">Encerrar a conversa sem enviar mensagem</option>
-        </select>
-
-        {rule.action.type === "end_with_message" && (
-          <textarea
-            value={rule.action.message}
-            onChange={(e) => setAction({ type: "end_with_message", message: e.target.value })}
-            rows={2}
-            placeholder="Mensagem de encerramento enviada ao lead..."
-            className="input w-full resize-none"
-          />
-        )}
-
-        {rule.action.type === "move_stage_and_end" && (
-          <div className="space-y-2">
-            <select
-              value={rule.action.stageId}
-              onChange={(e) => setAction({ type: "move_stage_and_end", stageId: e.target.value, message: rule.action.type === "move_stage_and_end" ? rule.action.message : "" })}
-              className="input w-full"
-            >
-              {pipelineStages.length === 0 && <option value="">Nenhuma etapa cadastrada</option>}
-              {pipelineStages.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <textarea
-              value={rule.action.message ?? ""}
-              onChange={(e) => setAction({ type: "move_stage_and_end", stageId: rule.action.type === "move_stage_and_end" ? rule.action.stageId : "", message: e.target.value })}
-              rows={2}
-              placeholder="Mensagem de encerramento (opcional)..."
-              className="input w-full resize-none"
-            />
-          </div>
-        )}
-      </div>
+      <ExitActionPicker action={rule.action} onChange={setAction} pipelineStages={pipelineStages} />
     </div>
   );
 }

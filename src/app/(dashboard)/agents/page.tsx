@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { getSession } from "@/lib/auth/session";
 import { prisma }     from "@/lib/db/prisma";
 import { AgentsTab }  from "@/components/agents/agents-tab";
-import { parseExitRules } from "@/lib/agents/types";
+import { parseExitRules, parseObjectives, parseCompletionAction } from "@/lib/agents/types";
 
 export default async function AgentsPage() {
   const session  = await getSession();
@@ -18,7 +18,12 @@ export default async function AgentsPage() {
     }),
   ]);
 
-  const agents = rawAgents.map((a) => ({ ...a, exitRules: parseExitRules(a.exitRules) }));
+  const agents = rawAgents.map((a) => ({
+    ...a,
+    exitRules:        parseExitRules(a.exitRules),
+    objectives:       parseObjectives(a.objectives),
+    completionAction: parseCompletionAction(a.completionAction),
+  }));
 
   return (
     <div className="space-y-6">

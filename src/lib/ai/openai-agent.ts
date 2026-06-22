@@ -65,36 +65,85 @@ function buildSystemPrompt(config: AgentTurnConfig): string {
   return prompt;
 }
 
+export interface AgentToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export type AgentToolCallResult = { content: string };
+
+export interface RunAgentTurnOptions {
+  /** Ferramentas extras além de "encerrar_conversa" (ex: capturar_dado). */
+  tools?: AgentToolDef[];
+  /** Executa uma chamada de ferramenta e retorna o resultado a ser devolvido ao modelo. */
+  onToolCall?: (name: string, args: Record<string, unknown>) => Promise<AgentToolCallResult>;
+}
+
+/**
+ * Conduz um turno do agente autônomo. Suporta tool calling dinâmico — o
+ * modelo pode chamar uma ou mais ferramentas (em paralelo, em qualquer
+ * ordem) antes de produzir a resposta final ao lead, num loop limitado de
+ * rodadas. Isso permite capturar múltiplos dados numa única mensagem da
+ * lead, em qualquer ordem — em vez de uma pergunta fixa por vez.
+ */
 export async function runAgentTurn(
   config: AgentTurnConfig,
-  history: AgentHistoryMessage[]
+  history: AgentHistoryMessage[],
+  options?: RunAgentTurnOptions
 ): Promise<AgentTurnResult> {
   const openai = getClient();
 
-  const response = await openai.chat.completions.create({
-    model: config.model,
-    temperature: config.temperature,
-    messages: [
-      { role: "system", content: buildSystemPrompt(config) },
-      ...history,
-    ],
-    tools: [END_CONVERSATION_TOOL],
-    tool_choice: "auto",
-  });
+  const tools = [
+    ...(options?.tools ?? []).map((t) => ({
+      type: "function" as const,
+      function: { name: t.name, description: t.description, parameters: t.parameters },
+    })),
+    END_CONVERSATION_TOOL,
+  ];
 
-  const choice = response.choices[0];
-  const toolCall = choice.message.tool_calls?.[0];
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: "system", content: buildSystemPrompt(config) },
+    ...history,
+  ];
 
-  if (toolCall?.type === "function" && toolCall.function.name === "encerrar_conversa") {
-    const args = JSON.parse(toolCall.function.arguments || "{}");
-    return {
-      type: "end",
-      reason: args.motivo || "concluído",
-      finalMessage: args.mensagem_final || null,
-    };
+  const MAX_ROUNDS = 4;
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const response = await openai.chat.completions.create({
+      model: config.model,
+      temperature: config.temperature,
+      messages,
+      tools,
+      tool_choice: "auto",
+    });
+
+    const choice = response.choices[0];
+    const toolCalls = choice.message.tool_calls ?? [];
+
+    if (toolCalls.length === 0) {
+      return { type: "reply", text: choice.message.content?.trim() || "..." };
+    }
+
+    const endCall = toolCalls.find((tc) => tc.type === "function" && tc.function.name === "encerrar_conversa");
+    if (endCall?.type === "function") {
+      const args = JSON.parse(endCall.function.arguments || "{}");
+      return { type: "end", reason: args.motivo || "concluído", finalMessage: args.mensagem_final || null };
+    }
+
+    messages.push(choice.message);
+    for (const tc of toolCalls) {
+      if (tc.type !== "function") continue;
+      let result: AgentToolCallResult = { content: "ok" };
+      if (options?.onToolCall) {
+        const args = JSON.parse(tc.function.arguments || "{}");
+        result = await options.onToolCall(tc.function.name, args);
+      }
+      messages.push({ role: "tool", tool_call_id: tc.id, content: result.content });
+    }
   }
 
-  return { type: "reply", text: choice.message.content?.trim() || "..." };
+  // esgotou as rodadas sem produzir texto final — fallback simples
+  return { type: "reply", text: "Só um momento, já te respondo!" };
 }
 
 /**

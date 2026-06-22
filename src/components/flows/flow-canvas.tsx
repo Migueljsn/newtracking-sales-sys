@@ -12,7 +12,7 @@ import {
   Zap, MessageCircle, HelpCircle, GitBranch, ArrowRightLeft,
   UserCheck, UserPlus, ExternalLink, Save, Loader2,
   Play, Pause, ChevronLeft, Copy, Trash2, RotateCcw, RotateCw,
-  Pencil, Check, X, MousePointer2, Hand, Clock,
+  Pencil, Check, X, MousePointer2, Hand, Clock, Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -50,6 +50,7 @@ const ICON_MAP: Record<FlowNodeType, React.ReactNode> = {
   addToAudience: <UserPlus      size={13} />,
   startFlow:     <ExternalLink  size={13} />,
   wait:          <Clock         size={13} />,
+  activateAgent: <Bot           size={13} />,
 };
 
 type Snapshot    = { nodes: Node[]; edges: Edge[] }
@@ -65,6 +66,7 @@ const NODE_COLORS: Record<string, string> = {
   addToAudience: "#a855f7",
   startFlow:     "#ec4899",
   wait:          "#f59e0b",
+  activateAgent: "#22d3ee",
 };
 
 function AutoFitView() {

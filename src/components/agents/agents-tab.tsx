@@ -8,21 +8,23 @@ import {
   deleteAiAgentAction,
 } from "@/app/(dashboard)/agents/actions";
 import { AgentForm } from "./agent-form";
-import type { AgentExitRule } from "@/lib/agents/types";
+import type { AgentExitRule, AgentObjective, AgentExitAction } from "@/lib/agents/types";
 
 type PipelineStage = { id: string; name: string };
 
 type AgentRow = {
-  id:             string;
-  name:           string;
-  systemPrompt:   string;
-  negativePrompt: string | null;
-  model:          string;
-  temperature:    number;
-  memoryWindow:   number;
-  exitRules:      AgentExitRule[];
-  isActive:       boolean;
-  createdAt:      Date;
+  id:               string;
+  name:             string;
+  systemPrompt:     string;
+  negativePrompt:   string | null;
+  model:            string;
+  temperature:      number;
+  memoryWindow:     number;
+  exitRules:        AgentExitRule[];
+  objectives:       AgentObjective[];
+  completionAction: AgentExitAction | null;
+  isActive:         boolean;
+  createdAt:        Date;
 };
 
 type View = "list" | "new" | { edit: AgentRow };
@@ -96,6 +98,7 @@ export function AgentsTab({ agents, pipelineStages }: { agents: AgentRow[]; pipe
                   <p className="font-semibold text-[var(--text)] truncate">{agent.name}</p>
                   <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     {agent.model} · memória: {agent.memoryWindow} msgs · temp: {agent.temperature}
+                    {agent.objectives.length > 0 && <> · {agent.objectives.length} objetivo{agent.objectives.length !== 1 ? "s" : ""}</>}
                     {agent.exitRules.length > 0 && <> · {agent.exitRules.length} regra{agent.exitRules.length !== 1 ? "s" : ""} de saída</>}
                   </p>
                 </div>

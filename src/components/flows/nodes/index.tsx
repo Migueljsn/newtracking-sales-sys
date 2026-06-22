@@ -5,13 +5,13 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import {
   Zap, HelpCircle, GitBranch,
   ArrowRightLeft, UserCheck, UserPlus, ExternalLink,
-  FileText, Image, FileArchive, Type, MousePointerClick, Clock, Sparkles,
+  FileText, Image, FileArchive, Type, MousePointerClick, Clock, Sparkles, Bot,
 } from "lucide-react";
 import { BaseNode } from "@/components/journeys/nodes/base-node";
 import type {
   FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
-  FlowAddToAudienceData, FlowStartFlowData, FlowWaitData,
+  FlowAddToAudienceData, FlowStartFlowData, FlowWaitData, FlowActivateAgentData,
 } from "@/lib/flows/types";
 import { FIELD_DEFS } from "@/lib/audiences/fields";
 
@@ -220,6 +220,15 @@ export function FlowStartFlowNode({ data, selected }: NodeProps) {
   );
 }
 
+// ── Activate Agent ───────────────────────────────────────────────────────────
+export function FlowActivateAgentNode({ data, selected }: NodeProps) {
+  const d = data as unknown as FlowActivateAgentData;
+  return (
+    <BaseNode label="Ativar Agente" color="#22d3ee" icon={<Bot size={13} />}
+      summary={d.agentName ?? "Agente não selecionado"} selected={!!selected} hasOutput={false} horizontal />
+  );
+}
+
 // ── Wait ──────────────────────────────────────────────────────────────────────
 export function FlowWaitNode({ data, selected }: NodeProps) {
   const d = data as unknown as FlowWaitData;
@@ -253,4 +262,5 @@ export const flowNodeTypes = {
   addToAudience: FlowAddToAudienceNode,
   startFlow:     FlowStartFlowNode,
   wait:          FlowWaitNode,
+  activateAgent: FlowActivateAgentNode,
 };

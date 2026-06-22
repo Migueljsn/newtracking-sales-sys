@@ -5,18 +5,25 @@ import { Plus, Info } from "lucide-react";
 import { toast } from "sonner";
 import { createAiAgentAction, updateAiAgentAction } from "@/app/(dashboard)/agents/actions";
 import { ExitRuleCard } from "./exit-rule-card";
-import { emptyExitRule, type AgentExitRule } from "@/lib/agents/types";
+import { ObjectiveCard } from "./objective-card";
+import { ExitActionPicker } from "./exit-action-picker";
+import {
+  emptyExitRule, emptyObjective,
+  type AgentExitRule, type AgentObjective, type AgentExitAction,
+} from "@/lib/agents/types";
 
 type PipelineStage = { id: string; name: string };
 
 type AgentRow = {
-  id:             string;
-  name:           string;
-  systemPrompt:   string;
-  negativePrompt: string | null;
-  temperature:    number;
-  memoryWindow:   number;
-  exitRules:      AgentExitRule[];
+  id:               string;
+  name:             string;
+  systemPrompt:     string;
+  negativePrompt:   string | null;
+  temperature:      number;
+  memoryWindow:     number;
+  exitRules:        AgentExitRule[];
+  objectives:       AgentObjective[];
+  completionAction: AgentExitAction | null;
 };
 
 interface AgentFormProps {
@@ -35,18 +42,28 @@ export function AgentForm({ agent, pipelineStages, onSaved, onCancel }: AgentFor
   const [temperature, setTemperature]       = useState(agent?.temperature ?? 0.7);
   const [memoryWindow, setMemoryWindow]     = useState(agent?.memoryWindow ?? 20);
   const [exitRules, setExitRules]           = useState<AgentExitRule[]>(agent?.exitRules ?? []);
+  const [objectives, setObjectives]         = useState<AgentObjective[]>(agent?.objectives ?? []);
+  const [completionAction, setCompletionAction] = useState<AgentExitAction | null>(agent?.completionAction ?? null);
   const [saving, startSaving]               = useTransition();
 
   function addExitRule() {
     setExitRules((prev) => [...prev, emptyExitRule()]);
   }
-
   function updateExitRule(id: string, updated: AgentExitRule) {
     setExitRules((prev) => prev.map((r) => (r.id === id ? updated : r)));
   }
-
   function removeExitRule(id: string) {
     setExitRules((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function addObjective() {
+    setObjectives((prev) => [...prev, emptyObjective()]);
+  }
+  function updateObjective(id: string, updated: AgentObjective) {
+    setObjectives((prev) => prev.map((o) => (o.id === id ? updated : o)));
+  }
+  function removeObjective(id: string) {
+    setObjectives((prev) => prev.filter((o) => o.id !== id));
   }
 
   function handleSubmit() {
@@ -54,7 +71,7 @@ export function AgentForm({ agent, pipelineStages, onSaved, onCancel }: AgentFor
       toast.error("Nome e prompt do sistema são obrigatórios");
       return;
     }
-    const data = { name, systemPrompt, negativePrompt, temperature, memoryWindow, exitRules };
+    const data = { name, systemPrompt, negativePrompt, temperature, memoryWindow, exitRules, objectives, completionAction };
     startSaving(async () => {
       try {
         if (isEdit) {
@@ -80,8 +97,8 @@ export function AgentForm({ agent, pipelineStages, onSaved, onCancel }: AgentFor
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           A persona definida aqui pode ser usada de duas formas: conduzindo uma conversa inteira sozinha com
           uma lead (botão &quot;Agente IA — conversa autônoma&quot; na página da lead), ou dando a voz natural a um
-          nó &quot;Pergunta IA&quot;/&quot;Mensagem IA&quot; dentro de um Flow. As <strong>regras de saída</strong> abaixo só valem
-          para o primeiro caso.
+          nó &quot;Pergunta IA&quot;/&quot;Mensagem IA&quot; dentro de um Flow. <strong>Objetivos, regras de saída e ação de
+          conclusão</strong> abaixo só valem para o primeiro caso.
         </p>
       </div>
 
@@ -152,6 +169,56 @@ export function AgentForm({ agent, pipelineStages, onSaved, onCancel }: AgentFor
         </div>
       </section>
 
+      {/* Objetivos */}
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Objetivos da conversa <span className="font-normal text-[var(--text-muted)]">(só conversa autônoma)</span>
+          </h3>
+          <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+            <Info size={13} className="mt-0.5 shrink-0" />
+            Dados que o agente deve capturar durante a conversa, sem ordem fixa — ele decide a melhor hora de
+            perguntar cada um, e aceita os dados em qualquer ordem (inclusive vários numa mensagem só).
+          </p>
+        </div>
+
+        {objectives.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-center text-sm text-[var(--text-muted)]">
+            Nenhum objetivo — o agente só conversa livremente, sem checklist de dados a capturar.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {objectives.map((objective) => (
+              <ObjectiveCard
+                key={objective.id}
+                objective={objective}
+                onChange={(updated) => updateObjective(objective.id, updated)}
+                onRemove={() => removeObjective(objective.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={addObjective}
+          className="flex items-center gap-1.5 text-sm text-[var(--accent)] hover:text-[var(--accent-strong)] transition-colors"
+        >
+          <Plus size={14} /> Adicionar objetivo
+        </button>
+
+        {objectives.length > 0 && (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3 space-y-2">
+            <p className="text-xs font-medium text-[var(--text)]">Quando todos os objetivos forem capturados:</p>
+            <ExitActionPicker
+              action={completionAction ?? { type: "end_with_message", message: "" }}
+              onChange={setCompletionAction}
+              pipelineStages={pipelineStages}
+              label=""
+            />
+          </div>
+        )}
+      </section>
+
       {/* Regras de saída */}
       <section className="space-y-3">
         <div>
@@ -160,16 +227,15 @@ export function AgentForm({ agent, pipelineStages, onSaved, onCancel }: AgentFor
           </h3>
           <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
             <Info size={13} className="mt-0.5 shrink-0" />
-            Avaliadas a cada turno, na ordem abaixo, quando este agente conduz uma conversa autônoma com uma
-            lead. A primeira que bater encerra a conversa direto (sem nem chamar a IA). Se nenhuma bater, a
-            conversa continua normalmente. Não têm efeito quando o agente é usado só pra dar voz a um nó de
-            Flow ("Pergunta IA"/"Mensagem IA") — nesse caso, o próprio Flow controla a ramificação.
+            Cinto de segurança: checadas antes de cada turno, caso o estado da lead no CRM mude por fora
+            enquanto o agente conversa (ex: outro canal já fechou a venda). A primeira que bater encerra a
+            conversa direto. Não têm efeito quando o agente é usado só pra dar voz a um nó de Flow.
           </p>
         </div>
 
         {exitRules.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-center text-sm text-[var(--text-muted)]">
-            Nenhuma regra — o encerramento fica só a critério da IA.
+            Nenhuma regra de saída configurada.
           </p>
         ) : (
           <div className="space-y-3">

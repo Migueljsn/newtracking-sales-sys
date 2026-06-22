@@ -7,7 +7,7 @@ import type {
   FlowNodeType, FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
   FlowAddToAudienceData, FlowStartFlowData, FlowWaitData, FlowButton,
-  FlowSequenceItem, FlowSeqMessage,
+  FlowSequenceItem, FlowSeqMessage, FlowActivateAgentData,
 } from "@/lib/flows/types";
 import { FIELD_DEFS, OPERATORS_BY_TYPE, getFieldDef, defaultOperator, defaultValue } from "@/lib/audiences/fields";
 import { TextareaWithVars, InputWithVars } from "@/components/flows/field-with-vars";
@@ -787,6 +787,30 @@ export function FlowNodeConfigPanel({
               </select>
               <p className="text-xs text-[var(--text-muted)] mt-2">
                 Este fluxo será encerrado e o lead iniciará o fluxo selecionado imediatamente.
+              </p>
+            </div>
+          );
+        })()}
+
+        {/* ── Activate Agent ───────────────────────────────────────────────── */}
+        {type === "activateAgent" && (() => {
+          const d = data as unknown as FlowActivateAgentData;
+          return (
+            <div>
+              <label className={labelClass}>Agente</label>
+              <select value={d.agentId ?? ""}
+                onChange={(e) => {
+                  const a = agents.find((a) => a.id === e.target.value);
+                  onUpdate(node.id, { ...data, agentId: a?.id ?? null, agentName: a?.name ?? null });
+                }}
+                className={selectClass}>
+                <option value="">Selecione um agente…</option>
+                {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+              <p className="text-xs text-[var(--text-muted)] mt-2">
+                O agente passa a conduzir a conversa de forma autônoma a partir daqui — este fluxo termina
+                neste nó; o que acontece depois (perguntas, encerramento, mudança de etapa) é decidido pelo
+                próprio agente, conforme os objetivos e regras configurados em "Agentes IA".
               </p>
             </div>
           );

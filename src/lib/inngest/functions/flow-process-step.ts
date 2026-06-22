@@ -1,46 +1,19 @@
 import { inngest }            from "@/lib/inngest/client";
-import { flowStepEvent, flowEnrollEvent, whatsappReplyEvent } from "@/lib/inngest/events";
+import { flowStepEvent, flowEnrollEvent, whatsappReplyEvent, aiAgentStepEvent } from "@/lib/inngest/events";
 import { prisma }             from "@/lib/db/prisma";
 import { evaluateGroup }      from "@/lib/audiences/evaluate";
 import { rephraseMessage, generateAiQuestion, extractAiAnswer } from "@/lib/ai/openai-agent";
 import { estimateTypingMs } from "@/lib/whatsapp/evolution";
+import { validateField } from "@/lib/flows/validate-field";
 import type { RuleGroup }     from "@/lib/audiences/types";
 import type { Node, Edge }    from "@xyflow/react";
 import type {
   FlowMessageData, FlowQuestionData, FlowConditionData,
   FlowChangeStatusData, FlowAssignData, FlowAddToAudienceData,
-  FlowStartFlowData, FlowWaitData,
+  FlowStartFlowData, FlowWaitData, FlowActivateAgentData,
 } from "@/lib/flows/types";
 
 const NATIVE_LEAD_FIELDS = new Set(["name", "email", "notes"]);
-
-// ─── Validadores ──────────────────────────────────────────────────────────────
-
-function validateField(value: string, type: string): boolean {
-  const v = value.trim();
-  switch (type) {
-    case "cnpj": {
-      const d = v.replace(/\D/g, "");
-      if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
-      const calc = (weights: number[]) =>
-        weights.reduce((sum, w, i) => sum + Number(d[i]) * w, 0) % 11;
-      const r1 = calc([5,4,3,2,9,8,7,6,5,4,3,2]);
-      if (Number(d[12]) !== (r1 < 2 ? 0 : 11 - r1)) return false;
-      const r2 = calc([6,5,4,3,2,9,8,7,6,5,4,3,2]);
-      return Number(d[13]) === (r2 < 2 ? 0 : 11 - r2);
-    }
-    case "cep":
-      return /^\d{8}$/.test(v.replace(/\D/g, ""));
-    case "email":
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-    case "phone":
-      return /^\d{10,11}$/.test(v.replace(/\D/g, ""));
-    case "number":
-      return !isNaN(Number(v)) && v !== "";
-    default:
-      return true;
-  }
-}
 
 // ─── Graph helpers ────────────────────────────────────────────────────────────
 
@@ -798,6 +771,40 @@ export const flowProcessStep = inngest.createFunction(
             flowEnrollEvent.create({ flowId: d.targetFlowId, leadId, clientId })
           );
           return { result: "started_next_flow", targetFlowId: d.targetFlowId };
+        }
+        nextNodeId = getNextNodeId(edges, nodeId);
+        break;
+      }
+
+      // ── activateAgent ─────────────────────────────────────────────────────
+      case "activateAgent": {
+        const d = node.data as unknown as FlowActivateAgentData;
+        if (d.agentId) {
+          const newSessionId = await step.run("activate-agent", async () => {
+            const existing = await prisma.aiAgentSession.findFirst({
+              where: { leadId, status: "ACTIVE" },
+            });
+            if (existing) return existing.id;
+            const session = await prisma.aiAgentSession.create({
+              data: { agentId: d.agentId!, leadId, clientId },
+            });
+            return session.id;
+          });
+          await step.sendEvent("activate-agent-step",
+            aiAgentStepEvent.create({ sessionId: newSessionId, leadId, clientId })
+          );
+          await step.run("complete-current", () =>
+            prisma.flowEnrollment.update({
+              where: { id: enrollmentId },
+              data:  { status: "COMPLETED", completedAt: new Date() },
+            })
+          );
+          await step.run("log-end-activate", () =>
+            prisma.flowNodeLog.create({
+              data: { enrollmentId, flowId, leadId, clientId, nodeId, nodeType: node.type!, result: "agent_activated" },
+            })
+          );
+          return { result: "agent_activated", sessionId: newSessionId };
         }
         nextNodeId = getNextNodeId(edges, nodeId);
         break;

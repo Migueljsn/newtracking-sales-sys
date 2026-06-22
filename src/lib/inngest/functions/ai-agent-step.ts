@@ -2,12 +2,20 @@ import { inngest } from "@/lib/inngest/client";
 import { aiAgentStepEvent, whatsappReplyEvent } from "@/lib/inngest/events";
 import { prisma } from "@/lib/db/prisma";
 import { sendWhatsAppText, sendWhatsAppTyping, estimateTypingMs } from "@/lib/whatsapp/evolution";
-import { runAgentTurn, type AgentTurnConfig, type AgentHistoryMessage } from "@/lib/ai/openai-agent";
+import {
+  runAgentTurn, type AgentTurnConfig, type AgentHistoryMessage,
+  type AgentToolDef, type AgentToolCallResult,
+} from "@/lib/ai/openai-agent";
 import { evaluateGroup } from "@/lib/audiences/evaluate";
-import { parseExitRules, type AgentExitRule } from "@/lib/agents/types";
+import { validateField } from "@/lib/flows/validate-field";
+import {
+  parseExitRules, parseObjectives, parseCompletionAction,
+  type AgentExitRule, type AgentExitAction, type AgentObjective,
+} from "@/lib/agents/types";
 
 const MAX_TURNS     = 30;
 const REPLY_TIMEOUT = "30m";
+const NATIVE_LEAD_FIELDS = new Set(["name", "email", "notes"]);
 
 export const aiAgentStep = inngest.createFunction(
   { id: "ai-agent-step", name: "Processar conversa do Agente IA", retries: 2, triggers: [{ event: aiAgentStepEvent }] },
@@ -37,7 +45,9 @@ export const aiAgentStep = inngest.createFunction(
       model:          agent.model,
       temperature:    agent.temperature,
     };
-    const exitRules = parseExitRules(agent.exitRules);
+    const exitRules        = parseExitRules(agent.exitRules);
+    const objectives        = parseObjectives(agent.objectives);
+    const completionAction  = parseCompletionAction(agent.completionAction);
 
     // Memória limitada a esta sessão — mensagens anteriores (de outras
     // ativações do agente, fluxos ou conversas manuais) não entram no contexto.
@@ -80,13 +90,70 @@ export const aiAgentStep = inngest.createFunction(
       return null;
     }
 
-    async function applyExitAction(rule: AgentExitRule) {
-      const { action } = rule;
+    // Objetivos — dados a capturar, sem ordem fixa. Recalculado do banco a
+    // cada turno (não de um estado fixo da sessão), pra refletir tanto o que
+    // a própria IA já capturou quanto qualquer mudança feita por fora.
+    async function loadPendingObjectives(): Promise<AgentObjective[]> {
+      if (objectives.length === 0) return [];
+      const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
+      const customFields = (lead.customFields as Record<string, unknown> | null) ?? {};
+      return objectives.filter((obj) => {
+        const current = NATIVE_LEAD_FIELDS.has(obj.saveField)
+          ? (lead as unknown as Record<string, unknown>)[obj.saveField]
+          : customFields[obj.saveField];
+        return !current || String(current).trim() === "";
+      });
+    }
 
+    function buildCaptureTool(pending: AgentObjective[]): AgentToolDef {
+      return {
+        name: "capturar_dado",
+        description: "Registra um dado que o lead forneceu durante a conversa, em qualquer momento (não precisa esperar ser perguntado especificamente).",
+        parameters: {
+          type: "object",
+          properties: {
+            campo: {
+              type: "string",
+              enum: pending.map((o) => o.saveField),
+              description: "Qual dos dados pendentes foi informado: " + pending.map((o) => `${o.saveField} (${o.description})`).join("; "),
+            },
+            valor: { type: "string", description: "O valor informado pelo lead." },
+          },
+          required: ["campo", "valor"],
+        },
+      };
+    }
+
+    async function handleCaptureCall(args: Record<string, unknown>): Promise<AgentToolCallResult> {
+      const campo = String(args.campo ?? "");
+      const valor = String(args.valor ?? "").trim();
+      const objective = objectives.find((o) => o.saveField === campo);
+      if (!objective) return { content: `Campo "${campo}" não é um dos dados pendentes — não registrado.` };
+      if (!valor) return { content: "Nenhum valor informado — não registrado." };
+
+      if (!validateField(valor, objective.validation)) {
+        return { content: `O valor "${valor}" não parece válido pro formato esperado (${objective.validation}). Peça o lead confirmar ou reenviar.` };
+      }
+
+      const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
+      await prisma.lead.update({
+        where: { id: leadId },
+        data:  NATIVE_LEAD_FIELDS.has(campo)
+          ? { [campo]: valor }
+          : { customFields: { ...(lead.customFields as object ?? {}), [campo]: valor } as object },
+      });
+      return { content: "Valor registrado com sucesso." };
+    }
+
+    async function applyCompletionAction() {
+      if (!completionAction) return;
+      await applyGenericAction(completionAction, `objetivos concluídos`);
+    }
+
+    async function applyGenericAction(action: AgentExitAction, reasonPrefix: string) {
       if (action.type === "move_stage_and_end") {
         await prisma.lead.update({ where: { id: leadId }, data: { pipelineStageId: action.stageId } });
       }
-
       const message = action.type === "end_silent" ? null : action.message || null;
       if (message) {
         await sendWhatsAppTyping(phone, estimateTypingMs(message), clientId);
@@ -95,11 +162,14 @@ export const aiAgentStep = inngest.createFunction(
           data: { leadId, clientId, type: "WHATSAPP", content: message, createdBy: "Agente IA" },
         });
       }
-
       await prisma.aiAgentSession.update({
         where: { id: sessionId },
-        data:  { status: "ENDED", endReason: `regra: ${rule.name}`, endedAt: new Date() },
+        data:  { status: "ENDED", endReason: reasonPrefix, endedAt: new Date() },
       });
+    }
+
+    async function applyExitAction(rule: AgentExitRule) {
+      await applyGenericAction(rule.action, `regra: ${rule.name}`);
     }
 
     async function endSession(reason: string, finalMessage?: string | null) {
@@ -116,19 +186,48 @@ export const aiAgentStep = inngest.createFunction(
       });
     }
 
+    /** Regras de saída — cinto de segurança contra mudanças externas no CRM
+     *  enquanto a IA conversa. Checado antes de cada chamada à LLM. */
+    async function checkAndApplyExitRules(): Promise<boolean> {
+      const matched = await checkExitRules();
+      if (!matched) return false;
+      await applyExitAction(matched);
+      return true;
+    }
+
+    /** Objetivos concluídos — checado depois de cada turno da IA, já que é
+     *  o momento natural em que uma tool call pode ter acabado de completar
+     *  o último dado pendente. */
+    async function checkAndApplyCompletion(): Promise<boolean> {
+      if (objectives.length === 0 || !completionAction) return false;
+      const pending = await loadPendingObjectives();
+      if (pending.length > 0) return false;
+      await applyCompletionAction();
+      return true;
+    }
+
+    async function callAgent(history: AgentHistoryMessage[]) {
+      const pending = await loadPendingObjectives();
+      if (pending.length === 0) return runAgentTurn(agentConfig, history);
+      return runAgentTurn(agentConfig, history, {
+        tools:      [buildCaptureTool(pending)],
+        onToolCall: (name, args) => name === "capturar_dado" ? handleCaptureCall(args) : Promise.resolve({ content: "ferramenta desconhecida" }),
+      });
+    }
+
     let turnCount = ctx.turnCount;
 
-    // Primeiro turno: checa regras de saída antes de sequer abrir a conversa
+    // Primeiro turno: checagens determinísticas antes de sequer abrir a conversa
     if (turnCount === 0) {
-      const matchedInitial = await step.run("check-exit-rules-initial", checkExitRules);
-      if (matchedInitial) {
-        await step.run("apply-exit-initial", () => applyExitAction(matchedInitial));
-        return { ended: `regra: ${matchedInitial.name}` };
-      }
+      const endedOnRule = await step.run("check-exit-rules-initial", checkAndApplyExitRules);
+      if (endedOnRule) return { ended: "regra de saída (inicial)" };
+
+      const endedOnObjectives = await step.run("check-objectives-initial", checkAndApplyCompletion);
+      if (endedOnObjectives) return { ended: "objetivos já concluídos (inicial)" };
 
       const opening = await step.run("generate-opening", async () => {
         const history = await loadHistory();
-        return runAgentTurn(agentConfig, [
+        return callAgent([
           ...history,
           {
             role: "user",
@@ -151,6 +250,9 @@ export const aiAgentStep = inngest.createFunction(
         await prisma.aiAgentSession.update({ where: { id: sessionId }, data: { turnCount: { increment: 1 } } });
       });
       turnCount += 1;
+
+      const endedAfterOpening = await step.run("check-objectives-after-opening", checkAndApplyCompletion);
+      if (endedAfterOpening) return { ended: "objetivos concluídos" };
     }
 
     while (turnCount < MAX_TURNS) {
@@ -163,15 +265,12 @@ export const aiAgentStep = inngest.createFunction(
         return { ended: "timeout" };
       }
 
-      const matched = await step.run(`check-exit-rules-${turnCount}`, checkExitRules);
-      if (matched) {
-        await step.run(`apply-exit-${turnCount}`, () => applyExitAction(matched));
-        return { ended: `regra: ${matched.name}` };
-      }
+      const endedOnRule = await step.run(`check-exit-rules-${turnCount}`, checkAndApplyExitRules);
+      if (endedOnRule) return { ended: "regra de saída" };
 
       const result = await step.run(`llm-turn-${turnCount}`, async () => {
         const history = await loadHistory();
-        return runAgentTurn(agentConfig, history);
+        return callAgent(history);
       });
 
       if (result.type === "end") {
@@ -189,6 +288,9 @@ export const aiAgentStep = inngest.createFunction(
       });
 
       turnCount += 1;
+
+      const endedOnObjectives = await step.run(`check-objectives-${turnCount}`, checkAndApplyCompletion);
+      if (endedOnObjectives) return { ended: "objetivos concluídos" };
     }
 
     await step.run("end-on-max-turns", () => endSession("max_turns"));

@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { getSession }     from "@/lib/auth/session";
 import { prisma }         from "@/lib/db/prisma";
-import { validateExitRules, type AgentExitRule } from "@/lib/agents/types";
+import { Prisma }         from "@prisma/client";
+import {
+  validateExitRules, validateObjectives, validateCompletionAction,
+  type AgentExitRule, type AgentObjective, type AgentExitAction,
+} from "@/lib/agents/types";
 
 type AgentFormData = {
   name: string;
@@ -12,6 +16,8 @@ type AgentFormData = {
   temperature: number;
   memoryWindow: number;
   exitRules: AgentExitRule[];
+  objectives: AgentObjective[];
+  completionAction: AgentExitAction | null;
 };
 
 function validate(data: AgentFormData) {
@@ -19,6 +25,8 @@ function validate(data: AgentFormData) {
     throw new Error("Nome e prompt do sistema são obrigatórios");
   }
   validateExitRules(data.exitRules);
+  validateObjectives(data.objectives);
+  validateCompletionAction(data.completionAction);
 }
 
 export async function createAiAgentAction(data: AgentFormData) {
@@ -30,12 +38,14 @@ export async function createAiAgentAction(data: AgentFormData) {
   await prisma.aiAgent.create({
     data: {
       clientId,
-      name:           data.name.trim(),
-      systemPrompt:   data.systemPrompt.trim(),
-      negativePrompt: data.negativePrompt?.trim() || null,
-      temperature:    data.temperature,
-      memoryWindow:   data.memoryWindow,
-      exitRules:      data.exitRules,
+      name:             data.name.trim(),
+      systemPrompt:     data.systemPrompt.trim(),
+      negativePrompt:   data.negativePrompt?.trim() || null,
+      temperature:      data.temperature,
+      memoryWindow:     data.memoryWindow,
+      exitRules:        data.exitRules,
+      objectives:       data.objectives,
+      completionAction: data.completionAction ?? undefined,
     },
   });
 
@@ -51,12 +61,14 @@ export async function updateAiAgentAction(id: string, data: AgentFormData) {
   await prisma.aiAgent.update({
     where: { id, clientId },
     data: {
-      name:           data.name.trim(),
-      systemPrompt:   data.systemPrompt.trim(),
-      negativePrompt: data.negativePrompt?.trim() || null,
-      temperature:    data.temperature,
-      memoryWindow:   data.memoryWindow,
-      exitRules:      data.exitRules,
+      name:             data.name.trim(),
+      systemPrompt:     data.systemPrompt.trim(),
+      negativePrompt:   data.negativePrompt?.trim() || null,
+      temperature:      data.temperature,
+      memoryWindow:     data.memoryWindow,
+      exitRules:        data.exitRules,
+      objectives:       data.objectives,
+      completionAction: data.completionAction ?? Prisma.JsonNull,
     },
   });
 

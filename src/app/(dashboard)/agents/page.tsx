@@ -3,15 +3,22 @@ export const dynamic = "force-dynamic";
 import { getSession } from "@/lib/auth/session";
 import { prisma }     from "@/lib/db/prisma";
 import { AgentsTab }  from "@/components/agents/agents-tab";
+import { parseExitRules } from "@/lib/agents/types";
 
 export default async function AgentsPage() {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const agents = await prisma.aiAgent.findMany({
-    where:   { clientId },
-    orderBy: { createdAt: "desc" },
-  });
+  const [rawAgents, pipelineStages] = await Promise.all([
+    prisma.aiAgent.findMany({ where: { clientId }, orderBy: { createdAt: "desc" } }),
+    prisma.pipelineStage.findMany({
+      where:   { clientId },
+      orderBy: { position: "asc" },
+      select:  { id: true, name: true },
+    }),
+  ]);
+
+  const agents = rawAgents.map((a) => ({ ...a, exitRules: parseExitRules(a.exitRules) }));
 
   return (
     <div className="space-y-6">
@@ -21,7 +28,7 @@ export default async function AgentsPage() {
           Agentes conversacionais que atendem leads automaticamente via WhatsApp
         </p>
       </div>
-      <AgentsTab agents={agents} />
+      <AgentsTab agents={agents} pipelineStages={pipelineStages} />
     </div>
   );
 }

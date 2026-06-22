@@ -3,6 +3,8 @@ import { aiAgentStepEvent, whatsappReplyEvent } from "@/lib/inngest/events";
 import { prisma } from "@/lib/db/prisma";
 import { sendWhatsAppText } from "@/lib/whatsapp/evolution";
 import { runAgentTurn, type AgentTurnConfig, type AgentHistoryMessage } from "@/lib/ai/openai-agent";
+import { evaluateGroup } from "@/lib/audiences/evaluate";
+import { parseExitRules, type AgentExitRule } from "@/lib/agents/types";
 
 const MAX_TURNS     = 30;
 const REPLY_TIMEOUT = "30m";
@@ -35,6 +37,7 @@ export const aiAgentStep = inngest.createFunction(
       model:          agent.model,
       temperature:    agent.temperature,
     };
+    const exitRules = parseExitRules(agent.exitRules);
 
     // Memória limitada a esta sessão — mensagens anteriores (de outras
     // ativações do agente, fluxos ou conversas manuais) não entram no contexto.
@@ -48,6 +51,54 @@ export const aiAgentStep = inngest.createFunction(
         role:    i.type === "WHATSAPP_INBOUND" ? ("user" as const) : ("assistant" as const),
         content: i.content,
       }));
+    }
+
+    // Regras de saída — avaliadas sobre o estado atual do CRM (etapa, status,
+    // UTMs, vendas...), no mesmo motor usado em Públicos. Têm prioridade sobre
+    // o julgamento livre da IA: se uma regra bate, a conversa encerra direto,
+    // sem nem chamar a LLM naquele turno.
+    async function checkExitRules(): Promise<AgentExitRule | null> {
+      if (exitRules.length === 0) return null;
+      const lead = await prisma.lead.findUniqueOrThrow({
+        where:   { id: leadId },
+        include: { customer: { select: { state: true, city: true, email: true } }, sales: { select: { value: true, soldAt: true } } },
+      });
+      const leadRow = {
+        status:          lead.status,
+        pipelineStageId: lead.pipelineStageId,
+        capturedAt:      lead.capturedAt,
+        utmSource:       lead.utmSource,
+        utmMedium:       lead.utmMedium,
+        utmCampaign:     lead.utmCampaign,
+        consultant:       lead.consultant,
+        customer:        lead.customer,
+        sales:           lead.sales.map((s) => ({ value: Number(s.value), soldAt: s.soldAt })),
+      };
+      for (const rule of exitRules) {
+        if (evaluateGroup(leadRow, rule.rules)) return rule;
+      }
+      return null;
+    }
+
+    async function applyExitAction(rule: AgentExitRule) {
+      const { action } = rule;
+
+      if (action.type === "move_stage_and_end") {
+        await prisma.lead.update({ where: { id: leadId }, data: { pipelineStageId: action.stageId } });
+      }
+
+      const message = action.type === "end_silent" ? null : action.message || null;
+      if (message) {
+        await sendWhatsAppText(phone, message, clientId);
+        await prisma.leadInteraction.create({
+          data: { leadId, clientId, type: "WHATSAPP", content: message, createdBy: "Agente IA" },
+        });
+      }
+
+      await prisma.aiAgentSession.update({
+        where: { id: sessionId },
+        data:  { status: "ENDED", endReason: `regra: ${rule.name}`, endedAt: new Date() },
+      });
     }
 
     async function endSession(reason: string, finalMessage?: string | null) {
@@ -65,8 +116,14 @@ export const aiAgentStep = inngest.createFunction(
 
     let turnCount = ctx.turnCount;
 
-    // Primeiro turno: gera e envia a mensagem de abertura
+    // Primeiro turno: checa regras de saída antes de sequer abrir a conversa
     if (turnCount === 0) {
+      const matchedInitial = await step.run("check-exit-rules-initial", checkExitRules);
+      if (matchedInitial) {
+        await step.run("apply-exit-initial", () => applyExitAction(matchedInitial));
+        return { ended: `regra: ${matchedInitial.name}` };
+      }
+
       const opening = await step.run("generate-opening", async () => {
         const history = await loadHistory();
         return runAgentTurn(agentConfig, [
@@ -101,6 +158,12 @@ export const aiAgentStep = inngest.createFunction(
       if (!reply) {
         await step.run("end-on-timeout", () => endSession("timeout"));
         return { ended: "timeout" };
+      }
+
+      const matched = await step.run(`check-exit-rules-${turnCount}`, checkExitRules);
+      if (matched) {
+        await step.run(`apply-exit-${turnCount}`, () => applyExitAction(matched));
+        return { ended: `regra: ${matched.name}` };
       }
 
       const result = await step.run(`llm-turn-${turnCount}`, async () => {

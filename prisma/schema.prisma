@@ -676,6 +676,7 @@ model AiAgent {
   model          String   @default("gpt-4o-mini")
   temperature    Float    @default(0.7)
   memoryWindow   Int      @default(20) // nº de mensagens anteriores no contexto
+  exitRules      Json     @default("[]") // AgentExitRule[] — ver src/lib/agents/types.ts
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

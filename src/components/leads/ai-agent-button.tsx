@@ -47,7 +47,7 @@ export function AiAgentButton({ leadId, agents, activeSession }: AiAgentButtonPr
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)] text-sm text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors"
       >
-        <Bot size={16} /> Agente IA
+        <Bot size={16} /> Agente IA (conversa autônoma)
       </button>
 
       {open && (

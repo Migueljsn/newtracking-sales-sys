@@ -31,6 +31,10 @@ export type FlowSeqMessage = {
   text:        string
   mediaUrl:    string | null
   fileName:    string | null
+  // Mensagem IA — quando ativo, o texto (já com variáveis substituídas) é
+  // reformulado pela IA antes de enviar, pra nunca repetir a mesma frase
+  // literal em disparos em massa.
+  aiRephrase?: { enabled: boolean; agentId: string | null }
 }
 
 export type FlowSeqDelay = {

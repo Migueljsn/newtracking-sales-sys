@@ -43,11 +43,16 @@ const END_CONVERSATION_TOOL = {
   },
 };
 
-function buildSystemPrompt(config: AgentTurnConfig): string {
+function buildPersonaPrompt(config: Pick<AgentTurnConfig, "systemPrompt" | "negativePrompt">): string {
   let prompt = config.systemPrompt;
   if (config.negativePrompt?.trim()) {
     prompt += `\n\nRegras que você NUNCA deve seguir ou mencionar:\n${config.negativePrompt}`;
   }
+  return prompt;
+}
+
+function buildSystemPrompt(config: AgentTurnConfig): string {
+  let prompt = buildPersonaPrompt(config);
   prompt += `\n\nQuando o objetivo da conversa estiver cumprido (ou não houver mais o que fazer), chame a ferramenta "encerrar_conversa".`;
   return prompt;
 }
@@ -82,4 +87,31 @@ export async function runAgentTurn(
   }
 
   return { type: "reply", text: choice.message.content?.trim() || "..." };
+}
+
+/**
+ * Reformula uma mensagem já escrita preservando 100% do conteúdo factual —
+ * usada pra evitar enviar a mesma frase literal em disparos em massa (padrão
+ * que o WhatsApp associa a spam). Nunca gera conteúdo novo a partir do zero.
+ */
+export async function rephraseMessage(
+  config: Pick<AgentTurnConfig, "systemPrompt" | "negativePrompt" | "model" | "temperature">,
+  baseText: string
+): Promise<string> {
+  if (!baseText.trim()) return baseText;
+
+  const openai = getClient();
+  const response = await openai.chat.completions.create({
+    model: config.model,
+    temperature: config.temperature,
+    messages: [
+      {
+        role: "system",
+        content: `${buildPersonaPrompt(config)}\n\nVocê vai reformular uma mensagem que já foi escrita. Regras estritas:\n- Preserve 100% do significado e de todos os fatos (números, datas, valores, links, nomes próprios) — não pode mudar nem inventar nenhum deles.\n- Varie apenas a forma de escrever: estrutura da frase, sinônimos, tom — pra nunca parecer um texto repetido ou robótico.\n- Nunca use menus numerados (ex: "responda 1 para sim") nem se refira a botões — escreva como uma pessoa escreveria no WhatsApp.\n- Responda APENAS com a mensagem reformulada, sem aspas, sem comentários, sem explicações.`,
+      },
+      { role: "user", content: baseText },
+    ],
+  });
+
+  return response.choices[0].message.content?.trim() || baseText;
 }

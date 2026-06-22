@@ -2,6 +2,7 @@ import { inngest }            from "@/lib/inngest/client";
 import { flowStepEvent, flowEnrollEvent, whatsappReplyEvent } from "@/lib/inngest/events";
 import { prisma }             from "@/lib/db/prisma";
 import { evaluateGroup }      from "@/lib/audiences/evaluate";
+import { rephraseMessage }    from "@/lib/ai/openai-agent";
 import type { RuleGroup }     from "@/lib/audiences/types";
 import type { Node, Edge }    from "@xyflow/react";
 import type {
@@ -370,7 +371,16 @@ export const flowProcessStep = inngest.createFunction(
             await step.sleep(`delay-${nodeId}-${i}`, `${item.seconds}s`);
           } else {
             await step.run(`send-msg-${nodeId}-${i}`, async () => {
-              const text = renderTemplate(item.text, vars);
+              let text = renderTemplate(item.text, vars);
+              if (item.aiRephrase?.enabled && item.aiRephrase.agentId) {
+                const agent = await prisma.aiAgent.findUnique({ where: { id: item.aiRephrase.agentId } });
+                if (agent) {
+                  text = await rephraseMessage(
+                    { systemPrompt: agent.systemPrompt, negativePrompt: agent.negativePrompt, model: agent.model, temperature: agent.temperature },
+                    text
+                  );
+                }
+              }
               if (item.messageType === "document" && item.mediaUrl) {
                 await sendDocument(phone, item.mediaUrl, item.fileName ?? "arquivo.pdf", text, clientId);
               } else if (item.messageType === "media" && item.mediaUrl) {

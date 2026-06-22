@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Node }     from "@xyflow/react";
-import { X, Trash2, Copy, Plus, Type, MousePointerClick, Timer, ChevronUp, ChevronDown, FileText, Image, FileArchive } from "lucide-react";
+import { X, Trash2, Copy, Plus, Type, MousePointerClick, Timer, ChevronUp, ChevronDown, FileText, Image, FileArchive, Sparkles } from "lucide-react";
 import type {
   FlowNodeType, FlowTriggerData, FlowMessageData, FlowQuestionData,
   FlowConditionData, FlowChangeStatusData, FlowAssignData,
@@ -15,6 +15,7 @@ import { TextareaWithVars, InputWithVars } from "@/components/flows/field-with-v
 type AudienceOption  = { id: string; name: string }
 type PipelineStage   = { id: string; name: string }
 type FlowOption      = { id: string; name: string }
+type AgentOption     = { id: string; name: string }
 
 interface FlowNodeConfigPanelProps {
   node:           Node
@@ -26,6 +27,7 @@ interface FlowNodeConfigPanelProps {
   pipelineStages: PipelineStage[]
   consultants:    string[]
   flows:          FlowOption[]
+  agents:         AgentOption[]
 }
 
 const inputClass  = "w-full h-9 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
@@ -44,7 +46,7 @@ const VALIDATION_OPTIONS = [
 
 export function FlowNodeConfigPanel({
   node, onUpdate, onDelete, onDuplicate, onClose,
-  audiences, pipelineStages, consultants, flows,
+  audiences, pipelineStages, consultants, flows, agents,
 }: FlowNodeConfigPanelProps) {
   const type = node.type as FlowNodeType;
   const data = node.data as Record<string, unknown>;
@@ -322,6 +324,38 @@ export function FlowNodeConfigPanel({
                         </div>
                       </>
                     )}
+
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5 space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={item.aiRephrase?.enabled ?? false}
+                          onChange={(e) => patchMessage(idx, {
+                            aiRephrase: { enabled: e.target.checked, agentId: item.aiRephrase?.agentId ?? agents[0]?.id ?? null },
+                          })}
+                          className="w-3.5 h-3.5 rounded accent-[var(--accent)] cursor-pointer"
+                        />
+                        <span className="flex items-center gap-1 text-xs font-medium text-[var(--text)]">
+                          <Sparkles size={12} className="text-[var(--accent)]" /> Variar com IA
+                        </span>
+                      </label>
+                      {item.aiRephrase?.enabled && (
+                        <>
+                          <p className="text-[11px] text-[var(--text-muted)]">
+                            A IA reescreve esse texto de um jeito diferente a cada envio (sem mudar fatos/números),
+                            pra evitar disparos com texto idêntico.
+                          </p>
+                          <select
+                            value={item.aiRephrase.agentId ?? ""}
+                            onChange={(e) => patchMessage(idx, { aiRephrase: { enabled: true, agentId: e.target.value || null } })}
+                            className={selectClass}
+                          >
+                            {agents.length === 0 && <option value="">Nenhum agente cadastrado</option>}
+                            {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                          </select>
+                        </>
+                      )}
+                    </div>
                   </div>
                 );
               })}

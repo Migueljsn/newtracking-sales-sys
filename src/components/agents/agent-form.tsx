@@ -73,9 +73,17 @@ export function AgentForm({ agent, pipelineStages, onSaved, onCancel }: AgentFor
 
   return (
     <div className="card max-w-3xl space-y-6 p-6">
-      <h2 className="text-base font-semibold text-[var(--text)]">
-        {isEdit ? "Editar agente" : "Novo agente IA"}
-      </h2>
+      <div>
+        <h2 className="text-base font-semibold text-[var(--text)]">
+          {isEdit ? "Editar agente" : "Novo agente IA"}
+        </h2>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          A persona definida aqui pode ser usada de duas formas: conduzindo uma conversa inteira sozinha com
+          uma lead (botão &quot;Agente IA — conversa autônoma&quot; na página da lead), ou dando a voz natural a um
+          nó &quot;Pergunta IA&quot;/&quot;Mensagem IA&quot; dentro de um Flow. As <strong>regras de saída</strong> abaixo só valem
+          para o primeiro caso.
+        </p>
+      </div>
 
       {/* Identidade */}
       <section className="space-y-4">
@@ -147,12 +155,15 @@ export function AgentForm({ agent, pipelineStages, onSaved, onCancel }: AgentFor
       {/* Regras de saída */}
       <section className="space-y-3">
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Regras de saída</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Regras de saída <span className="font-normal text-[var(--text-muted)]">(só conversa autônoma)</span>
+          </h3>
           <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
             <Info size={13} className="mt-0.5 shrink-0" />
-            Avaliadas a cada turno, na ordem abaixo. A primeira que bater encerra a conversa direto
-            (sem nem chamar a IA). Se nenhuma bater, a conversa continua normalmente — a IA também
-            pode encerrar por conta própria quando julgar que terminou.
+            Avaliadas a cada turno, na ordem abaixo, quando este agente conduz uma conversa autônoma com uma
+            lead. A primeira que bater encerra a conversa direto (sem nem chamar a IA). Se nenhuma bater, a
+            conversa continua normalmente. Não têm efeito quando o agente é usado só pra dar voz a um nó de
+            Flow ("Pergunta IA"/"Mensagem IA") — nesse caso, o próprio Flow controla a ramificação.
           </p>
         </div>
 

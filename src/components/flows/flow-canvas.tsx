@@ -25,6 +25,7 @@ import { updateFlowAction, publishFlowAction, pauseFlowAction } from "@/app/(das
 type AudienceOption = { id: string; name: string }
 type PipelineStage  = { id: string; name: string }
 type FlowOption     = { id: string; name: string }
+type AgentOption    = { id: string; name: string }
 
 interface FlowCanvasProps {
   flowId:         string
@@ -36,6 +37,7 @@ interface FlowCanvasProps {
   pipelineStages: PipelineStage[]
   consultants:    string[]
   flows:          FlowOption[]   // outros fluxos (para startFlow node)
+  agents:         AgentOption[]  // agentes IA (para nó message/question modo IA)
 }
 
 const ICON_MAP: Record<FlowNodeType, React.ReactNode> = {
@@ -85,7 +87,7 @@ function newId() { return `node-${++nodeIdCounter}`; }
 export function FlowCanvas({
   flowId, flowName, flowStatus,
   initialNodes, initialEdges,
-  audiences, pipelineStages, consultants, flows,
+  audiences, pipelineStages, consultants, flows, agents,
 }: FlowCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(
@@ -480,6 +482,7 @@ export function FlowCanvas({
             audiences={audiences}
             pipelineStages={pipelineStages}
             consultants={consultants}
+            agents={agents}
             flows={flows.filter((f) => f.id !== flowId)}
           />
         </aside>

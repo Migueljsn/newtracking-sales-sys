@@ -15,12 +15,13 @@ export default async function FlowEditorPage({
   const clientId = session.clientId!;
   const { id }   = await params;
 
-  const [flow, audiences, pipelineStages, settings, allFlows] = await Promise.all([
+  const [flow, audiences, pipelineStages, settings, allFlows, agents] = await Promise.all([
     prisma.flow.findUnique({ where: { id, clientId }, include: { triggers: true } }),
     prisma.audience.findMany({ where: { clientId }, orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
     prisma.pipelineStage.findMany({ where: { clientId }, orderBy: { position: "asc" }, select: { id: true, name: true } }),
     prisma.clientSettings.findUnique({ where: { clientId }, select: { consultants: true } }),
     prisma.flow.findMany({ where: { clientId, status: { not: "ARCHIVED" } }, select: { id: true, name: true } }),
+    prisma.aiAgent.findMany({ where: { clientId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   if (!flow) notFound();
@@ -36,6 +37,7 @@ export default async function FlowEditorPage({
       pipelineStages={pipelineStages}
       consultants={settings?.consultants ?? []}
       flows={allFlows}
+      agents={agents}
     />
   );
 }

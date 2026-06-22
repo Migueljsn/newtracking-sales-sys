@@ -2,7 +2,7 @@ import { inngest }            from "@/lib/inngest/client";
 import { flowStepEvent, flowEnrollEvent, whatsappReplyEvent } from "@/lib/inngest/events";
 import { prisma }             from "@/lib/db/prisma";
 import { evaluateGroup }      from "@/lib/audiences/evaluate";
-import { rephraseMessage }    from "@/lib/ai/openai-agent";
+import { rephraseMessage, generateAiQuestion, extractAiAnswer } from "@/lib/ai/openai-agent";
 import type { RuleGroup }     from "@/lib/audiences/types";
 import type { Node, Edge }    from "@xyflow/react";
 import type {
@@ -404,6 +404,112 @@ export const flowProcessStep = inngest.createFunction(
         const d        = node.data as unknown as FlowQuestionData;
         const unitMap: Record<string, string> = { minutes: "m", hours: "h" };
         const attempts = (ctx[`${nodeId}_attempts`] as number | undefined) ?? 0;
+
+        // ── modo ai (Pergunta IA) ───────────────────────────────────────────
+        if (d.mode === "ai") {
+          const maxAttemptsAi = d.retries;
+
+          async function loadAgentConfig() {
+            if (!d.aiAgentId) return null;
+            const agent = await prisma.aiAgent.findUnique({ where: { id: d.aiAgentId } });
+            if (!agent) return null;
+            return { systemPrompt: agent.systemPrompt, negativePrompt: agent.negativePrompt, model: agent.model, temperature: agent.temperature };
+          }
+
+          async function saveCaptured(value: string) {
+            await prisma.lead.update({
+              where: { id: leadId },
+              data:  NATIVE_LEAD_FIELDS.has(d.saveField)
+                ? { [d.saveField]: value }
+                : { customFields: { ...(lead.customFields as object ?? {}), [d.saveField]: value } as object },
+            });
+          }
+
+          if (attempts === 0) {
+            await step.run("send-ai-question", async () => {
+              const agentConfig = await loadAgentConfig();
+              const question = agentConfig
+                ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", false)
+                : d.aiCaptureDescription ?? "";
+              await sendText(phone, question, clientId);
+            });
+          }
+
+          const timeout1 = `${d.timeoutValue}${unitMap[d.timeoutUnit] ?? "m"}`;
+          const reply = await step.waitForEvent(`await-ai-${nodeId}-${attempts}`, {
+            event: whatsappReplyEvent.name, match: "data.leadId", timeout: timeout1,
+          });
+
+          if (!reply) {
+            await step.run("send-timeout-msg-ai", async () => {
+              await sendText(phone, renderTemplate(d.timeoutMessage, vars), clientId);
+            });
+            const timeout2 = `${d.timeoutWaitValue}${unitMap[d.timeoutWaitUnit] ?? "m"}`;
+            const reply2 = await step.waitForEvent(`await-ai-recovery-${nodeId}`, {
+              event: whatsappReplyEvent.name, match: "data.leadId", timeout: timeout2,
+            });
+            if (!reply2) {
+              nodeResult = "timeout";
+              nextNodeId = getNextNodeId(edges, nodeId, "timeout");
+              break;
+            }
+            const extraction = await step.run("extract-ai-recovery", async () => {
+              const agentConfig = await loadAgentConfig();
+              if (!agentConfig) return { captured: false, value: null };
+              return extractAiAnswer(agentConfig, d.aiCaptureDescription ?? "", reply2.data.message);
+            });
+            const ok = extraction.captured && extraction.value && validateField(extraction.value, d.validation);
+            if (ok) {
+              await step.run("save-field-ai-recovery", () => saveCaptured(extraction.value!));
+              nodeResult = "valid";
+              nextNodeId = getNextNodeId(edges, nodeId, "valid");
+            } else {
+              nodeResult = "invalid";
+              nextNodeId = getNextNodeId(edges, nodeId, "invalid");
+            }
+            break;
+          }
+
+          const extraction = await step.run(`extract-ai-${nodeId}-${attempts}`, async () => {
+            const agentConfig = await loadAgentConfig();
+            if (!agentConfig) return { captured: false, value: null };
+            return extractAiAnswer(agentConfig, d.aiCaptureDescription ?? "", reply.data.message);
+          });
+          const ok = extraction.captured && extraction.value && validateField(extraction.value, d.validation);
+
+          if (ok) {
+            await step.run("save-field-ai", () => saveCaptured(extraction.value!));
+            nodeResult = "valid";
+            nextNodeId = getNextNodeId(edges, nodeId, "valid");
+          } else if (attempts < maxAttemptsAi) {
+            await step.run("save-attempt-ai", () =>
+              prisma.flowEnrollment.update({
+                where: { id: enrollmentId },
+                data:  { context: { ...ctx, [`${nodeId}_attempts`]: attempts + 1 } as object },
+              })
+            );
+            await step.run("send-retry-ai", async () => {
+              const agentConfig = await loadAgentConfig();
+              const question = agentConfig
+                ? await generateAiQuestion(agentConfig, d.aiCaptureDescription ?? "", true)
+                : d.aiCaptureDescription ?? "";
+              await sendText(phone, question, clientId);
+            });
+            await step.run("log-retry-ai", () =>
+              prisma.flowNodeLog.create({
+                data: { enrollmentId, flowId, leadId, clientId, nodeId, nodeType: node.type!, result: `retry_${attempts + 1}` },
+              })
+            );
+            await step.sendEvent("retry-step-ai",
+              flowStepEvent.create({ enrollmentId, flowId, leadId, nodeId, clientId })
+            );
+            return { result: `retry_${attempts + 1}` };
+          } else {
+            nodeResult = "invalid";
+            nextNodeId = getNextNodeId(edges, nodeId, "invalid");
+          }
+          break;
+        }
 
         // ── modo choice (botões) ──────────────────────────────────────────
         if (d.mode === "choice") {

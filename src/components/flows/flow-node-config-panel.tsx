@@ -410,6 +410,7 @@ export function FlowNodeConfigPanel({
                   {[
                     { value: "text",   label: "Texto livre", icon: <Type size={12} /> },
                     { value: "choice", label: "Botões",      icon: <MousePointerClick size={12} /> },
+                    { value: "ai",     label: "Pergunta IA",  icon: <Sparkles size={12} /> },
                   ].map((opt) => (
                     <button key={opt.value} type="button"
                       onClick={() => onUpdate(node.id, {
@@ -429,17 +430,86 @@ export function FlowNodeConfigPanel({
                 </div>
               </div>
 
-              {/* Pergunta */}
-              <div>
-                <label className={labelClass}>Pergunta</label>
-                <TextareaWithVars
-                  rows={3}
-                  value={d.questionText}
-                  onChange={(v) => set("questionText", v)}
-                  placeholder="Ex: Qual é o seu CNPJ? (apenas números)"
-                  className={taClass}
-                />
-              </div>
+              {/* Pergunta (modos texto/botões — texto literal) */}
+              {mode !== "ai" && (
+                <div>
+                  <label className={labelClass}>Pergunta</label>
+                  <TextareaWithVars
+                    rows={3}
+                    value={d.questionText}
+                    onChange={(v) => set("questionText", v)}
+                    placeholder="Ex: Qual é o seu CNPJ? (apenas números)"
+                    className={taClass}
+                  />
+                </div>
+              )}
+
+              {/* Modo ai (Pergunta IA): agente + o que capturar + campo + validação + retries */}
+              {mode === "ai" && (
+                <>
+                  <div>
+                    <label className={labelClass}>Agente</label>
+                    <select value={d.aiAgentId ?? ""} onChange={(e) => set("aiAgentId", e.target.value || null)} className={selectClass}>
+                      {agents.length === 0 && <option value="">Nenhum agente cadastrado</option>}
+                      {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">Persona usada pra gerar a pergunta e interpretar a resposta</p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>O que capturar do lead</label>
+                    <TextareaWithVars
+                      rows={2}
+                      value={d.aiCaptureDescription ?? ""}
+                      onChange={(v) => set("aiCaptureDescription", v)}
+                      placeholder="Ex: o CNPJ da empresa do lead"
+                      className={taClass}
+                    />
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                      A IA formula a pergunta a partir disso (variando a frase a cada tentativa) e extrai o valor da resposta livre do lead.
+                    </p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Salvar resposta no campo</label>
+                    <select value={d.saveField} onChange={(e) => set("saveField", e.target.value)} className={selectClass}>
+                      <optgroup label="Campos do lead">
+                        <option value="name">Nome</option>
+                        <option value="email">E-mail</option>
+                        <option value="notes">Observações</option>
+                      </optgroup>
+                      <optgroup label="Dados coletados">
+                        <option value="cnpj">CNPJ</option>
+                        <option value="cep">CEP</option>
+                        <option value="company">Empresa</option>
+                        <option value="city">Cidade</option>
+                        <option value="state">Estado (UF)</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Validação do valor extraído</label>
+                    <select value={d.validation} onChange={(e) => set("validation", e.target.value)} className={selectClass}>
+                      {VALIDATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                      Depois da IA extrair o valor, ele ainda passa por esse validador determinístico — escolha "Nenhuma" pra respostas livres (ex: sim/não)
+                    </p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Tentativas se não conseguir capturar</label>
+                    <select value={String(d.retries)} onChange={(e) => set("retries", Number(e.target.value))} className={selectClass}>
+                      <option value="1">1 tentativa</option>
+                      <option value="2">2 tentativas</option>
+                      <option value="3">3 tentativas</option>
+                    </select>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">A IA reformula a pergunta a cada nova tentativa, nunca repete a mesma frase</p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs text-[var(--text-muted)] space-y-1">
+                    <p>• Saída <strong className="text-[#10b981]">válido</strong> → IA capturou e o valor passou na validação</p>
+                    <p>• Saída <strong className="text-[#ef4444]">inválido</strong> → esgotou tentativas sem capturar</p>
+                    <p>• Saída <strong className="text-[#f97316]">timeout</strong> → não respondeu</p>
+                  </div>
+                </>
+              )}
 
               {/* Modo texto: campo + validação + retries */}
               {mode === "text" && (

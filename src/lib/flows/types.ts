@@ -57,7 +57,7 @@ export type FlowMessageData = {
 
 // ── Question ──────────────────────────────────────────────────────────────────
 
-export type QuestionMode = "text" | "choice"
+export type QuestionMode = "text" | "choice" | "ai"
 export type ValidationType = "none" | "cnpj" | "cep" | "email" | "phone" | "number"
 export type TimeoutUnit = "minutes" | "hours"
 
@@ -82,6 +82,10 @@ export type FlowQuestionData = {
   timeoutMessage:    string          // mensagem de recuperação ("ainda está aí?")
   timeoutWaitValue:  number          // tempo extra após enviar mensagem de timeout
   timeoutWaitUnit:   TimeoutUnit
+  // modo ai (Pergunta IA) — pergunta gerada e resposta extraída pela IA;
+  // saveField/validation/retries/timeout acima são reaproveitados
+  aiAgentId?:             string | null
+  aiCaptureDescription?:  string  // ex: "se o lead já é cliente (sim/não)"
 }
 
 // ── Condition ─────────────────────────────────────────────────────────────────

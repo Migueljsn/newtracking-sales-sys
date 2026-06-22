@@ -5,7 +5,7 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import {
   Zap, HelpCircle, GitBranch,
   ArrowRightLeft, UserCheck, UserPlus, ExternalLink,
-  FileText, Image, FileArchive, Type, MousePointerClick, Clock,
+  FileText, Image, FileArchive, Type, MousePointerClick, Clock, Sparkles,
 } from "lucide-react";
 import { BaseNode } from "@/components/journeys/nodes/base-node";
 import type {
@@ -83,13 +83,19 @@ export function FlowQuestionNode({ data, selected }: NodeProps) {
         { id: "timeout", label: "Timeout",  color: "#f97316" },
       ];
 
-  const summary = d.questionText
-    ? d.questionText.slice(0, 48) + (d.questionText.length > 48 ? "…" : "")
-    : "Pergunta não configurada";
+  const summary = d.mode === "ai"
+    ? (d.aiCaptureDescription
+        ? `IA captura: ${d.aiCaptureDescription.slice(0, 40)}${d.aiCaptureDescription.length > 40 ? "…" : ""}`
+        : "Pergunta IA não configurada")
+    : d.questionText
+      ? d.questionText.slice(0, 48) + (d.questionText.length > 48 ? "…" : "")
+      : "Pergunta não configurada";
 
   const icon = d.mode === "choice"
     ? <MousePointerClick size={13} />
-    : <Type size={13} />;
+    : d.mode === "ai"
+      ? <Sparkles size={13} />
+      : <Type size={13} />;
 
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [tops, setTops] = useState<number[]>([]);

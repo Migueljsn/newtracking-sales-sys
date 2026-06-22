@@ -115,3 +115,84 @@ export async function rephraseMessage(
 
   return response.choices[0].message.content?.trim() || baseText;
 }
+
+type PersonaConfig = Pick<AgentTurnConfig, "systemPrompt" | "negativePrompt" | "model" | "temperature">;
+
+/**
+ * Gera a frase de uma "Pergunta IA" (nó question, modo ai) a partir de uma
+ * descrição do que precisa ser capturado — nunca usa menus numerados/botões,
+ * e na retentativa pede uma frase diferente da anterior.
+ */
+export async function generateAiQuestion(
+  config: PersonaConfig,
+  captureDescription: string,
+  isRetry: boolean
+): Promise<string> {
+  const openai = getClient();
+  const instruction = isRetry
+    ? "Você já perguntou isso antes mas não conseguiu uma resposta clara. Pergunte de novo, com outras palavras — nunca repita a mesma frase."
+    : "Pergunte isso de forma natural, como uma pessoa perguntaria no WhatsApp.";
+
+  const response = await openai.chat.completions.create({
+    model: config.model,
+    temperature: config.temperature,
+    messages: [
+      { role: "system", content: buildPersonaPrompt(config) },
+      {
+        role: "user",
+        content: `O que você precisa descobrir do lead agora: "${captureDescription}".\n\n${instruction} Nunca use menus numerados (ex: "responda 1 para sim") nem se refira a botões. Responda APENAS com a pergunta a ser enviada, sem aspas, sem comentário.`,
+      },
+    ],
+  });
+
+  return response.choices[0].message.content?.trim() || captureDescription;
+}
+
+const CAPTURE_ANSWER_TOOL = {
+  type: "function" as const,
+  function: {
+    name: "registrar_resposta",
+    description: "Registra se o lead respondeu de forma utilizável à pergunta e qual valor foi extraído.",
+    parameters: {
+      type: "object",
+      properties: {
+        respondeu: { type: "boolean", description: "true se o lead deu uma resposta utilizável; false se recusou, fugiu do assunto ou não ficou claro." },
+        valor:     { type: "string", description: "O valor extraído da resposta (ex: o CNPJ informado, ou 'sim'/'não'). Vazio se respondeu=false." },
+      },
+      required: ["respondeu"],
+    },
+  },
+};
+
+/**
+ * Extrai, via tool calling, o valor que o lead informou em resposta a uma
+ * "Pergunta IA". Não decide validade de formato — isso é responsabilidade
+ * do validador determinístico (validateField) aplicado sobre o valor extraído.
+ */
+export async function extractAiAnswer(
+  config: PersonaConfig,
+  captureDescription: string,
+  leadReply: string
+): Promise<{ captured: boolean; value: string | null }> {
+  const openai = getClient();
+  const response = await openai.chat.completions.create({
+    model: config.model,
+    temperature: 0,
+    messages: [
+      { role: "system", content: buildPersonaPrompt(config) },
+      {
+        role: "user",
+        content: `Você perguntou ao lead: "${captureDescription}". A resposta dele foi: "${leadReply}". Registre o resultado.`,
+      },
+    ],
+    tools: [CAPTURE_ANSWER_TOOL],
+    tool_choice: { type: "function", function: { name: "registrar_resposta" } },
+  });
+
+  const toolCall = response.choices[0].message.tool_calls?.[0];
+  if (toolCall?.type === "function") {
+    const args = JSON.parse(toolCall.function.arguments || "{}");
+    return { captured: !!args.respondeu, value: args.valor || null };
+  }
+  return { captured: false, value: null };
+}

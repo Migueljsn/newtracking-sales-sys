@@ -417,6 +417,7 @@ export function FlowNodeConfigPanel({
                         ...data,
                         mode: opt.value,
                         ...(opt.value === "text" ? { buttons: [] } : {}),
+                        ...(opt.value === "ai" && !d.aiAgentId ? { aiAgentId: agents[0]?.id ?? null } : {}),
                       })}
                       className={`flex items-center gap-1.5 flex-1 justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
                         mode === opt.value

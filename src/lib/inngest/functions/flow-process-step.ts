@@ -410,8 +410,11 @@ export const flowProcessStep = inngest.createFunction(
           const maxAttemptsAi = d.retries;
 
           async function loadAgentConfig() {
-            if (!d.aiAgentId) return null;
-            const agent = await prisma.aiAgent.findUnique({ where: { id: d.aiAgentId } });
+            const agent = d.aiAgentId
+              ? await prisma.aiAgent.findUnique({ where: { id: d.aiAgentId } })
+              // fallback de resiliência: nó salvo sem agente selecionado (ex: só havia 1
+              // opção e o seletor nunca disparou onChange) — usa o primeiro agente ativo
+              : await prisma.aiAgent.findFirst({ where: { clientId, isActive: true }, orderBy: { createdAt: "asc" } });
             if (!agent) return null;
             return { systemPrompt: agent.systemPrompt, negativePrompt: agent.negativePrompt, model: agent.model, temperature: agent.temperature };
           }

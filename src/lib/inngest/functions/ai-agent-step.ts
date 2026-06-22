@@ -51,7 +51,7 @@ export const aiAgentStep = inngest.createFunction(
       if (finalMessage) {
         await sendWhatsAppText(phone, finalMessage, clientId);
         await prisma.leadInteraction.create({
-          data: { leadId, clientId, type: "WHATSAPP", content: `[Agente IA] ${finalMessage}`, createdBy: "Agente IA" },
+          data: { leadId, clientId, type: "WHATSAPP", content: finalMessage, createdBy: "Agente IA" },
         });
       }
       await prisma.aiAgentSession.update({
@@ -83,7 +83,7 @@ export const aiAgentStep = inngest.createFunction(
       await step.run("send-opening", async () => {
         await sendWhatsAppText(phone, opening.text, clientId);
         await prisma.leadInteraction.create({
-          data: { leadId, clientId, type: "WHATSAPP", content: `[Agente IA] ${opening.text}`, createdBy: "Agente IA" },
+          data: { leadId, clientId, type: "WHATSAPP", content: opening.text, createdBy: "Agente IA" },
         });
         await prisma.aiAgentSession.update({ where: { id: sessionId }, data: { turnCount: { increment: 1 } } });
       });
@@ -113,7 +113,7 @@ export const aiAgentStep = inngest.createFunction(
       await step.run(`send-reply-${turnCount}`, async () => {
         await sendWhatsAppText(phone, result.text, clientId);
         await prisma.leadInteraction.create({
-          data: { leadId, clientId, type: "WHATSAPP", content: `[Agente IA] ${result.text}`, createdBy: "Agente IA" },
+          data: { leadId, clientId, type: "WHATSAPP", content: result.text, createdBy: "Agente IA" },
         });
         await prisma.aiAgentSession.update({ where: { id: sessionId }, data: { turnCount: { increment: 1 } } });
       });

@@ -210,12 +210,67 @@ export const aiAgentStep = inngest.createFunction(
       return true;
     }
 
+    // Resumo do que já se sabe sobre a lead (cadastro, formulário, UTMs) —
+    // pra IA nunca perguntar de novo algo que ela já tem à disposição.
+    async function buildLeadContextSummary(): Promise<string> {
+      const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { customer: true } });
+      const cf = (lead.customFields as Record<string, unknown> | null) ?? {};
+      const lines: string[] = [`Nome: ${lead.customer.name}`];
+      if (lead.customer.email)    lines.push(`E-mail: ${lead.customer.email}`);
+      if (lead.customer.document) lines.push(`CNPJ/CPF cadastrado: ${lead.customer.document}`);
+      if (lead.customer.city || lead.customer.state) lines.push(`Local: ${[lead.customer.city, lead.customer.state].filter(Boolean).join(", ")}`);
+      if (lead.utmSource)   lines.push(`Origem (UTM source): ${lead.utmSource}`);
+      if (lead.utmCampaign) lines.push(`Campanha de origem: ${lead.utmCampaign}`);
+      for (const [k, v] of Object.entries(cf)) {
+        if (v) lines.push(`${k}: ${v}`);
+      }
+      return lines.join("\n");
+    }
+
+    const CNPJ_LOOKUP_TOOL: AgentToolDef = {
+      name: "consultar_cnpj",
+      description: "Consulta dados oficiais de uma empresa a partir do CNPJ (razão social, endereço, situação cadastral) numa base pública da Receita Federal. Use quando o lead mencionar ou informar um CNPJ, pra entender melhor a empresa dele.",
+      parameters: {
+        type: "object",
+        properties: { cnpj: { type: "string", description: "O CNPJ informado, com ou sem formatação" } },
+        required: ["cnpj"],
+      },
+    };
+
+    async function handleCnpjLookup(args: Record<string, unknown>): Promise<AgentToolCallResult> {
+      const cnpj = String(args.cnpj ?? "").replace(/\D/g, "");
+      if (cnpj.length !== 14) return { content: "CNPJ inválido (precisa ter 14 dígitos) — não consultado." };
+      try {
+        const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, { signal: AbortSignal.timeout(8_000) });
+        if (!res.ok) return { content: "Não encontrei esse CNPJ na base da Receita — siga a conversa normalmente, sem mencionar a consulta." };
+        const data = await res.json();
+        const resumo = [
+          `Razão social: ${data.razao_social}`,
+          data.nome_fantasia ? `Nome fantasia: ${data.nome_fantasia}` : null,
+          `Endereço: ${[data.logradouro, data.numero, data.bairro, data.municipio, data.uf].filter(Boolean).join(", ")}`,
+          data.cep ? `CEP: ${data.cep}` : null,
+          data.descricao_situacao_cadastral ? `Situação cadastral: ${data.descricao_situacao_cadastral}` : null,
+        ].filter(Boolean).join("\n");
+        return { content: `Dados encontrados na Receita:\n${resumo}` };
+      } catch {
+        return { content: "Não consegui consultar esse CNPJ agora — siga a conversa normalmente, sem mencionar a consulta." };
+      }
+    }
+
     async function callAgent(history: AgentHistoryMessage[]) {
-      const pending = await loadPendingObjectives();
-      if (pending.length === 0) return runAgentTurn(agentConfig, history);
-      return runAgentTurn(agentConfig, history, {
-        tools:      [buildCaptureTool(pending)],
-        onToolCall: (name, args) => name === "capturar_dado" ? handleCaptureCall(args) : Promise.resolve({ content: "ferramenta desconhecida" }),
+      const [pending, contextSummary] = await Promise.all([loadPendingObjectives(), buildLeadContextSummary()]);
+      const config: AgentTurnConfig = {
+        ...agentConfig,
+        systemPrompt: `${agentConfig.systemPrompt}\n\nDados que você já tem sobre essa lead (não pergunte de novo o que já está aqui):\n${contextSummary}`,
+      };
+      const tools: AgentToolDef[] = [CNPJ_LOOKUP_TOOL, ...(pending.length > 0 ? [buildCaptureTool(pending)] : [])];
+      return runAgentTurn(config, history, {
+        tools,
+        onToolCall: (name, args) => {
+          if (name === "capturar_dado") return handleCaptureCall(args);
+          if (name === "consultar_cnpj") return handleCnpjLookup(args);
+          return Promise.resolve({ content: "ferramenta desconhecida" });
+        },
       });
     }
 

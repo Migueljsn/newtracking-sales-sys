@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { X } from "lucide-react";
 import { TextareaWithVars } from "@/components/flows/field-with-vars";
 import type { AgentObjective } from "@/lib/agents/types";
@@ -13,6 +14,9 @@ const VALIDATION_OPTIONS: { value: AgentObjective["validation"]; label: string }
   { value: "number", label: "Número" },
 ];
 
+const KNOWN_FIELDS = ["name", "email", "notes", "cnpj", "cep", "company", "city", "state", "meetingPreference"];
+const CUSTOM_VALUE = "__custom__";
+
 interface ObjectiveCardProps {
   objective: AgentObjective;
   onChange:  (objective: AgentObjective) => void;
@@ -20,6 +24,9 @@ interface ObjectiveCardProps {
 }
 
 export function ObjectiveCard({ objective, onChange, onRemove }: ObjectiveCardProps) {
+  const [forceCustom, setForceCustom] = useState(false);
+  const isCustom = forceCustom || (objective.saveField !== "" && !KNOWN_FIELDS.includes(objective.saveField));
+
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
       <div className="flex items-start gap-2">
@@ -30,7 +37,7 @@ export function ObjectiveCard({ objective, onChange, onRemove }: ObjectiveCardPr
               rows={2}
               value={objective.description}
               onChange={(v) => onChange({ ...objective, description: v })}
-              placeholder="Ex: o CNPJ da empresa do lead"
+              placeholder="Ex: o melhor dia e horário pra uma reunião"
               className="input w-full resize-none"
             />
           </div>
@@ -47,25 +54,39 @@ export function ObjectiveCard({ objective, onChange, onRemove }: ObjectiveCardPr
             </div>
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Salvar no campo</label>
-              <select
-                value={objective.saveField}
-                onChange={(e) => onChange({ ...objective, saveField: e.target.value })}
-                className="input w-full"
-              >
-                <option value="">Selecione...</option>
-                <optgroup label="Campos do lead">
-                  <option value="name">Nome</option>
-                  <option value="email">E-mail</option>
-                  <option value="notes">Observações</option>
-                </optgroup>
-                <optgroup label="Dados coletados">
-                  <option value="cnpj">CNPJ</option>
-                  <option value="cep">CEP</option>
-                  <option value="company">Empresa</option>
-                  <option value="city">Cidade</option>
-                  <option value="state">Estado (UF)</option>
-                </optgroup>
-              </select>
+              {isCustom ? (
+                <input
+                  value={objective.saveField}
+                  onChange={(e) => onChange({ ...objective, saveField: e.target.value })}
+                  placeholder="nome_do_campo"
+                  className="input w-full"
+                />
+              ) : (
+                <select
+                  value={objective.saveField}
+                  onChange={(e) => {
+                    if (e.target.value === CUSTOM_VALUE) { setForceCustom(true); onChange({ ...objective, saveField: "" }); return; }
+                    onChange({ ...objective, saveField: e.target.value });
+                  }}
+                  className="input w-full"
+                >
+                  <option value="">Selecione...</option>
+                  <optgroup label="Campos do lead">
+                    <option value="name">Nome</option>
+                    <option value="email">E-mail</option>
+                    <option value="notes">Observações</option>
+                  </optgroup>
+                  <optgroup label="Dados coletados">
+                    <option value="cnpj">CNPJ</option>
+                    <option value="cep">CEP</option>
+                    <option value="company">Empresa</option>
+                    <option value="city">Cidade</option>
+                    <option value="state">Estado (UF)</option>
+                    <option value="meetingPreference">Preferência de reunião</option>
+                  </optgroup>
+                  <option value={CUSTOM_VALUE}>Campo personalizado...</option>
+                </select>
+              )}
             </div>
           </div>
         </div>

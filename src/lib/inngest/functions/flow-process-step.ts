@@ -5,6 +5,7 @@ import { evaluateGroup }      from "@/lib/audiences/evaluate";
 import { rephraseMessage, generateAiQuestion, extractAiAnswer } from "@/lib/ai/openai-agent";
 import { estimateTypingMs } from "@/lib/whatsapp/evolution";
 import { validateField } from "@/lib/flows/validate-field";
+import { renderTemplate } from "@/lib/flows/render-template";
 import type { RuleGroup }     from "@/lib/audiences/types";
 import type { Node, Edge }    from "@xyflow/react";
 import type {
@@ -96,9 +97,6 @@ function detectMediaType(url: string): { mediatype: "image" | "video" | "documen
   return { mediatype: "document", mimetype, fileName };
 }
 
-function renderTemplate(text: string, vars: Record<string, string>) {
-  return text.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
-}
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 10_000): Promise<Response> {
   const ctrl = new AbortController();

@@ -8,6 +8,7 @@ import {
 } from "@/lib/ai/openai-agent";
 import { evaluateGroup } from "@/lib/audiences/evaluate";
 import { validateField } from "@/lib/flows/validate-field";
+import { renderTemplate } from "@/lib/flows/render-template";
 import {
   parseExitRules, parseObjectives, parseCompletionAction,
   type AgentExitRule, type AgentExitAction, type AgentObjective,
@@ -31,6 +32,7 @@ export const aiAgentStep = inngest.createFunction(
       return {
         agent: session.agent,
         phone: session.lead.customer.phone,
+        nome:  session.lead.customer.name,
         turnCount: session.turnCount,
         startedAt: session.startedAt,
       };
@@ -39,6 +41,7 @@ export const aiAgentStep = inngest.createFunction(
     if (!ctx) return { skipped: "sessão inexistente ou já encerrada" };
 
     const { agent, phone, startedAt } = ctx;
+    const vars = { nome: ctx.nome.split(" ")[0], nome_completo: ctx.nome };
     const agentConfig: AgentTurnConfig = {
       systemPrompt:   agent.systemPrompt,
       negativePrompt: agent.negativePrompt,
@@ -154,7 +157,8 @@ export const aiAgentStep = inngest.createFunction(
       if (action.type === "move_stage_and_end") {
         await prisma.lead.update({ where: { id: leadId }, data: { pipelineStageId: action.stageId } });
       }
-      const message = action.type === "end_silent" ? null : action.message || null;
+      const rawMessage = action.type === "end_silent" ? null : action.message || null;
+      const message = rawMessage ? renderTemplate(rawMessage, vars) : null;
       if (message) {
         await sendWhatsAppTyping(phone, estimateTypingMs(message), clientId);
         await sendWhatsAppText(phone, message, clientId);

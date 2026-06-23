@@ -277,8 +277,15 @@ export async function deleteLeadAction(leadId: string) {
     await prisma.sale.deleteMany({ where: { id: { in: saleIds } } });
   }
 
-  // Lead cascade deleta LeadStatusHistory
+  // Lead cascade deleta LeadStatusHistory, LeadInteraction, AiAgentSession
   await prisma.lead.delete({ where: { id: leadId } });
+
+  // Customer só fica órfão deletado se nenhuma outra lead ainda apontar pra ele —
+  // sem isso, criar uma lead nova com o mesmo telefone reaproveita o Customer antigo (nome/dados velhos)
+  const remainingLeads = await prisma.lead.count({ where: { customerId: lead.customerId } });
+  if (remainingLeads === 0) {
+    await prisma.customer.delete({ where: { id: lead.customerId } });
+  }
 
   await invalidate(cacheKeys.leadDetail(leadId), cacheKeys.leads(clientId), cacheKeys.sales(clientId), cacheKeys.metrics(clientId));
   revalidatePath("/leads");

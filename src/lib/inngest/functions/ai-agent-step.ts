@@ -224,6 +224,7 @@ export const aiAgentStep = inngest.createFunction(
       for (const [k, v] of Object.entries(cf)) {
         if (v) lines.push(`${k}: ${v}`);
       }
+      if (lead.notes) lines.push(`Observações (diagnóstico/formulário de origem):\n${lead.notes}`);
       return lines.join("\n");
     }
 

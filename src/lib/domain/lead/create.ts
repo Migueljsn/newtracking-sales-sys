@@ -4,6 +4,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { findOrCreateCustomer } from "@/lib/domain/customer/find-or-create";
 import { buildLeadPayload } from "@/lib/domain/tracking/build-payload";
 import { toGoogleAdsDateTime } from "@/lib/domain/tracking/google-ads";
+import { notifyPushcut } from "@/lib/notifications/pushcut";
 
 interface CreateLeadInput {
   clientId: string;
@@ -124,6 +125,19 @@ export async function createLead(input: CreateLeadInput) {
         payload:   {},
         leadId:    lead.id,
       },
+    });
+  }
+
+  const clientSettings = await prisma.clientSettings.findUnique({
+    where:  { clientId: input.clientId },
+    select: { pushcutEnabled: true, pushcutWebhookUrl: true },
+  });
+
+  if (clientSettings?.pushcutEnabled && clientSettings.pushcutWebhookUrl) {
+    await notifyPushcut({
+      webhookUrl: clientSettings.pushcutWebhookUrl,
+      title:      "Nova lead recebida",
+      text:       `${leadCustomer.name} · ${leadCustomer.phone}`,
     });
   }
 

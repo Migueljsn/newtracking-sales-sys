@@ -10,6 +10,7 @@ import { PipelineStages } from "@/components/settings/pipeline-stages";
 import { ConsultantAccess } from "@/components/settings/consultant-access";
 import { WebhookConfig } from "@/components/settings/webhook-config";
 import { WhatsAppInstances } from "@/components/settings/whatsapp-instances";
+import { PushcutConfig } from "@/components/settings/pushcut-config";
 
 const TABS = [
   { key: "geral",     label: "Geral"      },
@@ -155,11 +156,18 @@ export default async function SettingsPage({
       )}
 
       {activeTab === "webhooks" && (
-        <div className="card p-5">
-          <WebhookConfig
-            token={webhookToken}
-            recentLogs={webhookLogs}
-            appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+        <div className="space-y-4">
+          <div className="card p-5">
+            <WebhookConfig
+              token={webhookToken}
+              recentLogs={webhookLogs}
+              appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+            />
+          </div>
+
+          <PushcutConfig
+            currentWebhookUrl={settings?.pushcutWebhookUrl ?? null}
+            currentEnabled={settings?.pushcutEnabled ?? false}
           />
         </div>
       )}

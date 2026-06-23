@@ -96,6 +96,10 @@ model ClientSettings {
   botconversaFlowName String?  // cache do nome para exibição
   botconversaEnabled  Boolean  @default(false)
 
+  // Pushcut — notificação push ao capturar lead nova
+  pushcutWebhookUrl String?
+  pushcutEnabled    Boolean  @default(false)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

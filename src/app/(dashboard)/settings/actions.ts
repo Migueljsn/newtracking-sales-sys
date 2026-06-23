@@ -380,6 +380,24 @@ export async function saveBotconversaConfigAction(formData: FormData) {
   revalidatePath("/settings?tab=whatsapp");
 }
 
+// ─── Pushcut ─────────────────────────────────────────────────────────────────
+
+export async function savePushcutConfigAction(formData: FormData) {
+  const session  = await getSession();
+  const clientId = session.clientId!;
+
+  const webhookUrl = (formData.get("pushcutWebhookUrl") as string).trim() || null;
+  const enabled     = formData.get("pushcutEnabled") === "on";
+
+  await prisma.clientSettings.upsert({
+    where:  { clientId },
+    create: { clientId, pushcutWebhookUrl: webhookUrl, pushcutEnabled: enabled },
+    update: { pushcutWebhookUrl: webhookUrl, pushcutEnabled: enabled },
+  });
+
+  revalidatePath("/settings?tab=webhooks");
+}
+
 // ─── Webhook — leads ─────────────────────────────────────────────────────────
 
 export async function generateWebhookTokenAction() {

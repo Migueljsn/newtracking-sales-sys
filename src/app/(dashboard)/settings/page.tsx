@@ -166,7 +166,7 @@ export default async function SettingsPage({
           </div>
 
           <PushcutConfig
-            currentWebhookUrl={settings?.pushcutWebhookUrl ?? null}
+            currentWebhookUrls={settings?.pushcutWebhookUrls ?? []}
             currentEnabled={settings?.pushcutEnabled ?? false}
           />
         </div>

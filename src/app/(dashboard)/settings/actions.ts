@@ -386,13 +386,16 @@ export async function savePushcutConfigAction(formData: FormData) {
   const session  = await getSession();
   const clientId = session.clientId!;
 
-  const webhookUrl = (formData.get("pushcutWebhookUrl") as string).trim() || null;
-  const enabled     = formData.get("pushcutEnabled") === "on";
+  const webhookUrls = (formData.get("pushcutWebhookUrls") as string)
+    .split("\n")
+    .map(u => u.trim())
+    .filter(u => u.startsWith("http"));
+  const enabled = formData.get("pushcutEnabled") === "on";
 
   await prisma.clientSettings.upsert({
     where:  { clientId },
-    create: { clientId, pushcutWebhookUrl: webhookUrl, pushcutEnabled: enabled },
-    update: { pushcutWebhookUrl: webhookUrl, pushcutEnabled: enabled },
+    create: { clientId, pushcutWebhookUrls: webhookUrls, pushcutEnabled: enabled },
+    update: { pushcutWebhookUrls: webhookUrls, pushcutEnabled: enabled },
   });
 
   revalidatePath("/settings?tab=webhooks");

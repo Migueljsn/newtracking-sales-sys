@@ -7,14 +7,14 @@ import { savePushcutConfigAction } from "@/app/(dashboard)/settings/actions";
 import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
-  currentWebhookUrl: string | null;
-  currentEnabled:    boolean;
+  currentWebhookUrls: string[];
+  currentEnabled:     boolean;
 }
 
-export function PushcutConfig({ currentWebhookUrl, currentEnabled }: Props) {
-  const [webhookUrl, setWebhookUrl] = useState(currentWebhookUrl ?? "");
-  const [enabled, setEnabled]       = useState(currentEnabled);
-  const [loading, setLoading]       = useState(false);
+export function PushcutConfig({ currentWebhookUrls, currentEnabled }: Props) {
+  const [webhookUrls, setWebhookUrls] = useState(currentWebhookUrls.join("\n"));
+  const [enabled, setEnabled]         = useState(currentEnabled);
+  const [loading, setLoading]         = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,18 +39,18 @@ export function PushcutConfig({ currentWebhookUrl, currentEnabled }: Props) {
       </div>
 
       <p className="text-xs text-[var(--text-muted)]">
-        Envia uma notificação para o seu iPhone/Mac sempre que uma lead nova entrar no CRM. Crie uma notificação no
-        app Pushcut e cole aqui a URL do webhook dela.
+        Envia uma notificação para o(s) seu(s) dispositivo(s) sempre que uma lead nova entrar no CRM. Crie uma
+        notificação no app Pushcut para cada pessoa/dispositivo e cole as URLs abaixo, uma por linha.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          type="url"
-          name="pushcutWebhookUrl"
-          value={webhookUrl}
-          onChange={e => setWebhookUrl(e.target.value)}
-          placeholder="https://api.pushcut.io/xxxxxxxx/notifications/SuaNotificacao"
-          className="input w-full text-sm font-mono"
+        <textarea
+          name="pushcutWebhookUrls"
+          rows={4}
+          value={webhookUrls}
+          onChange={e => setWebhookUrls(e.target.value)}
+          placeholder={"https://api.pushcut.io/xxxxxxxx/notifications/SuaNotificacao\nhttps://api.pushcut.io/yyyyyyyy/notifications/OutraNotificacao"}
+          className="input w-full text-sm font-mono resize-none"
         />
 
         <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">

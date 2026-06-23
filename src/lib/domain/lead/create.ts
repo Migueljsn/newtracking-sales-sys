@@ -136,19 +136,23 @@ export async function createLead(input: CreateLeadInput) {
 
   const clientSettings = await prisma.clientSettings.findUnique({
     where:  { clientId: input.clientId },
-    select: { pushcutEnabled: true, pushcutWebhookUrl: true },
+    select: { pushcutEnabled: true, pushcutWebhookUrls: true },
   });
 
-  if (clientSettings?.pushcutEnabled && clientSettings.pushcutWebhookUrl) {
+  if (clientSettings?.pushcutEnabled && clientSettings.pushcutWebhookUrls.length > 0) {
     const client   = await prisma.client.findUniqueOrThrow({ where: { id: input.clientId }, select: { name: true } });
     const sourceLabel = LEAD_SOURCE_LABELS[lead.source] ?? lead.source;
     const local = [leadCustomer.city, leadCustomer.state].filter(Boolean).join(" - ") || "Não informado";
 
-    await notifyPushcut({
-      webhookUrl: clientSettings.pushcutWebhookUrl,
-      title:      `${client.name} • Nova Lead Recebida 🔥`,
-      text:       `${leadCustomer.name}\nOrigem: ${sourceLabel}\nLocal: ${local}`,
-    });
+    await Promise.all(
+      clientSettings.pushcutWebhookUrls.map(webhookUrl =>
+        notifyPushcut({
+          webhookUrl,
+          title: `${client.name} • Nova Lead Recebida 🔥`,
+          text:  `${leadCustomer.name}\nOrigem: ${sourceLabel}\nLocal: ${local}`,
+        })
+      )
+    );
   }
 
   return { lead, duplicate: false };

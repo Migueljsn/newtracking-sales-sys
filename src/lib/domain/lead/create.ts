@@ -6,6 +6,12 @@ import { buildLeadPayload } from "@/lib/domain/tracking/build-payload";
 import { toGoogleAdsDateTime } from "@/lib/domain/tracking/google-ads";
 import { notifyPushcut } from "@/lib/notifications/pushcut";
 
+const LEAD_SOURCE_LABELS: Record<string, string> = {
+  FORM:   "Formulário",
+  MANUAL: "Manual",
+  IMPORT: "Importação",
+};
+
 interface CreateLeadInput {
   clientId: string;
   name: string;
@@ -134,10 +140,14 @@ export async function createLead(input: CreateLeadInput) {
   });
 
   if (clientSettings?.pushcutEnabled && clientSettings.pushcutWebhookUrl) {
+    const client   = await prisma.client.findUniqueOrThrow({ where: { id: input.clientId }, select: { name: true } });
+    const sourceLabel = LEAD_SOURCE_LABELS[lead.source] ?? lead.source;
+    const local = [leadCustomer.city, leadCustomer.state].filter(Boolean).join(" - ") || "Não informado";
+
     await notifyPushcut({
       webhookUrl: clientSettings.pushcutWebhookUrl,
-      title:      "Nova lead recebida",
-      text:       `${leadCustomer.name} · ${leadCustomer.phone}`,
+      title:      `${client.name} • Nova Lead Recebida 🔥`,
+      text:       `${leadCustomer.name}\nOrigem: ${sourceLabel}\nLocal: ${local}`,
     });
   }
 

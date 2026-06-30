@@ -8,7 +8,7 @@ import {
   Download, SlidersHorizontal, X, Check, Loader2,
   CheckSquare, UserCheck, ChevronDown, Trash2, AlertTriangle,
   DollarSign, Plus, Minus, ArrowUp, ArrowDown, ChevronsUpDown,
-  GripVertical, Upload,
+  GripVertical,
 } from "lucide-react";
 import { ImportUploader } from "@/components/import/import-uploader";
 import { Spinner } from "@/components/ui/spinner";
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
 import { AdvancedFiltersPanel } from "./advanced-filters-panel";
-import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
+import { LeadsDatePicker, type LeadsDateFilter } from "@/components/ui/leads-date-picker";
 import { evaluateGroup } from "@/lib/audiences/evaluate";
 import type { RuleGroup } from "@/lib/audiences/types";
 import {
@@ -131,8 +131,6 @@ const statusTabs: { value: "ALL" | "NEW" | "SOLD" | "LOST"; label: string }[] = 
   { value: "LOST", label: "Perdidas" },
 ];
 
-const INACTIVITY_PRESETS = [7, 15, 30, 45];
-const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
@@ -242,11 +240,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   // Filters
   const [search,           setSearch]           = useState("");
   const [statusFilter,     setStatusFilter]     = useState<"ALL" | "NEW" | "SOLD" | "LOST">("ALL");
-  const [stateFilter,      setStateFilter]      = useState<string>("ALL");
-  const [consultantFilter, setConsultantFilter] = useState<string>("ALL");
-  const [stageFilter,      setStageFilter]      = useState<string>("ALL");
-  const [inactivityFilter, setInactivityFilter] = useState<number | null>(null);
-  const [capturedRange,    setCapturedRange]    = useState<DateRange | null>(null);
+  const [dateFilter, setDateFilter] = useState<LeadsDateFilter | null>(null);
   const [page,             setPage]             = useState(0);
 
   // Page size
@@ -634,17 +628,19 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
       statusFilter === "ALL" ||
       (statusFilter === "NEW" && (lead.status === "NEW" || lead.status === "REGISTERED")) ||
       lead.status === statusFilter;
-    const matchState      = stateFilter      === "ALL" || lead.customer.state  === stateFilter;
-    const matchConsultant = consultantFilter === "ALL" || lead.consultant       === consultantFilter;
-    const matchStage      = stageFilter      === "ALL" || lead.pipelineStage?.id === stageFilter;
-    const matchInactivity = inactivityFilter === null  || getInactivityDays(lead) >= inactivityFilter;
+    let matchDate = true;
+    if (dateFilter) {
+      const from = new Date(dateFilter.range.from + "T00:00:00").getTime();
+      const to   = new Date(dateFilter.range.to   + "T23:59:59").getTime();
+      if (dateFilter.mode === "capture") {
+        const ms = new Date(lead.capturedAt).getTime();
+        matchDate = ms >= from && ms <= to;
+      } else {
+        matchDate = lead.sales.some(s => { const ms = new Date(s.soldAt).getTime(); return ms >= from && ms <= to; });
+      }
+    }
 
-    const capturedMs = new Date(lead.capturedAt).getTime();
-    const matchCaptured = !capturedRange ||
-      (capturedMs >= new Date(capturedRange.from + "T00:00:00").getTime() &&
-       capturedMs <= new Date(capturedRange.to   + "T23:59:59").getTime());
-
-    return matchSearch && matchStatus && matchState && matchConsultant && matchStage && matchInactivity && matchCaptured;
+    return matchSearch && matchStatus && matchDate;
   });
 
   function getSortValue(lead: Lead, key: SortKey): number {
@@ -668,7 +664,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   const paginated  = sorted.slice(safePage * pageSize, (safePage + 1) * pageSize);
   const pageNums   = getPageNumbers(safePage, totalPages);
 
-  const hasActiveFilters = search !== "" || statusFilter !== "ALL" || stateFilter !== "ALL" || consultantFilter !== "ALL" || stageFilter !== "ALL" || inactivityFilter !== null || capturedRange !== null;
+  const hasActiveFilters = search !== "" || statusFilter !== "ALL" || dateFilter !== null || advancedRules !== null;
 
   // Lead selecionada para venda (apenas quando exatamente 1)
   const singleSelectedLead = selectedIds.size === 1
@@ -678,11 +674,8 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
   function clearFilters() {
     setSearch("");
     setStatusFilter("ALL");
-    setStateFilter("ALL");
-    setConsultantFilter("ALL");
-    setStageFilter("ALL");
-    setInactivityFilter(null);
-    setCapturedRange(null);
+    setDateFilter(null);
+    setAdvancedRules(null);
     resetPage();
   }
 
@@ -703,7 +696,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
         </div>
       )}
 
-      {/* Row 1: search + state + consultant + stage + inactivity */}
+      {/* Row 1: search + date + advanced filters */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
@@ -716,61 +709,9 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
           />
         </div>
 
-        <select
-          value={stateFilter}
-          onChange={(e) => { setStateFilter(e.target.value); resetPage(); }}
-          className="input w-full lg:w-28"
-        >
-          <option value="ALL">Estado</option>
-          {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
-        </select>
-
-        {consultants.length > 0 && (
-          <select
-            value={consultantFilter}
-            onChange={(e) => { setConsultantFilter(e.target.value); resetPage(); }}
-            className="input w-full lg:w-36"
-          >
-            <option value="ALL">Consultor</option>
-            {consultants.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        )}
-
-        {(pipelineStages ?? []).length > 0 && (
-          <select
-            value={stageFilter}
-            onChange={(e) => { setStageFilter(e.target.value); resetPage(); }}
-            className="input w-full lg:w-36"
-          >
-            <option value="ALL">Etapa</option>
-            {(pipelineStages ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        )}
-
-        <div className="soft-panel flex items-center gap-1 p-1.5">
-          <span className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Inativo há</span>
-          {INACTIVITY_PRESETS.map((d) => {
-            const active = inactivityFilter === d;
-            return (
-              <button
-                key={d}
-                onClick={() => { setInactivityFilter(active ? null : d); resetPage(); }}
-                className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
-                  active
-                    ? "bg-[var(--surface-strong)] text-[var(--text)] shadow-sm"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-strong)]/50"
-                }`}
-              >
-                {d}d
-              </button>
-            );
-          })}
-        </div>
-
-        <DateRangePicker
-          value={capturedRange}
-          onChange={(r) => { setCapturedRange(r); resetPage(); }}
-          placeholder="Capturada em"
+        <LeadsDatePicker
+          value={dateFilter}
+          onChange={(v) => { setDateFilter(v); resetPage(); }}
         />
       </div>
 
@@ -808,15 +749,6 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
             );
           })}
         </div>
-
-        {/* Import button */}
-        <button
-          onClick={() => setShowImportModal(true)}
-          title="Importar leads (XLSX)"
-          className="flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-        >
-          <Upload size={13} /> Importar
-        </button>
 
         {/* Column editor */}
         <div className="relative" ref={colPanelRef}>

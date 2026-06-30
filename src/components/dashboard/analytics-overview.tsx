@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
+  Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
@@ -406,6 +407,9 @@ export function AnalyticsOverview() {
         {/* ── Cohort do período ── */}
         {data && <CohortBlock cohort={data.cohort} />}
 
+        {/* ── Pipeline stages breakdown ── */}
+        {data && <PipelineStagesBlock data={data.byPipelineStage} />}
+
         {/* ── Funnel + Weekday ── */}
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="card p-5">
@@ -450,6 +454,20 @@ export function AnalyticsOverview() {
         <div className="grid gap-4 lg:grid-cols-2">
           <BarListCard title="Por Estado" data={data?.byState ?? []} />
           <ConsultantRanking data={data?.byConsultant ?? []} />
+        </div>
+
+        {/* ── Pizzas: origem + estado ── */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <PieBlock
+            title="Origem das leads"
+            data={data?.bySource ?? []}
+            hint="Como as leads chegaram ao CRM no período: via formulário público, cadastro manual ou importação de planilha."
+          />
+          <PieBlock
+            title="Leads por estado"
+            data={data?.byState ?? []}
+            hint="Distribuição geográfica das leads capturadas no período. Mostra os estados com maior volume de capturas."
+          />
         </div>
 
       </div>
@@ -716,6 +734,145 @@ function LtvBlock({ ltv }: { ltv: LtvData }) {
               })}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pie block ───────────────────────────────────────────────────────────────
+
+function PieBlock({
+  title, data, hint, valueKey = "leads",
+}: {
+  title:     string;
+  data:      BarItemFull[];
+  hint?:     string;
+  valueKey?: "leads" | "sales" | "revenue";
+}) {
+  const sorted  = [...data].filter(d => d[valueKey] > 0).sort((a, b) => b[valueKey] - a[valueKey]).slice(0, 7);
+  const total   = sorted.reduce((s, d) => s + d[valueKey], 0);
+  const pieData = sorted.map(d => ({ name: d.label, value: d[valueKey] }));
+
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center gap-1.5">
+        <h2 className="text-sm font-semibold text-[var(--text)]">{title}</h2>
+        {hint && <HintTooltip text={hint} />}
+      </div>
+      {sorted.length === 0 ? (
+        <p className="text-sm text-[var(--text-muted)]">Sem dados no período.</p>
+      ) : (
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          <div className="h-[160px] w-[160px] shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={pieData} dataKey="value" innerRadius={45} outerRadius={70} paddingAngle={2} stroke="none">
+                  {pieData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const { name, value } = payload[0] as { name: string; value: number };
+                  const p = total > 0 ? Math.round((value / total) * 100) : 0;
+                  return (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 shadow-lg text-xs">
+                      <p className="font-semibold text-[var(--text)]">{name}</p>
+                      <p className="text-[var(--text-muted)]">{fmt(value)} ({p}%)</p>
+                    </div>
+                  );
+                }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex-1 space-y-2 w-full min-w-0">
+            {sorted.map((item, i) => {
+              const v = item[valueKey];
+              const p = total > 0 ? Math.round((v / total) * 100) : 0;
+              return (
+                <div key={item.label} className="flex items-center gap-2 text-xs">
+                  <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                  <span className="flex-1 truncate text-[var(--text)]">{item.label}</span>
+                  <span className="shrink-0 tabular-nums text-[var(--text-muted)]">{fmt(v)}</span>
+                  <span className="w-9 shrink-0 text-right tabular-nums text-[10px] text-[var(--text-muted)]">({p}%)</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Pipeline stages breakdown ────────────────────────────────────────────────
+
+function PipelineStagesBlock({ data }: { data: BarItemFull[] }) {
+  if (data.length === 0) return null;
+
+  const withStage = data.filter(d => d.label !== "(Sem etapa)");
+  const total     = data.reduce((s, d) => s + d.leads, 0);
+  const pieData   = withStage.length > 0 ? withStage.map(d => ({ name: d.label, value: d.leads })) : data.map(d => ({ name: d.label, value: d.leads }));
+  const pieItems  = withStage.length > 0 ? withStage : data;
+
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center gap-1.5">
+        <h2 className="text-sm font-semibold text-[var(--text)]">Leads por etapa do pipeline</h2>
+        <HintTooltip text="Distribuição das leads capturadas no período entre as etapas do pipeline personalizado. Conversão = vendas ÷ leads por etapa." />
+      </div>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+        {/* Donut */}
+        <div className="h-[200px] w-full shrink-0 lg:w-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={pieData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={2} stroke="none">
+                {pieData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Pie>
+              <Tooltip content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const { name, value } = payload[0] as { name: string; value: number };
+                const p = total > 0 ? Math.round((value / total) * 100) : 0;
+                return (
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 shadow-lg text-xs">
+                    <p className="font-semibold text-[var(--text)]">{name}</p>
+                    <p className="text-[var(--text-muted)]">{fmt(value)} leads ({p}%)</p>
+                  </div>
+                );
+              }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 min-w-0">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 px-3">
+            <span>Etapa</span>
+            <span className="text-right">Leads</span>
+            <span className="text-right">Conversão</span>
+          </div>
+          <div className="space-y-1.5">
+            {data.map((stage, i) => {
+              const colorIdx = pieItems.findIndex(p => p.label === stage.label);
+              const p = total > 0 ? Math.round((stage.leads / total) * 100) : 0;
+              return (
+                <div key={stage.label} className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center rounded-xl bg-[var(--surface-muted)] px-3 py-2.5 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: colorIdx >= 0 ? CHART_COLORS[colorIdx % CHART_COLORS.length] : "var(--text-muted)" }}
+                    />
+                    <span className="truncate font-medium text-[var(--text)]">{stage.label}</span>
+                  </div>
+                  <span className="text-right tabular-nums text-[var(--text-muted)]">
+                    {fmt(stage.leads)} <span className="text-[10px]">({p}%)</span>
+                  </span>
+                  <span className="text-right tabular-nums font-semibold w-10" style={{ color: stage.rate > 0 ? SUCCESS : "var(--text-muted)" }}>
+                    {stage.rate > 0 ? `${stage.rate}%` : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

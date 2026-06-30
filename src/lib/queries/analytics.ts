@@ -42,18 +42,20 @@ export interface LtvData {
 }
 
 export interface AnalyticsData {
-  period:        number;
-  summary:       AnalyticsSummary;
-  byDay:         DayPoint[];
-  funnel:        FunnelStep[];
-  byWeekday:     WeekdayPoint[];
-  byUtmSource:   BarItem[];
-  byUtmCampaign: BarItem[];
-  byState:       BarItem[];
-  byConsultant:  BarItem[];
-  ltv:           LtvData;
-  cohort:        CohortData;
-  pipeline:      PipelineData;
+  period:          number;
+  summary:         AnalyticsSummary;
+  byDay:           DayPoint[];
+  funnel:          FunnelStep[];
+  byWeekday:       WeekdayPoint[];
+  byUtmSource:     BarItem[];
+  byUtmCampaign:   BarItem[];
+  byState:         BarItem[];
+  byConsultant:    BarItem[];
+  byPipelineStage: BarItem[];
+  bySource:        BarItem[];
+  ltv:             LtvData;
+  cohort:          CohortData;
+  pipeline:        PipelineData;
 }
 
 function pct(a: number, b: number) {
@@ -73,11 +75,11 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
   const prevStartDate = new Date(from.getTime() - days * 86_400_000);
   const todayStart    = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-  const [leads, sales, prevLeadsCount, prevSalesAgg, lifecycleRows, customerSalesRows, pipelineNew, pipelineInStage, prevSalesCount] = await Promise.all([
+  const [leads, sales, prevLeadsCount, prevSalesAgg, lifecycleRows, customerSalesRows, pipelineNew, pipelineInStage, prevSalesCount, pipelineStages] = await Promise.all([
     prisma.lead.findMany({
       where:  { clientId, capturedAt: { gte: startDate, lte: endDate } },
       select: {
-        id: true, status: true, capturedAt: true,
+        id: true, status: true, capturedAt: true, source: true,
         utmSource: true, utmCampaign: true, consultant: true,
         pipelineStageId: true,
         customer: { select: { state: true } },
@@ -91,6 +93,7 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
         lead: {
           select: {
             utmSource: true, utmCampaign: true, consultant: true,
+            pipelineStageId: true,
             customer: { select: { state: true } },
           },
         },
@@ -114,6 +117,7 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     prisma.lead.count({ where: { clientId, status: "NEW", pipelineStageId: null } }),
     prisma.lead.count({ where: { clientId, OR: [{ status: "REGISTERED" }, { status: "NEW", pipelineStageId: { not: null } }] } }),
     prisma.sale.count({ where: { clientId, soldAt: { gte: prevStartDate, lt: startDate } } }),
+    prisma.pipelineStage.findMany({ where: { clientId }, orderBy: { position: "asc" }, select: { id: true, name: true } }),
   ]);
 
   const totalRevenue = sales.reduce((s, x) => s + Number(x.value), 0);
@@ -207,6 +211,42 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     ? customerSalesRows.reduce((a, r) => a + Number(r._sum.value ?? 0), 0) / customerSalesRows.length
     : 0;
 
+  // ── By pipeline stage ───────────────────────────────────────────────────────
+  const stageNameMap = new Map(pipelineStages.map(s => [s.id, s.name]));
+  const lStage = new Map<string, number>();
+  const sStage = new Map<string, number>();
+  const rStage = new Map<string, number>();
+  leads.forEach(l => {
+    const k = (l.pipelineStageId && stageNameMap.get(l.pipelineStageId)) ?? "(Sem etapa)";
+    lStage.set(k, (lStage.get(k) ?? 0) + 1);
+  });
+  sales.forEach(s => {
+    const k = (s.lead?.pipelineStageId && stageNameMap.get(s.lead.pipelineStageId)) ?? "(Sem etapa)";
+    sStage.set(k, (sStage.get(k) ?? 0) + 1);
+    rStage.set(k, (rStage.get(k) ?? 0) + Number(s.value));
+  });
+  const stageOrder = [...pipelineStages.map(s => s.name), "(Sem etapa)"];
+  const byPipelineStage: BarItem[] = [...new Set([...stageOrder, ...Array.from(lStage.keys())])]
+    .filter(k => (lStage.get(k) ?? 0) > 0)
+    .map(label => ({
+      label,
+      leads:   lStage.get(label) ?? 0,
+      sales:   sStage.get(label) ?? 0,
+      revenue: rStage.get(label) ?? 0,
+      rate:    pct(sStage.get(label) ?? 0, lStage.get(label) ?? 0),
+    }));
+
+  // ── By source ───────────────────────────────────────────────────────────────
+  const SOURCE_LABELS: Record<string, string> = { FORM: "Formulário", MANUAL: "Manual", IMPORT: "Importação" };
+  const srcMap = new Map<string, number>();
+  leads.forEach(l => {
+    const k = (SOURCE_LABELS as Record<string, string>)[l.source] ?? String(l.source);
+    srcMap.set(k, (srcMap.get(k) ?? 0) + 1);
+  });
+  const bySource: BarItem[] = [...srcMap.entries()]
+    .map(([label, count]) => ({ label, leads: count, sales: 0, revenue: 0, rate: 0 }))
+    .sort((a, b) => b.leads - a.leads);
+
   return {
     period:  days,
     summary: {
@@ -228,10 +268,12 @@ export async function fetchAnalytics(clientId: string, from: Date, to: Date): Pr
     byDay,
     funnel,
     byWeekday,
-    byUtmSource:   group(l => l.utmSource ?? "",   s => s.lead?.utmSource ?? ""),
-    byUtmCampaign: group(l => l.utmCampaign ?? "", s => s.lead?.utmCampaign ?? ""),
-    byState:       group(l => l.customer?.state ?? "", s => s.lead?.customer?.state ?? ""),
-    byConsultant:  group(l => l.consultant ?? "",  s => s.lead?.consultant ?? ""),
+    byUtmSource:     group(l => l.utmSource ?? "",        s => s.lead?.utmSource ?? ""),
+    byUtmCampaign:   group(l => l.utmCampaign ?? "",      s => s.lead?.utmCampaign ?? ""),
+    byState:         group(l => l.customer?.state ?? "",  s => s.lead?.customer?.state ?? ""),
+    byConsultant:    group(l => l.consultant ?? "",       s => s.lead?.consultant ?? ""),
+    byPipelineStage,
+    bySource,
     ltv: { repeatRate, repeatRevenue, newRevenue, avgLtv, lifecycle: lc },
     cohort: {
       total:     leads.length,

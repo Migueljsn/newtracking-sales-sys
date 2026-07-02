@@ -144,3 +144,79 @@ export async function consultantAssignConsultantAction(leadId: string, consultan
   await invalidate(cacheKeys.leads(clientId));
   revalidatePath("/consultor");
 }
+
+export async function consultantMarkAsLostAction(leadId: string): Promise<void> {
+  const session  = await getConsultantSession();
+  const clientId = session.clientId;
+
+  const lead = await prisma.lead.findUniqueOrThrow({
+    where:  { id: leadId, clientId },
+    select: { status: true },
+  });
+  if (lead.status === "SOLD" || lead.status === "LOST") return;
+
+  await prisma.lead.update({
+    where: { id: leadId },
+    data:  { status: "LOST", statusHistory: { create: { from: lead.status, to: "LOST", changedBy: session.name } } },
+  });
+
+  fireLeadChanged(leadId, clientId);
+  await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId));
+  revalidatePath("/consultor");
+}
+
+export async function consultantBulkMarkAsLostAction(leadIds: string[]): Promise<{ updated: number }> {
+  const session  = await getConsultantSession();
+  const clientId = session.clientId;
+  if (leadIds.length === 0) return { updated: 0 };
+
+  const eligible = await prisma.lead.findMany({
+    where:  { id: { in: leadIds }, clientId, status: { in: ["NEW", "REGISTERED"] } },
+    select: { id: true, status: true },
+  });
+  if (eligible.length === 0) return { updated: 0 };
+
+  await prisma.lead.updateMany({ where: { id: { in: eligible.map(l => l.id) } }, data: { status: "LOST" } });
+  await prisma.leadStatusHistory.createMany({
+    data: eligible.map(l => ({ leadId: l.id, from: l.status, to: "LOST" as const, changedBy: session.name })),
+  });
+
+  eligible.forEach(l => fireLeadChanged(l.id, clientId));
+  await invalidate(cacheKeys.leads(clientId), cacheKeys.metrics(clientId));
+  revalidatePath("/consultor");
+  return { updated: eligible.length };
+}
+
+export async function consultantBulkMoveToStageAction(leadIds: string[], stageId: string | null): Promise<{ updated: number }> {
+  const session  = await getConsultantSession();
+  const clientId = session.clientId;
+  if (leadIds.length === 0) return { updated: 0 };
+
+  const eligible = await prisma.lead.findMany({
+    where:  { id: { in: leadIds }, clientId, status: { in: ["NEW", "REGISTERED"] } },
+    select: { id: true },
+  });
+  if (eligible.length === 0) return { updated: 0 };
+
+  await prisma.lead.updateMany({ where: { id: { in: eligible.map(l => l.id) } }, data: { pipelineStageId: stageId } });
+  eligible.forEach(l => fireLeadChanged(l.id, clientId));
+  await invalidate(cacheKeys.leads(clientId));
+  revalidatePath("/consultor");
+  return { updated: eligible.length };
+}
+
+export async function consultantBulkAssignConsultantAction(leadIds: string[], consultant: string | null): Promise<{ updated: number }> {
+  const session  = await getConsultantSession();
+  const clientId = session.clientId;
+  if (leadIds.length === 0) return { updated: 0 };
+
+  const result = await prisma.lead.updateMany({
+    where: { id: { in: leadIds }, clientId },
+    data:  { consultant: consultant || null },
+  });
+
+  leadIds.forEach(id => fireLeadChanged(id, clientId));
+  await invalidate(cacheKeys.leads(clientId));
+  revalidatePath("/consultor");
+  return { updated: result.count };
+}

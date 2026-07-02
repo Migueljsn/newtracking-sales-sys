@@ -6,7 +6,7 @@ import {
   Search, ChevronLeft, ChevronRight, Loader2,
   ChevronDown, DollarSign, X, Plus, Minus, Users,
   ArrowDown, ArrowUp, ChevronsUpDown, CheckSquare, Square, ListChecks, Eye,
-  SlidersHorizontal, Check, GripVertical,
+  SlidersHorizontal, Check, GripVertical, UserCheck, AlertTriangle, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
@@ -19,6 +19,10 @@ import {
   consultantRegisterSaleAction,
   consultantMoveToStageWithChecklistAction,
   consultantAssignConsultantAction,
+  consultantMarkAsLostAction,
+  consultantBulkMarkAsLostAction,
+  consultantBulkMoveToStageAction,
+  consultantBulkAssignConsultantAction,
   getStageRequirementsAction,
 } from "@/app/consultor/actions";
 import type { LeadStatus, LeadSource } from "@prisma/client";
@@ -245,6 +249,65 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
     });
   }
   function handleColDragEnd() { dragColIdx.current = null; }
+
+  // Seleção em massa
+  const [isSelecting,    setIsSelecting]    = useState(false);
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
+  const [bulkStep,       setBulkStep]       = useState<"idle" | "confirm-lost" | "move-to-stage" | "assign-consultant">("idle");
+  const [bulkStageId,    setBulkStageId]    = useState("");
+  const [bulkConsultant, setBulkConsultant] = useState("");
+  const [bulkLoading,    setBulkLoading]    = useState(false);
+  const [lostConfirmId,  setLostConfirmId]  = useState<string | null>(null);
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function selectPage(select: boolean) {
+    setSelectedIds(prev => {
+      const n = new Set(prev);
+      paginated.forEach(l => select ? n.add(l.id) : n.delete(l.id));
+      return n;
+    });
+  }
+  function exitSelecting() { setIsSelecting(false); setSelectedIds(new Set()); setBulkStep("idle"); }
+
+  async function handleBulkMarkLost() {
+    setBulkLoading(true);
+    try {
+      const { updated } = await consultantBulkMarkAsLostAction([...selectedIds]);
+      toast.success(`${updated} lead${updated !== 1 ? "s" : ""} marcada${updated !== 1 ? "s" : ""} como perdida${updated !== 1 ? "s" : ""}`);
+      exitSelecting(); refetch();
+    } catch { toast.error("Erro ao marcar como perdidas"); }
+    finally { setBulkLoading(false); }
+  }
+
+  async function handleBulkMoveStage() {
+    setBulkLoading(true);
+    try {
+      const { updated } = await consultantBulkMoveToStageAction([...selectedIds], bulkStageId || null);
+      toast.success(`Etapa atualizada em ${updated} lead${updated !== 1 ? "s" : ""}`);
+      exitSelecting(); refetch();
+    } catch { toast.error("Erro ao mover etapa"); }
+    finally { setBulkLoading(false); }
+  }
+
+  async function handleBulkAssignConsultant() {
+    setBulkLoading(true);
+    try {
+      const { updated } = await consultantBulkAssignConsultantAction([...selectedIds], bulkConsultant || null);
+      toast.success(`Consultor atualizado em ${updated} lead${updated !== 1 ? "s" : ""}`);
+      exitSelecting(); refetch();
+    } catch { toast.error("Erro ao atribuir consultor"); }
+    finally { setBulkLoading(false); }
+  }
+
+  async function handleSingleMarkLost(leadId: string) {
+    try {
+      await consultantMarkAsLostAction(leadId);
+      toast.success("Lead marcada como perdida");
+      setLostConfirmId(null); refetch();
+    } catch { toast.error("Erro ao marcar como perdida"); }
+  }
 
   // Inline updates
   const [updatingStage,      setUpdatingStage]      = useState<Set<string>>(new Set());
@@ -677,6 +740,19 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
           })}
         </div>
 
+        {/* Selecionar */}
+        <button
+          onClick={() => isSelecting ? exitSelecting() : setIsSelecting(true)}
+          className={`flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+            isSelecting
+              ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+              : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] hover:text-[var(--text)]"
+          }`}
+        >
+          <CheckSquare size={14} />
+          {isSelecting && selectedIds.size > 0 ? `${selectedIds.size} selecionadas` : "Selecionar"}
+        </button>
+
         {/* Column editor — apenas visível na tabela desktop */}
         <div className="relative hidden md:block" ref={colPanelRef}>
           <button
@@ -736,6 +812,74 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
         onChange={(rules) => { setAdvancedRules(rules); resetPage(); }}
         hideSaveButton
       />
+
+      {/* Barra de ações em massa */}
+      {isSelecting && selectedIds.size > 0 && (
+        <div className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-[var(--accent)]">{selectedIds.size} selecionada{selectedIds.size !== 1 ? "s" : ""}</span>
+            <div className="flex flex-wrap gap-2 ml-auto">
+              {pipelineStages.length > 0 && (
+                <button onClick={() => setBulkStep(bulkStep === "move-to-stage" ? "idle" : "move-to-stage")}
+                  className="flex h-8 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                  <ChevronDown size={13} /> Mover etapa
+                </button>
+              )}
+              {consultants.length > 0 && (
+                <button onClick={() => setBulkStep(bulkStep === "assign-consultant" ? "idle" : "assign-consultant")}
+                  className="flex h-8 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                  <UserCheck size={13} /> Consultor
+                </button>
+              )}
+              <button onClick={() => setBulkStep(bulkStep === "confirm-lost" ? "idle" : "confirm-lost")}
+                className="flex h-8 items-center gap-1.5 rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger)] hover:text-white transition-colors">
+                <XCircle size={13} /> Marcar perdidas
+              </button>
+              <button onClick={exitSelecting} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+
+          {bulkStep === "move-to-stage" && (
+            <div className="flex items-center gap-2">
+              <select value={bulkStageId} onChange={e => setBulkStageId(e.target.value)} className="input flex-1 h-8 text-xs">
+                <option value="">— Sem etapa</option>
+                {pipelineStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <button onClick={handleBulkMoveStage} disabled={bulkLoading}
+                className="flex h-8 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-white disabled:opacity-40">
+                {bulkLoading ? <Loader2 size={12} className="animate-spin" /> : "Aplicar"}
+              </button>
+            </div>
+          )}
+
+          {bulkStep === "assign-consultant" && (
+            <div className="flex items-center gap-2">
+              <select value={bulkConsultant} onChange={e => setBulkConsultant(e.target.value)} className="input flex-1 h-8 text-xs">
+                <option value="">— Sem consultor</option>
+                {consultants.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button onClick={handleBulkAssignConsultant} disabled={bulkLoading}
+                className="flex h-8 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-white disabled:opacity-40">
+                {bulkLoading ? <Loader2 size={12} className="animate-spin" /> : "Aplicar"}
+              </button>
+            </div>
+          )}
+
+          {bulkStep === "confirm-lost" && (
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-2.5">
+              <AlertTriangle size={14} className="text-[var(--danger)] shrink-0" />
+              <p className="text-xs text-[var(--danger)] flex-1">Marcar {selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""} como perdida{selectedIds.size !== 1 ? "s" : ""}? Essa ação não pode ser desfeita facilmente.</p>
+              <button onClick={handleBulkMarkLost} disabled={bulkLoading}
+                className="flex h-7 items-center gap-1.5 rounded-xl bg-[var(--danger)] px-3 text-xs font-semibold text-white disabled:opacity-40">
+                {bulkLoading ? <Loader2 size={12} className="animate-spin" /> : "Confirmar"}
+              </button>
+              <button onClick={() => setBulkStep("idle")} className="text-xs text-[var(--danger)] hover:opacity-70">Cancelar</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {isFetching && (
         <div className="flex items-center gap-2 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-2 text-xs font-medium text-[var(--accent)]">
@@ -821,29 +965,44 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
 
               {/* Ações */}
               <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
-                <WhatsAppButton
-                  phone={lead.customer.phone}
-                  name={lead.customer.name}
-                  state={lead.customer.state}
-                  city={lead.customer.city}
-                  template={whatsappTemplate}
-                  variant="icon"
-                />
-                {lead.status !== "LOST" && (
-                  <button
-                    onClick={() => openSaleModal(lead)}
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--success)] text-[var(--success)] text-sm font-medium hover:bg-[var(--success)] hover:text-white transition-colors"
-                  >
+                {isSelecting ? (
+                  <button onClick={() => toggleSelect(lead.id)}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors ${
+                      selectedIds.has(lead.id) ? "border-[var(--accent)] bg-[var(--accent)] text-white" : "border-[var(--border)] text-[var(--text-muted)]"
+                    }`}>
+                    {selectedIds.has(lead.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                  </button>
+                ) : (
+                  <WhatsAppButton phone={lead.customer.phone} name={lead.customer.name} state={lead.customer.state} city={lead.customer.city} template={whatsappTemplate} variant="icon" />
+                )}
+                {lead.status !== "LOST" && lead.status !== "SOLD" && !isSelecting && (
+                  lostConfirmId === lead.id ? (
+                    <div className="flex flex-1 items-center gap-2">
+                      <span className="text-xs text-[var(--danger)]">Confirmar?</span>
+                      <button onClick={() => handleSingleMarkLost(lead.id)} className="flex h-8 items-center gap-1 rounded-xl bg-[var(--danger)] px-2 text-xs font-semibold text-white">Sim</button>
+                      <button onClick={() => setLostConfirmId(null)} className="text-xs text-[var(--text-muted)]">Não</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setLostConfirmId(lead.id)}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
+                      title="Marcar como perdida">
+                      <XCircle size={15} />
+                    </button>
+                  )
+                )}
+                {!isSelecting && lead.status !== "LOST" && (
+                  <button onClick={() => openSaleModal(lead)}
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--success)] text-[var(--success)] text-sm font-medium hover:bg-[var(--success)] hover:text-white transition-colors">
                     <DollarSign size={15} />
                     {lead.status === "SOLD" ? "Recompra" : "Registrar venda"}
                   </button>
                 )}
-                <a
-                  href={`/consultor/leads/${lead.id}`}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
-                >
-                  <Eye size={15} />
-                </a>
+                {!isSelecting && (
+                  <a href={`/consultor/leads/${lead.id}`}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+                    <Eye size={15} />
+                  </a>
+                )}
               </div>
             </div>
           );
@@ -864,6 +1023,17 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
             <table className="w-full text-sm">
               <thead className="bg-[var(--surface-muted)]">
                 <tr className="border-b border-[var(--border)]">
+                  {isSelecting && (
+                    <th className="pl-4 py-3 w-10">
+                      <button onClick={() => selectPage(!paginated.every(l => selectedIds.has(l.id)))}
+                        className={`flex h-4 w-4 items-center justify-center rounded border transition-colors ${
+                          paginated.length > 0 && paginated.every(l => selectedIds.has(l.id))
+                            ? "border-[var(--accent)] bg-[var(--accent)]" : "border-[var(--border)]"
+                        }`}>
+                        {paginated.length > 0 && paginated.every(l => selectedIds.has(l.id)) && <Check size={10} className="text-white" />}
+                      </button>
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Nome</th>
                   {colOrder.filter(k => visibleCols.has(k)).map(k => renderHeaderCell(k))}
                   <th />
@@ -873,7 +1043,18 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                 {paginated.map(lead => {
                   const canEditStage = lead.status === "NEW" || lead.status === "REGISTERED";
                   return (
-                    <tr key={lead.id} className="hover:bg-[var(--surface-muted)] transition-colors">
+                    <tr key={lead.id}
+                      onClick={() => isSelecting && toggleSelect(lead.id)}
+                      className={`transition-colors ${isSelecting ? "cursor-pointer" : ""} ${selectedIds.has(lead.id) ? "bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-muted)]"}`}>
+                      {isSelecting && (
+                        <td className="pl-4 py-3.5 w-10">
+                          <div className={`flex h-4 w-4 items-center justify-center rounded border transition-colors ${
+                            selectedIds.has(lead.id) ? "border-[var(--accent)] bg-[var(--accent)]" : "border-[var(--border)]"
+                          }`}>
+                            {selectedIds.has(lead.id) && <Check size={10} className="text-white" />}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-4 py-3.5">
                         <span className="font-semibold text-[var(--text)] block max-w-[180px] truncate" title={lead.customer.name}>
                           {lead.customer.name}
@@ -883,15 +1064,24 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
 
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
-                          <WhatsAppButton
-                            phone={lead.customer.phone}
-                            name={lead.customer.name}
-                            state={lead.customer.state}
-                            city={lead.customer.city}
-                            template={whatsappTemplate}
-                            variant="icon"
-                          />
-                          {lead.status !== "LOST" && (
+                          {!isSelecting && (
+                            <WhatsAppButton phone={lead.customer.phone} name={lead.customer.name} state={lead.customer.state} city={lead.customer.city} template={whatsappTemplate} variant="icon" />
+                          )}
+                          {!isSelecting && lead.status !== "LOST" && lead.status !== "SOLD" && (
+                            lostConfirmId === lead.id ? (
+                              <>
+                                <span className="text-[10px] text-[var(--danger)] whitespace-nowrap">Confirmar?</span>
+                                <button onClick={e => { e.stopPropagation(); handleSingleMarkLost(lead.id); }} className="flex h-6 items-center rounded-lg bg-[var(--danger)] px-2 text-[10px] font-semibold text-white">Sim</button>
+                                <button onClick={e => { e.stopPropagation(); setLostConfirmId(null); }} className="text-[10px] text-[var(--text-muted)]">Não</button>
+                              </>
+                            ) : (
+                              <button onClick={e => { e.stopPropagation(); setLostConfirmId(lead.id); }} title="Marcar como perdida"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors">
+                                <XCircle size={13} />
+                              </button>
+                            )
+                          )}
+                          {!isSelecting && lead.status !== "LOST" && (
                             <button
                               onClick={() => openSaleModal(lead)}
                               title={lead.status === "SOLD" ? "Registrar recompra" : "Registrar venda"}
@@ -900,13 +1090,15 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                               <DollarSign size={13} />
                             </button>
                           )}
-                          <a
-                            href={`/consultor/leads/${lead.id}`}
-                            title="Ver detalhes"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
-                          >
-                            <Eye size={13} />
-                          </a>
+                          {!isSelecting && (
+                            <a
+                              href={`/consultor/leads/${lead.id}`}
+                              title="Ver detalhes"
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                            >
+                              <Eye size={13} />
+                            </a>
+                          )}
                         </div>
                       </td>
                     </tr>

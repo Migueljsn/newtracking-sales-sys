@@ -19,7 +19,6 @@ import {
   consultantRegisterSaleAction,
   consultantMoveToStageWithChecklistAction,
   consultantAssignConsultantAction,
-  consultantMarkAsLostAction,
   consultantBulkMarkAsLostAction,
   consultantBulkMoveToStageAction,
   consultantBulkAssignConsultantAction,
@@ -257,7 +256,6 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   const [bulkStageId,    setBulkStageId]    = useState("");
   const [bulkConsultant, setBulkConsultant] = useState("");
   const [bulkLoading,    setBulkLoading]    = useState(false);
-  const [lostConfirmId,  setLostConfirmId]  = useState<string | null>(null);
 
   function toggleSelect(id: string) {
     setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -299,14 +297,6 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
       exitSelecting(); refetch();
     } catch { toast.error("Erro ao atribuir consultor"); }
     finally { setBulkLoading(false); }
-  }
-
-  async function handleSingleMarkLost(leadId: string) {
-    try {
-      await consultantMarkAsLostAction(leadId);
-      toast.success("Lead marcada como perdida");
-      setLostConfirmId(null); refetch();
-    } catch { toast.error("Erro ao marcar como perdida"); }
   }
 
   // Inline updates
@@ -843,7 +833,8 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
 
           {bulkStep === "move-to-stage" && (
             <div className="flex items-center gap-2">
-              <select value={bulkStageId} onChange={e => setBulkStageId(e.target.value)} className="input flex-1 h-8 text-xs">
+              <select value={bulkStageId} onChange={e => setBulkStageId(e.target.value)}
+                className="h-8 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] appearance-none cursor-pointer">
                 <option value="">— Sem etapa</option>
                 {pipelineStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -856,7 +847,8 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
 
           {bulkStep === "assign-consultant" && (
             <div className="flex items-center gap-2">
-              <select value={bulkConsultant} onChange={e => setBulkConsultant(e.target.value)} className="input flex-1 h-8 text-xs">
+              <select value={bulkConsultant} onChange={e => setBulkConsultant(e.target.value)}
+                className="h-8 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] appearance-none cursor-pointer">
                 <option value="">— Sem consultor</option>
                 {consultants.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -975,21 +967,6 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                 ) : (
                   <WhatsAppButton phone={lead.customer.phone} name={lead.customer.name} state={lead.customer.state} city={lead.customer.city} template={whatsappTemplate} variant="icon" />
                 )}
-                {lead.status !== "LOST" && lead.status !== "SOLD" && !isSelecting && (
-                  lostConfirmId === lead.id ? (
-                    <div className="flex flex-1 items-center gap-2">
-                      <span className="text-xs text-[var(--danger)]">Confirmar?</span>
-                      <button onClick={() => handleSingleMarkLost(lead.id)} className="flex h-8 items-center gap-1 rounded-xl bg-[var(--danger)] px-2 text-xs font-semibold text-white">Sim</button>
-                      <button onClick={() => setLostConfirmId(null)} className="text-xs text-[var(--text-muted)]">Não</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setLostConfirmId(lead.id)}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
-                      title="Marcar como perdida">
-                      <XCircle size={15} />
-                    </button>
-                  )
-                )}
                 {!isSelecting && lead.status !== "LOST" && (
                   <button onClick={() => openSaleModal(lead)}
                     className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--success)] text-[var(--success)] text-sm font-medium hover:bg-[var(--success)] hover:text-white transition-colors">
@@ -1066,20 +1043,6 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                         <div className="flex items-center gap-2">
                           {!isSelecting && (
                             <WhatsAppButton phone={lead.customer.phone} name={lead.customer.name} state={lead.customer.state} city={lead.customer.city} template={whatsappTemplate} variant="icon" />
-                          )}
-                          {!isSelecting && lead.status !== "LOST" && lead.status !== "SOLD" && (
-                            lostConfirmId === lead.id ? (
-                              <>
-                                <span className="text-[10px] text-[var(--danger)] whitespace-nowrap">Confirmar?</span>
-                                <button onClick={e => { e.stopPropagation(); handleSingleMarkLost(lead.id); }} className="flex h-6 items-center rounded-lg bg-[var(--danger)] px-2 text-[10px] font-semibold text-white">Sim</button>
-                                <button onClick={e => { e.stopPropagation(); setLostConfirmId(null); }} className="text-[10px] text-[var(--text-muted)]">Não</button>
-                              </>
-                            ) : (
-                              <button onClick={e => { e.stopPropagation(); setLostConfirmId(lead.id); }} title="Marcar como perdida"
-                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors">
-                                <XCircle size={13} />
-                              </button>
-                            )
                           )}
                           {!isSelecting && lead.status !== "LOST" && (
                             <button

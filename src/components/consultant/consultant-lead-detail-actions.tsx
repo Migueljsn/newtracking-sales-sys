@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown, DollarSign, Loader2, X,
-  Plus, Minus, CheckSquare, Square, ListChecks,
+  Plus, Minus, CheckSquare, Square, ListChecks, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import {
   consultantRegisterSaleAction,
   consultantMoveToStageWithChecklistAction,
+  consultantMarkAsLostAction,
   getStageRequirementsAction,
 } from "@/app/consultor/actions";
 import type { LeadStatus } from "@prisma/client";
@@ -46,8 +47,26 @@ export function ConsultantLeadDetailActions({ lead, pipelineStages }: Props) {
   const [saleItems,   setSaleItems]   = useState<SaleItem[]>([]);
   const [saleLoading, setSaleLoading] = useState(false);
 
+  const [lostConfirm, setLostConfirm] = useState(false);
+  const [lostLoading, setLostLoading] = useState(false);
+
   const canEditStage = lead.status === "NEW" || lead.status === "REGISTERED";
   const canSell      = lead.status !== "LOST";
+  const canMarkLost  = lead.status !== "LOST" && lead.status !== "SOLD";
+
+  async function handleMarkLost() {
+    setLostLoading(true);
+    try {
+      await consultantMarkAsLostAction(lead.id);
+      toast.success("Lead marcada como perdida");
+      setLostConfirm(false);
+      router.refresh();
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Erro ao marcar como perdida");
+    } finally {
+      setLostLoading(false);
+    }
+  }
 
   async function handleStageChange(stageId: string) {
     if (!stageId) {
@@ -128,7 +147,7 @@ export function ConsultantLeadDetailActions({ lead, pipelineStages }: Props) {
     }
   }
 
-  if (!canEditStage && !canSell && pipelineStages.length === 0) return null;
+  if (!canEditStage && !canSell && !canMarkLost && pipelineStages.length === 0) return null;
 
   return (
     <>
@@ -162,15 +181,44 @@ export function ConsultantLeadDetailActions({ lead, pipelineStages }: Props) {
           </div>
         )}
 
-        {canSell && (
-          <button
-            onClick={() => { setSaleOpen(true); setSaleValue(""); setSaleDate(new Date().toISOString().slice(0, 10)); setSaleItems([]); }}
-            className="flex items-center gap-2 h-9 rounded-xl border border-[var(--success)] px-4 text-sm font-semibold text-[var(--success)] hover:bg-[var(--success)] hover:text-white transition-colors"
-          >
-            <DollarSign size={15} />
-            {lead.status === "SOLD" ? "Registrar recompra" : "Registrar venda"}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canSell && (
+            <button
+              onClick={() => { setSaleOpen(true); setSaleValue(""); setSaleDate(new Date().toISOString().slice(0, 10)); setSaleItems([]); }}
+              className="flex items-center gap-2 h-9 rounded-xl border border-[var(--success)] px-4 text-sm font-semibold text-[var(--success)] hover:bg-[var(--success)] hover:text-white transition-colors"
+            >
+              <DollarSign size={15} />
+              {lead.status === "SOLD" ? "Registrar recompra" : "Registrar venda"}
+            </button>
+          )}
+
+          {canMarkLost && (
+            lostConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--danger)]">Marcar como perdida?</span>
+                <button
+                  onClick={handleMarkLost}
+                  disabled={lostLoading}
+                  className="flex h-9 items-center gap-1.5 rounded-xl bg-[var(--danger)] px-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {lostLoading && <Loader2 size={13} className="animate-spin" />}
+                  Confirmar
+                </button>
+                <button onClick={() => setLostConfirm(false)} className="text-sm text-[var(--text-muted)]">
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setLostConfirm(true)}
+                className="flex items-center gap-2 h-9 rounded-xl border border-[var(--border)] px-4 text-sm font-medium text-[var(--text-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
+              >
+                <XCircle size={15} />
+                Marcar como perdida
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {/* ── Checklist modal ─────────────────────────────────────────────────────── */}

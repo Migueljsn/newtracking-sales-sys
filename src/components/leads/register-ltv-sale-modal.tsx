@@ -8,6 +8,7 @@ import { createLtvSaleAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import type { LeadStatus } from "@prisma/client";
 import { Spinner } from "@/components/ui/spinner";
+import { PasteSaleItems } from "@/components/sales/paste-sale-items";
 
 interface Props {
   sourceLeadId:      string;
@@ -35,6 +36,7 @@ export function RegisterLtvSaleModal({
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems]     = useState<Item[]>([]);
+  const [value, setValue]     = useState("");
   const formRef               = useRef<HTMLFormElement>(null);
 
   function addItem() {
@@ -63,6 +65,7 @@ export function RegisterLtvSaleModal({
       toast.success("Nova venda registrada! Redirecionando...");
       setOpen(false);
       setItems([]);
+      setValue("");
       router.push(`/leads/${newLeadId}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao registrar venda");
@@ -141,7 +144,7 @@ export function RegisterLtvSaleModal({
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
                     Valor da venda (R$) *
                   </label>
-                  <CurrencyInput name="value" required className="input w-full" />
+                  <CurrencyInput name="value" required value={value} onValueChange={setValue} className="input w-full" />
                 </div>
               </div>
 
@@ -169,6 +172,15 @@ export function RegisterLtvSaleModal({
                   </button>
                 </div>
 
+                <div className="mb-2">
+                  <PasteSaleItems
+                    onImport={(parsed, total) => {
+                      setItems(parsed.map(i => ({ name: i.name, quantity: String(i.quantity), price: String(i.price) })));
+                      setValue(String(total));
+                    }}
+                  />
+                </div>
+
                 {items.length > 0 && (
                   <div className="space-y-2">
                     {items.map((item, i) => (
@@ -190,14 +202,10 @@ export function RegisterLtvSaleModal({
                           className="input text-center"
                           placeholder="Qtd"
                         />
-                        <input
+                        <CurrencyInput
                           value={item.price}
-                          onChange={(e) => updateItem(i, "price", e.target.value)}
-                          type="number"
-                          step="0.01"
-                          min="0"
+                          onValueChange={(v) => updateItem(i, "price", v)}
                           className="input"
-                          placeholder="Preço"
                         />
                         <button
                           type="button"

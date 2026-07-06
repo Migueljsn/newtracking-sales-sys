@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { updateSaleAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Spinner } from "@/components/ui/spinner";
+import { PasteSaleItems } from "@/components/sales/paste-sale-items";
 
 interface SaleItem {
   id:       string;
@@ -36,6 +37,7 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
   const [items, setItems]     = useState<Item[]>(() =>
     defaultItems.map((i) => ({ name: i.name, quantity: String(i.quantity), price: String(i.price) }))
   );
+  const [value, setValue]     = useState(String(defaultValue));
   const formRef = useRef<HTMLFormElement>(null);
 
   function addItem() {
@@ -113,7 +115,7 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Valor da venda (R$) *</label>
-                  <CurrencyInput name="value" required defaultValue={defaultValue} className="input w-full" />
+                  <CurrencyInput name="value" required value={value} onValueChange={setValue} className="input w-full" />
                 </div>
               </div>
 
@@ -135,6 +137,14 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
                     <Plus size={13} /> Adicionar item
                   </button>
                 </div>
+                <div className="mb-2">
+                  <PasteSaleItems
+                    onImport={(parsed, total) => {
+                      setItems(parsed.map(i => ({ name: i.name, quantity: String(i.quantity), price: String(i.price) })));
+                      setValue(String(total));
+                    }}
+                  />
+                </div>
                 {items.length > 0 && (
                   <div className="space-y-2">
                     {items.map((item, i) => (
@@ -153,14 +163,10 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
                           className="input text-center"
                           placeholder="Qtd"
                         />
-                        <input
+                        <CurrencyInput
                           value={item.price}
-                          onChange={(e) => updateItem(i, "price", e.target.value)}
-                          type="number"
-                          step="0.01"
-                          min="0"
+                          onValueChange={(v) => updateItem(i, "price", v)}
                           className="input"
-                          placeholder="Preço"
                         />
                         <button
                           type="button"

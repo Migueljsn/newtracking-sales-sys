@@ -7,6 +7,7 @@ import { createLeadAction } from "@/app/(dashboard)/leads/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { ConsultantSelect } from "@/components/leads/consultant-select";
 import { Spinner } from "@/components/ui/spinner";
+import { PasteSaleItems } from "@/components/sales/paste-sale-items";
 
 const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
@@ -58,6 +59,7 @@ export function CreateLeadModal() {
   const [utmOpen, setUtmOpen] = useState(false);
   const [sellNow, setSellNow] = useState(false);
   const [items, setItems]     = useState<Item[]>([]);
+  const [saleValue, setSaleValue] = useState("");
   const formRef               = useRef<HTMLFormElement>(null);
 
   function addItem() {
@@ -75,7 +77,7 @@ export function CreateLeadModal() {
   function handleClose() {
     setOpen(false);
     setPhone(""); setDocument(""); setZipCode("");
-    setUtmOpen(false); setSellNow(false); setItems([]);
+    setUtmOpen(false); setSellNow(false); setItems([]); setSaleValue("");
     formRef.current?.reset();
   }
 
@@ -279,7 +281,7 @@ export function CreateLeadModal() {
                         <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
                           Valor da venda (R$) *
                         </label>
-                        <CurrencyInput name="saleValue" required={sellNow} className="input w-full" />
+                        <CurrencyInput name="saleValue" required={sellNow} value={saleValue} onValueChange={setSaleValue} className="input w-full" />
                       </div>
                     </div>
 
@@ -306,6 +308,15 @@ export function CreateLeadModal() {
                         </button>
                       </div>
 
+                      <div className="mb-2">
+                        <PasteSaleItems
+                          onImport={(parsed, total) => {
+                            setItems(parsed.map(i => ({ name: i.name, quantity: String(i.quantity), price: String(i.price) })));
+                            setSaleValue(String(total));
+                          }}
+                        />
+                      </div>
+
                       {items.length > 0 && (
                         <div className="space-y-2">
                           {items.map((item, i) => (
@@ -327,14 +338,10 @@ export function CreateLeadModal() {
                                 className="input text-center"
                                 placeholder="Qtd"
                               />
-                              <input
+                              <CurrencyInput
                                 value={item.price}
-                                onChange={(e) => updateItem(i, "price", e.target.value)}
-                                type="number"
-                                step="0.01"
-                                min="0"
+                                onValueChange={(v) => updateItem(i, "price", v)}
                                 className="input"
-                                placeholder="Preço"
                               />
                               <button
                                 type="button"

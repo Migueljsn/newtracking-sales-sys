@@ -22,11 +22,14 @@ import {
   consultantBulkMarkAsLostAction,
   consultantBulkMoveToStageAction,
   consultantBulkAssignConsultantAction,
+  consultantSetChecklistItemAction,
   getStageRequirementsAction,
 } from "@/app/consultor/actions";
 import type { LeadStatus, LeadSource } from "@prisma/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface StageChecklistItem { id: string; text: string; checked: boolean; checkedAt: string | null; checkedBy: string | null }
 
 interface Lead {
   id:              string;
@@ -42,6 +45,9 @@ interface Lead {
   sales:           { soldAt: string; value: number }[];
   pipelineStage:   { id: string; name: string; color: string } | null;
   lastCheckedRequirement?: { text: string; checkedAt: string | null; checkedBy: string | null } | null;
+  stageChecklist?: StageChecklistItem[];
+  stageRequirementsTotal?:   number;
+  stageRequirementsChecked?: number;
   customer: {
     name:     string;
     phone:    string;
@@ -303,10 +309,27 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   const [updatingStage,      setUpdatingStage]      = useState<Set<string>>(new Set());
   const [updatingConsultant, setUpdatingConsultant] = useState<Set<string>>(new Set());
 
-  // Checklist modal
+  // Checklist modal (etapa nova ao mover)
   const [checklistModal,   setChecklistModal]   = useState<{ lead: Lead; stageId: string; stageName: string; reqs: Requirement[] } | null>(null);
   const [checkedReqs,      setCheckedReqs]      = useState<Set<string>>(new Set());
   const [checklistLoading, setChecklistLoading] = useState(false);
+
+  // Checklist da etapa atual (editar direto da lista)
+  const [checklistEditLeadId, setChecklistEditLeadId] = useState<string | null>(null);
+  const [togglingReq,         setTogglingReq]         = useState<Set<string>>(new Set());
+
+  async function handleToggleChecklistItem(leadId: string, requirementId: string, checked: boolean) {
+    const key = `${leadId}:${requirementId}`;
+    setTogglingReq(prev => new Set(prev).add(key));
+    try {
+      await consultantSetChecklistItemAction(leadId, requirementId, checked);
+      refetch();
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Erro ao atualizar requisito");
+    } finally {
+      setTogglingReq(prev => { const n = new Set(prev); n.delete(key); return n; });
+    }
+  }
 
   // Sale modal
   const [saleModal,     setSaleModal]     = useState<Lead | null>(null);
@@ -536,23 +559,29 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
           </td>
         );
       }
-      case "lastRequirement": return (
-        <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">
-          {lead.lastCheckedRequirement ? (
-            <span
-              className="truncate block max-w-[200px]"
-              title={[
-                lead.lastCheckedRequirement.text,
-                lead.lastCheckedRequirement.checkedAt
-                  ? new Date(lead.lastCheckedRequirement.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
-                  : null,
-              ].filter(Boolean).join(" · ")}
+      case "lastRequirement": {
+        const total   = lead.stageRequirementsTotal   ?? 0;
+        const checked = lead.stageRequirementsChecked ?? 0;
+        if (total === 0) return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">—</td>;
+        return (
+          <td key={key} className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setChecklistEditLeadId(lead.id)}
+              className="flex items-center gap-1.5 max-w-[220px] hover:opacity-80 transition-opacity"
+              title={lead.lastCheckedRequirement?.text ?? "Ver checklist da etapa"}
             >
-              {lead.lastCheckedRequirement.text}
-            </span>
-          ) : "—"}
-        </td>
-      );
+              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                checked === total ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--surface-strong)] text-[var(--text-muted)]"
+              }`}>
+                {checked}/{total}
+              </span>
+              <span className="truncate text-[var(--text-muted)]">
+                {lead.lastCheckedRequirement?.text ?? "Sem itens marcados"}
+              </span>
+            </button>
+          </td>
+        );
+      }
       case "state": return <td key={key} className="px-4 py-3.5 text-[var(--text-muted)]">{lead.customer.state || "—"}</td>;
       case "consultant": {
         if (consultants.length === 0) return null;
@@ -935,6 +964,23 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                 </div>
               )}
 
+              {/* Checklist da etapa */}
+              {(lead.stageRequirementsTotal ?? 0) > 0 && (
+                <button
+                  onClick={() => setChecklistEditLeadId(lead.id)}
+                  className="flex items-center gap-1.5 text-left"
+                >
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                    lead.stageRequirementsChecked === lead.stageRequirementsTotal ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--surface-strong)] text-[var(--text-muted)]"
+                  }`}>
+                    {lead.stageRequirementsChecked}/{lead.stageRequirementsTotal}
+                  </span>
+                  <span className="truncate text-xs text-[var(--text-muted)]">
+                    {lead.lastCheckedRequirement?.text ?? "Sem itens marcados"}
+                  </span>
+                </button>
+              )}
+
               {/* Métricas */}
               <div className="flex items-center gap-4 text-xs">
                 <div>
@@ -1117,6 +1163,76 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
           </div>
         )}
       </div>
+
+      {/* ── Checklist da etapa atual (editar direto da lista) ───────────────────── */}
+      {checklistEditLeadId && (() => {
+        const editLead = leads.find(l => l.id === checklistEditLeadId);
+        if (!editLead) return null;
+        const items = editLead.stageChecklist ?? [];
+        const canEdit = editLead.status === "NEW" || editLead.status === "REGISTERED";
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                      <ListChecks size={16} />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-[var(--text)]">Checklist da etapa</h2>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {editLead.pipelineStage?.name} · {editLead.stageRequirementsChecked}/{editLead.stageRequirementsTotal}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => setChecklistEditLeadId(null)} className="text-[var(--text-muted)] hover:text-[var(--text)]">
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="space-y-2 mt-4">
+                  {items.map((item, idx) => {
+                    const isToggling = togglingReq.has(`${editLead.id}:${item.id}`);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={!canEdit || isToggling}
+                        onClick={() => handleToggleChecklistItem(editLead.id, item.id, !item.checked)}
+                        className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                          item.checked
+                            ? "border-[var(--success)] bg-[var(--success-soft)]"
+                            : "border-[var(--border)] bg-[var(--surface-muted)] hover:border-[var(--accent)]"
+                        }`}
+                      >
+                        <div className={`mt-0.5 shrink-0 ${item.checked ? "text-[var(--success)]" : "text-[var(--text-muted)]"}`}>
+                          {isToggling ? <Loader2 size={15} className="animate-spin" /> : item.checked ? <CheckSquare size={15} /> : <Square size={15} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${item.checked ? "text-[var(--text)] font-medium" : "text-[var(--text-muted)]"}`}>
+                            {idx + 1}. {item.text}
+                          </p>
+                          {item.checked && (item.checkedBy || item.checkedAt) && (
+                            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                              {item.checkedBy && <span className="font-medium">{item.checkedBy}</span>}
+                              {item.checkedAt && (
+                                <span> · {new Date(item.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {!canEdit && (
+                  <p className="mt-4 text-xs text-[var(--text-muted)]">Não é possível editar o checklist de uma lead vendida ou perdida.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Checklist modal ──────────────────────────────────────────────────────── */}
       {checklistModal && (

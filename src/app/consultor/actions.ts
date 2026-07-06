@@ -130,6 +130,40 @@ export async function consultantMoveToStageWithChecklistAction(
   revalidatePath("/consultor");
 }
 
+export async function consultantSetChecklistItemAction(
+  leadId: string,
+  requirementId: string,
+  checked: boolean
+): Promise<void> {
+  const session  = await getConsultantSession();
+  const clientId = session.clientId;
+
+  const lead = await prisma.lead.findUniqueOrThrow({
+    where:  { id: leadId, clientId },
+    select: { status: true, pipelineStageId: true },
+  });
+  if (lead.status === "SOLD" || lead.status === "LOST") return;
+
+  const requirement = await prisma.pipelineStageRequirement.findUniqueOrThrow({
+    where:  { id: requirementId },
+    select: { stageId: true },
+  });
+  if (!lead.pipelineStageId || requirement.stageId !== lead.pipelineStageId) {
+    throw new Error("Requisito não pertence à etapa atual da lead");
+  }
+
+  await prisma.leadChecklist.upsert({
+    where:  { leadId_requirementId: { leadId, requirementId } },
+    create: { leadId, requirementId, checked, checkedAt: checked ? new Date() : null, checkedBy: checked ? session.name : null },
+    update: { checked, checkedAt: checked ? new Date() : null, checkedBy: checked ? session.name : null },
+  });
+
+  fireLeadChanged(leadId, clientId);
+  await invalidate(cacheKeys.leads(clientId), cacheKeys.leadDetail(leadId));
+  revalidatePath("/consultor");
+  revalidatePath(`/consultor/leads/${leadId}`);
+}
+
 export async function consultantAssignConsultantAction(leadId: string, consultant: string | null) {
   const session  = await getConsultantSession();
   const clientId = session.clientId;

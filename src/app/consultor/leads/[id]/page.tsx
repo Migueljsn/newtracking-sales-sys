@@ -2,13 +2,14 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckSquare, Square, ListChecks, MessageSquare, Phone, MessageCircle, Calendar, Mail, Tag, MessageCircleMore } from "lucide-react";
+import { ArrowLeft, MessageSquare, Phone, MessageCircle, Calendar, Mail, Tag, MessageCircleMore } from "lucide-react";
 import { getConsultantSession } from "@/lib/auth/consultant-session";
 import { prisma } from "@/lib/db/prisma";
 import { fetchLeadDetail } from "@/lib/queries/lead-detail";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { WhatsAppButton } from "@/components/leads/whatsapp-button";
 import { ConsultantLeadDetailActions } from "@/components/consultant/consultant-lead-detail-actions";
+import { ConsultantLeadChecklist } from "@/components/consultant/consultant-lead-checklist";
 
 const interactionTypeLabel: Record<string, string> = {
   NOTE:             "Anotação",
@@ -328,54 +329,24 @@ export default async function ConsultantLeadDetailPage({
         {/* Checklist */}
         {lead.pipelineStage && stageRequirements.length > 0 && (() => {
           const checkedMap = new Map(checklists.map(c => [c.requirementId, c]));
+          const items = stageRequirements.map(req => {
+            const entry = checkedMap.get(req.id);
+            return {
+              id:        req.id,
+              text:      req.text,
+              checked:   entry?.checked ?? false,
+              checkedAt: entry?.checkedAt ?? null,
+              checkedBy: entry?.checkedBy ?? null,
+            };
+          });
+          const canEdit = lead.status === "NEW" || lead.status === "REGISTERED";
           return (
-            <div className="card p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <ListChecks size={15} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text)]">Checklist da etapa</h2>
-                <span
-                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                  style={{
-                    backgroundColor: `${lead.pipelineStage.color}22`,
-                    color:           lead.pipelineStage.color,
-                  }}
-                >
-                  {lead.pipelineStage.name}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {stageRequirements.map((req, idx) => {
-                  const entry = checkedMap.get(req.id);
-                  return (
-                    <div
-                      key={req.id}
-                      className={`flex items-start gap-3 rounded-xl border p-3 ${
-                        entry?.checked
-                          ? "border-[var(--success)] bg-[var(--success-soft)]"
-                          : "border-[var(--border)] bg-[var(--surface-muted)]"
-                      }`}
-                    >
-                      <div className={`mt-0.5 shrink-0 ${entry?.checked ? "text-[var(--success)]" : "text-[var(--text-muted)]"}`}>
-                        {entry?.checked ? <CheckSquare size={15} /> : <Square size={15} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${entry?.checked ? "text-[var(--text)] font-medium" : "text-[var(--text-muted)]"}`}>
-                          {idx + 1}. {req.text}
-                        </p>
-                        {entry?.checked && (entry.checkedBy || entry.checkedAt) && (
-                          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                            {entry.checkedBy && <span className="font-medium">{entry.checkedBy}</span>}
-                            {entry.checkedAt && (
-                              <span> · {new Date(entry.checkedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <ConsultantLeadChecklist
+              leadId={lead.id}
+              stage={lead.pipelineStage}
+              items={items}
+              canEdit={canEdit}
+            />
           );
         })()}
 

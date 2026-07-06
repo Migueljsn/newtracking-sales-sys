@@ -13,6 +13,7 @@ import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { WhatsAppButton } from "@/components/leads/whatsapp-button";
 import { AdvancedFiltersPanel } from "@/components/leads/advanced-filters-panel";
+import { PasteSaleItems } from "@/components/sales/paste-sale-items";
 import { evaluateGroup } from "@/lib/audiences/evaluate";
 import type { RuleGroup } from "@/lib/audiences/types";
 import {
@@ -1384,6 +1385,9 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                       <button type="button" onClick={() => setSaleItems(p => [...p, { name: "", quantity: 1, price: 0 }])} className="flex items-center gap-1 text-xs text-[var(--accent)]">
                         <Plus size={12} /> Adicionar
                       </button>
+                    </div>
+                    <div className="mb-2">
+                      <PasteSaleItems onImport={(items, total) => { setSaleItems(items); setSaleValue(String(total)); }} />
                     </div>
                     {saleItems.map((item, i) => (
                       <div key={i} className="flex gap-2 items-center mb-2">

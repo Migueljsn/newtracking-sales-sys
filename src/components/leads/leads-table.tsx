@@ -13,6 +13,7 @@ import {
 import { ImportUploader } from "@/components/import/import-uploader";
 import { Spinner } from "@/components/ui/spinner";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { PasteSaleItems } from "@/components/sales/paste-sale-items";
 import { toast } from "sonner";
 import { LeadStatusBadge } from "./lead-status-badge";
 import { WhatsAppButton } from "./whatsapp-button";
@@ -1289,6 +1290,9 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                       >
                         <Plus size={12} /> Adicionar
                       </button>
+                    </div>
+                    <div className="mb-2">
+                      <PasteSaleItems onImport={(items, total) => { setSaleItems(items); setSaleValue(String(total)); }} />
                     </div>
                     {saleItems.length > 0 && (
                       <div className="space-y-2">

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { PasteSaleItems } from "@/components/sales/paste-sale-items";
 import {
   consultantRegisterSaleAction,
   consultantMoveToStageWithChecklistAction,
@@ -336,6 +337,9 @@ export function ConsultantLeadDetailActions({ lead, pipelineStages }: Props) {
                     >
                       <Plus size={12} /> Adicionar
                     </button>
+                  </div>
+                  <div className="mb-2">
+                    <PasteSaleItems onImport={(items, total) => { setSaleItems(items); setSaleValue(String(total)); }} />
                   </div>
                   {saleItems.map((item, i) => (
                     <div key={i} className="flex gap-2 items-center mb-2">

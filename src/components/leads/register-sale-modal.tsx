@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { registerSaleAction } from "@/app/(dashboard)/leads/[id]/actions";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Spinner } from "@/components/ui/spinner";
+import { PasteSaleItems } from "@/components/sales/paste-sale-items";
 
 interface Props {
   leadId:           string;
@@ -25,6 +26,7 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems]     = useState<Item[]>([]);
+  const [value, setValue]     = useState("");
   const formRef               = useRef<HTMLFormElement>(null);
 
   const missingFields: string[] = [];
@@ -58,6 +60,7 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
       toast.success("Venda registrada com sucesso!");
       setOpen(false);
       setItems([]);
+      setValue("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao registrar venda");
     } finally {
@@ -129,7 +132,7 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
                     Valor da venda (R$) *
                   </label>
-                  <CurrencyInput name="value" required className="input w-full" />
+                  <CurrencyInput name="value" required className="input w-full" value={value} onValueChange={setValue} />
                 </div>
               </div>
 
@@ -156,6 +159,15 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
                       <Plus size={13} /> Adicionar item
                     </button>
                   </div>
+
+                <div className="mb-2">
+                  <PasteSaleItems
+                    onImport={(parsed, total) => {
+                      setItems(parsed.map(i => ({ name: i.name, quantity: String(i.quantity), price: String(i.price) })));
+                      setValue(String(total));
+                    }}
+                  />
+                </div>
 
                 {items.length > 0 && (
                   <div className="space-y-2">

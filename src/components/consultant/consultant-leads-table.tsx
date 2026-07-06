@@ -1337,7 +1337,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
       {/* ── Sale modal ───────────────────────────────────────────────────────────── */}
       {saleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
             {saleModalStep === "confirm" ? (
               <div className="p-6">
                 <h2 className="text-base font-semibold text-[var(--text)] mb-1">Confirmar lead</h2>
@@ -1393,7 +1393,7 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                       <div key={i} className="flex gap-2 items-center mb-2">
                         <input type="text" placeholder="Nome" value={item.name} onChange={e => setSaleItems(p => p.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} className="input flex-1 text-xs h-8" />
                         <input type="number" min="1" value={item.quantity} onChange={e => setSaleItems(p => p.map((x, idx) => idx === i ? { ...x, quantity: parseInt(e.target.value) || 1 } : x))} className="input w-14 text-xs h-8 text-center" />
-                        <input type="number" min="0" step="0.01" value={item.price || ""} onChange={e => setSaleItems(p => p.map((x, idx) => idx === i ? { ...x, price: parseFloat(e.target.value) || 0 } : x))} className="input w-24 text-xs h-8" placeholder="Preço" />
+                        <CurrencyInput value={String(item.price)} onValueChange={v => setSaleItems(p => p.map((x, idx) => idx === i ? { ...x, price: parseFloat(v) || 0 } : x))} className="input w-28 text-xs h-8" />
                         <button onClick={() => setSaleItems(p => p.filter((_, idx) => idx !== i))} className="text-[var(--text-muted)] hover:text-[var(--danger)]"><Minus size={13} /></button>
                       </div>
                     ))}

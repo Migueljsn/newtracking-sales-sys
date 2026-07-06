@@ -187,14 +187,10 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
                           className="input text-center"
                           placeholder="Qtd"
                         />
-                        <input
+                        <CurrencyInput
                           value={item.price}
-                          onChange={(e) => updateItem(i, "price", e.target.value)}
-                          type="number"
-                          step="0.01"
-                          min="0"
+                          onValueChange={(v) => updateItem(i, "price", v)}
                           className="input"
-                          placeholder="Preço"
                         />
                         <button
                           type="button"

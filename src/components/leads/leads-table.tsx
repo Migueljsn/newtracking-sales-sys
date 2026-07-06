@@ -1214,7 +1214,7 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
       {/* ── Modal de registro de venda ── */}
       {saleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
 
             {saleModalStep === "confirm" ? (
               <div className="p-6">
@@ -1313,14 +1313,10 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
                               className="input w-14 text-xs h-8 text-center"
                               title="Qtd"
                             />
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.price || ""}
-                              onChange={e => updateSaleItem(i, "price", parseFloat(e.target.value) || 0)}
-                              className="input w-24 text-xs h-8"
-                              placeholder="Preço"
+                            <CurrencyInput
+                              value={String(item.price)}
+                              onValueChange={v => updateSaleItem(i, "price", parseFloat(v) || 0)}
+                              className="input w-28 text-xs h-8"
                             />
                             <button onClick={() => removeSaleItem(i)} className="text-[var(--text-muted)] hover:text-[var(--danger)]">
                               <Minus size={13} />

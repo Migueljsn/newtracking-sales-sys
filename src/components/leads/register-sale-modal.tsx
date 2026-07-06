@@ -190,7 +190,7 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
                         <CurrencyInput
                           value={item.price}
                           onValueChange={(v) => updateItem(i, "price", v)}
-                          className="input"
+                          className="input w-full min-w-0"
                         />
                         <button
                           type="button"

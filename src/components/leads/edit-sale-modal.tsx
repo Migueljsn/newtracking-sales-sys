@@ -166,7 +166,7 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
                         <CurrencyInput
                           value={item.price}
                           onValueChange={(v) => updateItem(i, "price", v)}
-                          className="input"
+                          className="input w-full min-w-0"
                         />
                         <button
                           type="button"

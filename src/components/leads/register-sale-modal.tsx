@@ -34,16 +34,30 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
   if (!customerDocument) missingFields.push("CPF/CNPJ");
   if (!customerZipCode)  missingFields.push("CEP");
 
+  function syncValueFromItems(list: Item[]) {
+    const total = list.reduce((sum, item) => {
+      if (!item.name.trim()) return sum;
+      const qty   = parseInt(item.quantity) || 0;
+      const price = parseFloat(item.price.replace(",", ".")) || 0;
+      return sum + qty * price;
+    }, 0);
+    if (total > 0) setValue(String(total));
+  }
+
   function addItem() {
     setItems((prev) => [...prev, { name: "", quantity: "1", price: "" }]);
   }
 
   function removeItem(i: number) {
-    setItems((prev) => prev.filter((_, idx) => idx !== i));
+    const next = items.filter((_, idx) => idx !== i);
+    setItems(next);
+    syncValueFromItems(next);
   }
 
   function updateItem(i: number, field: keyof Item, value: string) {
-    setItems((prev) => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+    const next = items.map((item, idx) => idx === i ? { ...item, [field]: value } : item);
+    setItems(next);
+    syncValueFromItems(next);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -78,9 +92,9 @@ export function RegisterSaleModal({ leadId, customerName, customerEmail, custome
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto">
-            <div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/96 px-6 py-4 backdrop-blur">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
               <div>
                 <h2 className="text-base font-semibold text-[var(--text)]">Registrar venda</h2>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">{customerName}</p>

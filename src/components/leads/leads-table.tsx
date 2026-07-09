@@ -355,16 +355,25 @@ export function LeadsTable({ whatsappTemplate, pipelineStages, audienceFilter }:
     }
   }
 
+  function syncSaleValueFromItems(list: SaleItem[]) {
+    const total = list.reduce((sum, item) => item.name.trim() ? sum + item.quantity * item.price : sum, 0);
+    if (total > 0) setSaleValue(String(total));
+  }
+
   function addSaleItem() {
     setSaleItems(prev => [...prev, { name: "", quantity: 1, price: 0 }]);
   }
 
   function removeSaleItem(i: number) {
-    setSaleItems(prev => prev.filter((_, idx) => idx !== i));
+    const next = saleItems.filter((_, idx) => idx !== i);
+    setSaleItems(next);
+    syncSaleValueFromItems(next);
   }
 
   function updateSaleItem(i: number, field: keyof SaleItem, value: string | number) {
-    setSaleItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+    const next = saleItems.map((item, idx) => idx === i ? { ...item, [field]: value } : item);
+    setSaleItems(next);
+    syncSaleValueFromItems(next);
   }
 
   function exitSelecting() {

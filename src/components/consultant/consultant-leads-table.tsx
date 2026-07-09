@@ -340,6 +340,23 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
   const [saleItems,     setSaleItems]     = useState<SaleItem[]>([]);
   const [saleLoading,   setSaleLoading]   = useState(false);
 
+  function syncSaleValueFromItems(list: SaleItem[]) {
+    const total = list.reduce((sum, item) => item.name.trim() ? sum + item.quantity * item.price : sum, 0);
+    if (total > 0) setSaleValue(String(total));
+  }
+
+  function updateSaleItem(i: number, patch: Partial<SaleItem>) {
+    const next = saleItems.map((x, idx) => idx === i ? { ...x, ...patch } : x);
+    setSaleItems(next);
+    syncSaleValueFromItems(next);
+  }
+
+  function removeSaleItem(i: number) {
+    const next = saleItems.filter((_, idx) => idx !== i);
+    setSaleItems(next);
+    syncSaleValueFromItems(next);
+  }
+
   const resetPage = () => setPage(0);
 
   function handleSort(key: SortKey) {
@@ -1391,10 +1408,10 @@ export function ConsultantLeadsTable({ consultantName, pipelineStages, consultan
                     </div>
                     {saleItems.map((item, i) => (
                       <div key={i} className="flex gap-2 items-center mb-2">
-                        <input type="text" placeholder="Nome" value={item.name} onChange={e => setSaleItems(p => p.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} className="input flex-1 text-xs h-8" />
-                        <input type="number" min="1" value={item.quantity} onChange={e => setSaleItems(p => p.map((x, idx) => idx === i ? { ...x, quantity: parseInt(e.target.value) || 1 } : x))} className="input w-14 text-xs h-8 text-center" />
-                        <CurrencyInput value={String(item.price)} onValueChange={v => setSaleItems(p => p.map((x, idx) => idx === i ? { ...x, price: parseFloat(v) || 0 } : x))} className="input w-28 text-xs h-8" />
-                        <button onClick={() => setSaleItems(p => p.filter((_, idx) => idx !== i))} className="text-[var(--text-muted)] hover:text-[var(--danger)]"><Minus size={13} /></button>
+                        <input type="text" placeholder="Nome" value={item.name} onChange={e => updateSaleItem(i, { name: e.target.value })} className="input flex-1 text-xs h-8" />
+                        <input type="number" min="1" value={item.quantity} onChange={e => updateSaleItem(i, { quantity: parseInt(e.target.value) || 1 })} className="input w-14 text-xs h-8 text-center" />
+                        <CurrencyInput value={String(item.price)} onValueChange={v => updateSaleItem(i, { price: parseFloat(v) || 0 })} className="input w-28 text-xs h-8" />
+                        <button onClick={() => removeSaleItem(i)} className="text-[var(--text-muted)] hover:text-[var(--danger)]"><Minus size={13} /></button>
                       </div>
                     ))}
                   </div>

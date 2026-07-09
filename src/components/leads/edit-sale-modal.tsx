@@ -40,16 +40,30 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
   const [value, setValue]     = useState(String(defaultValue));
   const formRef = useRef<HTMLFormElement>(null);
 
+  function syncValueFromItems(list: Item[]) {
+    const total = list.reduce((sum, item) => {
+      if (!item.name.trim()) return sum;
+      const qty   = parseInt(item.quantity) || 0;
+      const price = parseFloat(item.price.replace(",", ".")) || 0;
+      return sum + qty * price;
+    }, 0);
+    if (total > 0) setValue(String(total));
+  }
+
   function addItem() {
     setItems((prev) => [...prev, { name: "", quantity: "1", price: "" }]);
   }
 
   function removeItem(i: number) {
-    setItems((prev) => prev.filter((_, idx) => idx !== i));
+    const next = items.filter((_, idx) => idx !== i);
+    setItems(next);
+    syncValueFromItems(next);
   }
 
   function updateItem(i: number, field: keyof Item, value: string) {
-    setItems((prev) => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+    const next = items.map((item, idx) => idx === i ? { ...item, [field]: value } : item);
+    setItems(next);
+    syncValueFromItems(next);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -83,9 +97,9 @@ export function EditSaleModal({ saleId, defaultValue, defaultSoldAt, defaultNote
       </button>
 
       {open && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="card max-h-[90vh] w-full max-w-xl overflow-y-auto">
-            <div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/96 px-6 py-4 backdrop-blur">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="card max-h-[90vh] w-full max-w-xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
               <h2 className="text-base font-semibold text-[var(--text)]">Editar venda</h2>
               <button type="button" onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--surface-muted)] text-[var(--text-muted)] hover:text-[var(--text)]">
                 <X size={18} />

@@ -62,16 +62,30 @@ export function CreateLeadModal() {
   const [saleValue, setSaleValue] = useState("");
   const formRef               = useRef<HTMLFormElement>(null);
 
+  function syncValueFromItems(list: Item[]) {
+    const total = list.reduce((sum, item) => {
+      if (!item.name.trim()) return sum;
+      const qty   = parseInt(item.quantity) || 0;
+      const price = parseFloat(item.price.replace(",", ".")) || 0;
+      return sum + qty * price;
+    }, 0);
+    if (total > 0) setSaleValue(String(total));
+  }
+
   function addItem() {
     setItems((prev) => [...prev, { name: "", quantity: "1", price: "" }]);
   }
 
   function removeItem(i: number) {
-    setItems((prev) => prev.filter((_, idx) => idx !== i));
+    const next = items.filter((_, idx) => idx !== i);
+    setItems(next);
+    syncValueFromItems(next);
   }
 
   function updateItem(i: number, field: keyof Item, value: string) {
-    setItems((prev) => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+    const next = items.map((item, idx) => idx === i ? { ...item, [field]: value } : item);
+    setItems(next);
+    syncValueFromItems(next);
   }
 
   function handleClose() {
@@ -120,11 +134,11 @@ export function CreateLeadModal() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="card max-h-[92vh] w-full max-w-xl overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" onClick={handleClose}>
+          <div className="card max-h-[92vh] w-full max-w-xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
 
             {/* Header */}
-            <div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/96 px-6 py-4 backdrop-blur">
+            <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
               <h2 className="text-base font-semibold text-[var(--text)]">Nova lead manual</h2>
               <button
                 type="button"
